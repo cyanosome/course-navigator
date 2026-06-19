@@ -1,0 +1,23 @@
+# Local dependencies (Docker installs its own)
+node_modules/
+
+# Production builds
+dist/
+dist-ssr/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git metadata
+.git/
+.gitignore
+
+# Docker config
+Dockerfile
+.dockerignore
+
+# IDE configurations
+.vscode/
+.idea/
+.DS_Store
