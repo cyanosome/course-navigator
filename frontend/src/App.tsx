@@ -5,6 +5,7 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import PostgresTest from './components/PostgresTest'
 import Neo4jTest from './components/Neo4jTest'
+import IntegratedTest from './components/IntegratedTest'
 import './App.css'
 
 function App() {
@@ -29,17 +30,7 @@ function App() {
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/test1" element={<PostgresTest />} />
           <Route path="/test2" element={<Neo4jTest />} />
-          <Route
-            path="/test3"
-            element={
-              <div style={{ padding: '3rem', textAlign: 'left' }}>
-                <h1 style={{ color: 'var(--text-h)' }}>Integrated DB Test (Future)</h1>
-                <p style={{ color: 'var(--text)' }}>
-                  PostgreSQL ＋ Neo4j の一貫性・連携疎通確認テスト画面（準備中）
-                </p>
-              </div>
-            }
-          />
+          <Route path="/test3" element={<IntegratedTest />} />
         </Routes>
       </div>
     </BrowserRouter>
