@@ -1,0 +1,51 @@
+entryPoints:
+  web:
+    address: :80
+    # 本番環境用：HTTPアクセスを自動的にHTTPS（websecure）へリダイレクトする場合
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+    #       permanent: true
+
+  websecure:
+    address: :443
+
+api:
+  # --- ローカル開発環境用 ---
+  insecure: true # ポート8080で認証なしのダッシュボードを有効化
+  dashboard: true
+
+  # --- 本番環境用 ---
+  # 安全のため insecure を false にし、docker-compose 側の basicauth ラベルで保護します。
+  # insecure: false
+  # dashboard: true
+
+providers:
+  docker:
+    exposedByDefault: false
+
+# --- 本番環境用：Let's Encrypt証明書自動更新 ---
+# 本番環境でSSL化を行う際は、docker-compose側の各ルーティングで tls.certresolver: le-http-01 を指定します。
+# certificatesResolvers:
+#   le-http-01:
+#     acme:
+#       email: admin@yourdomain.com # 本番用管理メールアドレスに変更してください
+#       storage: /letsencrypt/acme.json
+#       caServer: https://acme-v02.api.letsencrypt.org/directory
+#       httpChallenge:
+#         entryPoint: web
+
+# --- ログ設定 ---
+# ローカル時は標準出力に出し、本番環境でファイル出力する場合はコメントを解除してください
+log:
+  level: INFO
+  # 本番環境用
+  # filePath: "/logs/traefik.log"
+  # format: json
+
+accessLog:
+  # 本番環境用
+  # filePath: "/logs/access.log"
+  # format: json

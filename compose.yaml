@@ -3,19 +3,42 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    networks:
+      - gateway
+    env_file:
+      - .env
     volumes:
       - ./backend:/backend_app
       - /backend_app/.venv
     command: ["uv", "run", "fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+    labels:
+      - "traefik.enable=true"
+      # 環境変数 $DOMAIN を使用してルーティング
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=web" # 本番環境時は websecure に変更して自動TLSを使用
+      # /api プレフィックスを削除する設定
+      - "traefik.http.routers.backend.middlewares=backend-stripprefix"
+      - "traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
+    networks:
+      - gateway
+    env_file:
+      - .env
     volumes:
       - ./frontend:/frontend_app
       - /frontend_app/node_modules
+    labels:
+      - "traefik.enable=true"
+      # 環境変数 $DOMAIN を使用してルーティング
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=web" # 本番環境時は websecure に変更して自動TLSを使用
+      - "traefik.http.services.frontend.loadbalancer.server.port=5173"
+
+networks:
+  gateway:
+    external: true

@@ -1,0 +1,9 @@
+# Environment configurations
+.env
+
+# SSL Certificates (Acme config)
+letsencrypt/
+
+# Log files
+logs/
+*.log
