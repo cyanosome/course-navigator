@@ -1,0 +1,26 @@
+services:
+  postgres:
+    build:
+      context: ./postgresql
+      dockerfile: Dockerfile
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432" # ホストからの開発用アクセスを許可
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - gateway
+
+volumes:
+  postgres_data:
+    name: postgres_data
+
+networks:
+  gateway:
+    external: true
