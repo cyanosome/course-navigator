@@ -1,10 +1,61 @@
 import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
+import PostgresTest from './components/PostgresTest'
 import './App.css'
 
 function App() {
+  return (
+    <BrowserRouter>
+      <div style={styles.appContainer}>
+        {/* ナビゲーションバー */}
+        <nav style={styles.navBar}>
+          <div style={styles.navLogo}>
+            <span style={styles.navLogoText}>Course Navigator</span>
+          </div>
+          <div style={styles.navLinks}>
+            <Link to="/" style={styles.navLink}>Home</Link>
+            <Link to="/test1" style={styles.navLink}>Postgres Test (test1)</Link>
+            <Link to="/test2" style={styles.navLink}>Neo4j Test (test2)</Link>
+            <Link to="/test3" style={styles.navLink}>Integrated Test (test3)</Link>
+          </div>
+        </nav>
+
+        {/* ルーティング定義 */}
+        <Routes>
+          <Route path="/" element={<WelcomeScreen />} />
+          <Route path="/test1" element={<PostgresTest />} />
+          <Route
+            path="/test2"
+            element={
+              <div style={{ padding: '3rem', textAlign: 'left' }}>
+                <h1 style={{ color: 'var(--text-h)' }}>Neo4j Communication Test (Future)</h1>
+                <p style={{ color: 'var(--text)' }}>
+                  GraphDB (Neo4j) との疎通確認テスト画面（準備中）
+                </p>
+              </div>
+            }
+          />
+          <Route
+            path="/test3"
+            element={
+              <div style={{ padding: '3rem', textAlign: 'left' }}>
+                <h1 style={{ color: 'var(--text-h)' }}>Integrated DB Test (Future)</h1>
+                <p style={{ color: 'var(--text)' }}>
+                  PostgreSQL ＋ Neo4j の一貫性・連携疎通確認テスト画面（準備中）
+                </p>
+              </div>
+            }
+          />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  )
+}
+
+function WelcomeScreen() {
   const [count, setCount] = useState(0)
 
   return (
@@ -41,13 +92,13 @@ function App() {
           <p>Your questions, answered</p>
           <ul>
             <li>
-              <a href="https://vite.dev/" target="_blank">
+              <a href="https://vite.dev/" target="_blank" rel="noreferrer">
                 <img className="logo" src={viteLogo} alt="" />
                 Explore Vite
               </a>
             </li>
             <li>
-              <a href="https://react.dev/" target="_blank">
+              <a href="https://react.dev/" target="_blank" rel="noreferrer">
                 <img className="button-icon" src={reactLogo} alt="" />
                 Learn more
               </a>
@@ -62,7 +113,7 @@ function App() {
           <p>Join the Vite community</p>
           <ul>
             <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
+              <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -74,7 +125,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://chat.vite.dev/" target="_blank">
+              <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -86,7 +137,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://x.com/vite_js" target="_blank">
+              <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -98,7 +149,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
+              <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -117,6 +168,43 @@ function App() {
       <section id="spacer"></section>
     </>
   )
+}
+
+const styles: { [key: string]: React.CSSProperties } = {
+  appContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+  },
+  navBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1rem 2rem',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--social-bg)',
+    backdropFilter: 'blur(8px)',
+  },
+  navLogo: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  navLogoText: {
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    color: 'var(--text-h)',
+  },
+  navLinks: {
+    display: 'flex',
+    gap: '1.5rem',
+  },
+  navLink: {
+    color: 'var(--text)',
+    textDecoration: 'none',
+    fontSize: '0.95rem',
+    fontWeight: 500,
+    transition: 'color 0.2s',
+  },
 }
 
 export default App
