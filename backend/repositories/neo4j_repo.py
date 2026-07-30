@@ -39,7 +39,7 @@ async def merge_course_with_prerequisite(
     prerequisite_title: str,
     prerequisite_id: str,
 ) -> None:
-    await session.run(
+    result = await session.run(
         _MERGE_COURSE_WITH_PREREQ,
         id=record_id,
         title=title,
@@ -47,6 +47,7 @@ async def merge_course_with_prerequisite(
         prerequisite_title=prerequisite_title,
         prerequisite_id=prerequisite_id,
     )
+    await result.consume()
 
 
 async def search_courses(session: AsyncSession, q: str) -> list[dict[str, Any]]:
@@ -100,13 +101,15 @@ async def merge_placeholder_courses(
     """未登録の前提講義プレースホルダーノードを一括 MERGE する。"""
     if not items:
         return
-    await session.run(_MERGE_PLACEHOLDER_COURSES, items=items)
+    result = await session.run(_MERGE_PLACEHOLDER_COURSES, items=items)
+    await result.consume()
 
 
 async def merge_main_course(
     session: AsyncSession, course_id: str, code: str, title: str
 ) -> None:
-    await session.run(_MERGE_MAIN_COURSE, id=course_id, code=code, title=title)
+    result = await session.run(_MERGE_MAIN_COURSE, id=course_id, code=code, title=title)
+    await result.consume()
 
 
 async def merge_prerequisites(
@@ -115,7 +118,10 @@ async def merge_prerequisites(
     """前提条件リレーションを一括 MERGE する。"""
     if not prereq_ids:
         return
-    await session.run(_MERGE_PREREQUISITES, course_id=course_id, prereq_ids=prereq_ids)
+    result = await session.run(
+        _MERGE_PREREQUISITES, course_id=course_id, prereq_ids=prereq_ids
+    )
+    await result.consume()
 
 
 async def merge_topics(
@@ -124,7 +130,8 @@ async def merge_topics(
     """トピックリレーションを一括 MERGE する。"""
     if not topics:
         return
-    await session.run(_MERGE_TOPICS, course_id=course_id, topics=topics)
+    result = await session.run(_MERGE_TOPICS, course_id=course_id, topics=topics)
+    await result.consume()
 
 
 async def search_integrated(

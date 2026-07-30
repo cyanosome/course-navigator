@@ -1,8 +1,11 @@
 """複合（PostgreSQL + Neo4j）疎通テスト用ルーター。
 
-挿入系は Postgres 側を単一トランザクションで一括化し、Neo4j 書き込みも
-同一トランザクション内で実行する。Neo4j 書き込みが失敗した場合は例外が
-伝播して Postgres 側がロールバックされ、共通例外ハンドラが 502/503 を返す。
+挿入系は Postgres 側を単一トランザクションで一括化する。Neo4j 書き込みは
+その Postgres トランザクションのブロック内で実行するが、`session.run()` は
+auto-commit であり両者は同一トランザクションではない。Neo4j 書き込みが
+失敗した場合は例外が伝播して Postgres 側だけがロールバックされる片方向の
+補償であり、Neo4j 側の部分的な書き込みは残りうる（Postgres のロールバックは
+Neo4j に波及しない）。例外は共通例外ハンドラが 502/503 に変換する。
 """
 
 import uuid
@@ -29,8 +32,10 @@ async def test_integrated_insert(
     driver = request.app.state.neo4j_driver
 
     code = data.code.strip()
-    prereq_codes = [c.strip() for c in data.prerequisite_codes if c.strip()]
-    topics = [t.strip() for t in data.topics if t.strip()]
+    # 入力順を保ったまま重複を除去する（同一コードの重複指定で一括 INSERT が
+    # UNIQUE 制約に衝突し 409 になるのを防ぐ）
+    prereq_codes = list(dict.fromkeys(c.strip() for c in data.prerequisite_codes if c.strip()))
+    topics = list(dict.fromkeys(t.strip() for t in data.topics if t.strip()))
     course_id = str(uuid.uuid4())
 
     async with pool.acquire() as conn:
