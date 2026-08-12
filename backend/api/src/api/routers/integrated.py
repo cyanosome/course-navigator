@@ -13,8 +13,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from repositories import neo4j_repo, postgres_repo
-from schemas.integrated import IntegratedSyllabusInput
+from course_core.repositories import neo4j_repo, postgres_repo
+from course_core.schemas.integrated import IntegratedSyllabusInput
 
 router = APIRouter(tags=["integrated"])
 

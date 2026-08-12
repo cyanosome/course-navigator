@@ -1,7 +1,7 @@
 """アプリケーションのエントリポイント。
 
-CI（`uv run python -c "import main"`）および起動コマンド
-（`fastapi dev main.py`）が参照するため、`app` をここで公開し続ける。
+CI（`uv run --package course-api python -c "import api.main"`）および起動コマンド
+（`fastapi dev src/api/main.py`）が参照するため、`app` をここで公開し続ける。
 接続の初期化は lifespan 内に閉じ込め、モジュール読み込みでは副作用を起こさない。
 """
 
@@ -11,10 +11,10 @@ import asyncpg
 from fastapi import FastAPI
 from neo4j import AsyncGraphDatabase
 
-import config
-from errors import register_exception_handlers
-from repositories import postgres_repo
-from routers import integrated, neo4j, postgres
+from course_core import config
+from course_core.errors import register_exception_handlers
+from course_core.repositories import postgres_repo
+from api.routers import integrated, neo4j, postgres
 
 
 @asynccontextmanager

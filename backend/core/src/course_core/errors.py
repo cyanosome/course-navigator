@@ -15,10 +15,6 @@ from neo4j.exceptions import DriverError, Neo4jError, ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
-# ハンドラで処理した例外は Starlette がログしないため、ここでサーバ側にだけ
-# トレースバックを残す（クライアントへ返す内容には原因を含めない）。
-# ログにはメソッドとパスのみを出し、クエリ文字列やボディは出力しない。
-
 
 async def unique_violation_handler(request: Request, exc: UniqueViolationError) -> JSONResponse:
     logger.exception(

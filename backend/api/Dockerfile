@@ -10,9 +10,12 @@ ENV PATH="/backend_app/.venv/bin:$PATH"
 # Install build dependencies for compiling asyncpg from source (required for Python 3.14 on Alpine)
 RUN apk add --no-cache gcc musl-dev python3-dev
 
+# Copy workspace root files and package sources
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project
+COPY core ./core
+COPY api ./api
+COPY ingestion ./ingestion
 
-COPY . .
+RUN uv sync --frozen --package course-api
+
 CMD ["tail", "-f", "/dev/null"]
-

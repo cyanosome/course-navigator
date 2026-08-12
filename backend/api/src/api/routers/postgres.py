@@ -5,8 +5,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from repositories import postgres_repo
-from schemas.postgres import PostgresTestInput
+from course_core.repositories import postgres_repo
+from course_core.schemas.postgres import PostgresTestInput
 
 router = APIRouter(tags=["postgres"])
 

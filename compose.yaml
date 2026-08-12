@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     networks:
       - gateway
     env_file:
@@ -10,7 +10,7 @@ services:
     volumes:
       - ./backend:/backend_app
       - /backend_app/.venv
-    command: ["uv", "run", "fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uv", "run", "--package", "course-api", "fastapi", "dev", "api/src/api/main.py", "--host", "0.0.0.0", "--port", "8000"]
     labels:
       - "traefik.enable=true"
       # 環境変数 $DOMAIN を使用してルーティング

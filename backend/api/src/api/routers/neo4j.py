@@ -5,8 +5,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from repositories import neo4j_repo
-from schemas.neo4j import Neo4jTestInput
+from course_core.repositories import neo4j_repo
+from course_core.schemas.neo4j import Neo4jTestInput
 
 router = APIRouter(tags=["neo4j"])
 

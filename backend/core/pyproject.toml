@@ -1,0 +1,18 @@
+[project]
+name = "course-core"
+version = "0.1.0"
+description = "Course Navigator Core shared modules (schemas, repositories, config)"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pydantic>=2.13.0,<3.0.0",
+    "asyncpg>=0.30.0,<0.31.0",
+    "neo4j>=5.28.0,<6.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/course_core"]
