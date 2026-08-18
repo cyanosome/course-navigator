@@ -4,6 +4,14 @@
 畳み込み、呼び出し元（ADK 関数ノード = 層B）へは例外を一切投げない。
 """
 
+# NOTE(実験4-2 への移行先): depth を可変にする必要が出たら、
+#   MATCH path = (c:Course {code: $code})-[:REQUIRES_PREREQUISITE*]->(p:Course)
+#   WHERE length(path) <= $depth
+# と書けば depth をパラメータのまま渡せる（Cypher は *1..$depth のパラメータ化を
+# 許さないが、length(path) の比較なら許す）。全探索してからフィルタするので
+# 大規模データでは *1..1 / *1..2 / *1..3 のリテラル定数クエリを dict で
+# ディスパッチする方式に切り替えること。いずれの場合も APOC は不要。
+
 import functools
 import logging
 from collections.abc import Awaitable, Callable
@@ -25,6 +33,7 @@ _RDB_UNAVAILABLE_JA = "シラバス情報を参照できませんでした。"
 # Neo4j 側の障害。ServiceUnavailable / SessionExpired は DriverError の派生。
 _NEO4J_ERRORS = (Neo4jError, DriverError)
 # PostgreSQL 側の障害。切断時に素の OSError が上がる経路があるため含める
+# （Neo4j 由来の例外は上の except 節が先に受けるので取り違えは起きない）。
 _POSTGRES_ERRORS = (asyncpg.PostgresError, asyncpg.InterfaceError, OSError)
 
 _AsyncEnvelopeFn = TypeVar("_AsyncEnvelopeFn", bound=Callable[..., Awaitable[Any]])
@@ -60,7 +69,12 @@ def _envelope_on_db_error(func: _AsyncEnvelopeFn) -> _AsyncEnvelopeFn:
 
 @_envelope_on_db_error
 async def resolve_anchor(conn: asyncpg.Connection, text: str) -> Envelope[AnchorHit]:
-    """テキストから対象講義（アンカー）を解決する（§4.1 の但し書き / §4.3）。"""
+    """テキストから対象講義（アンカー）を解決する（§4.1 の但し書き / §4.3）。
+
+    辞書照合（段0〜3）は parse_intent 側の責務なので、ここは
+    postgres_repo.search_syllabus の ILIKE フォールバックだけを担当する。
+    1件に確定したときのみ採用し、2件以上は ambiguous、0件は NOT_FOUND とする。
+    """
     records = await postgres_repo.search_syllabus(conn, text)
     if not records:
         return Envelope(
@@ -70,6 +84,8 @@ async def resolve_anchor(conn: asyncpg.Connection, text: str) -> Envelope[Anchor
         )
 
     if len(records) > 1:
+        # ambiguous は障害ではなく正常な分岐値なので ok=True で返す。
+        # 候補は返さず alternatives のみ（search_syllabus は code 昇順済み）。
         return Envelope(
             ok=True,
             data=AnchorHit(
@@ -93,6 +109,8 @@ async def resolve_anchor(conn: asyncpg.Connection, text: str) -> Envelope[Anchor
     return Envelope(ok=True, data=hit)
 
 
+# collect(...)[0] で同一科目に複数経路がある場合は最短経路を採用する
+# （重複排除と再現性を同時に達成する。tie-break は必ず code ASC で固定）。
 _FIND_NEXT_COURSES = """
 MATCH path = (c:Course {code: $code})<-[:REQUIRES_PREREQUISITE*1..3]-(next:Course)
 WITH next, path, length(path) AS hops
@@ -124,6 +142,7 @@ async def find_next_courses(
     return Envelope(ok=True, data=candidates)
 
 
+# 返却順は hops 降順＝先に取るべき科目が先頭（履修順で提示するため）。
 _FIND_PREREQUISITES = """
 MATCH path = (c:Course {code: $code})-[:REQUIRES_PREREQUISITE*1..3]->(p:Course)
 WITH p, path, length(path) AS hops
@@ -155,6 +174,8 @@ async def find_prerequisites(
     return Envelope(ok=True, data=candidates)
 
 
+# 共有トピック数の多い順。LIMIT の前に ORDER BY を置き、どの $limit 件が返るかまで
+# 決定論的にする。
 _FIND_RELATED_BY_TOPIC = """
 MATCH (c:Course {code: $code})-[:COVERS_TOPIC]->(t:Topic)<-[:COVERS_TOPIC]-(other:Course)
 WHERE other.code <> c.code
