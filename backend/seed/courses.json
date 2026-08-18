@@ -1,0 +1,12 @@
+[
+  {"code":"GMS-101","title":"情報リテラシー",        "prerequisite_codes":[],                     "topics":["情報基礎"],                     "aliases":["情報リテラシ"]},
+  {"code":"GMS-102","title":"基礎数学",              "prerequisite_codes":[],                     "topics":["数学"],                         "aliases":[]},
+  {"code":"GMS-201","title":"プログラミング入門",    "prerequisite_codes":["GMS-101"],            "topics":["プログラミング","情報基礎"],    "aliases":["プログラミング","プロ入"]},
+  {"code":"GMS-202","title":"線形代数",              "prerequisite_codes":["GMS-102"],            "topics":["数学"],                         "aliases":[]},
+  {"code":"GMS-203","title":"統計学基礎",            "prerequisite_codes":["GMS-102"],            "topics":["数学","データ分析"],            "aliases":["統計学","統計"]},
+  {"code":"GMS-301","title":"データサイエンス入門",  "prerequisite_codes":["GMS-201","GMS-203"],  "topics":["データ分析","プログラミング"],  "aliases":["DS入門"]},
+  {"code":"GMS-302","title":"データベース",          "prerequisite_codes":["GMS-201"],            "topics":["データベース","プログラミング"],"aliases":["DB"]},
+  {"code":"GMS-303","title":"機械学習",              "prerequisite_codes":["GMS-202","GMS-301"],  "topics":["データ分析","数学"],            "aliases":["ML"]},
+  {"code":"GMS-401","title":"データサイエンス実習",  "prerequisite_codes":["GMS-301"],            "topics":["データ分析"],                   "aliases":["DS実習"]},
+  {"code":"GMS-402","title":"メディア情報論",        "prerequisite_codes":["GMS-302"],            "topics":["メディア","データベース"],      "aliases":["メディア情報"]}
+]
