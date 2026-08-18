@@ -10,4 +10,5 @@ members = [
     "core",
     "api",
     "ingestion",
+    "agent",
 ]
