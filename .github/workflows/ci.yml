@@ -32,3 +32,4 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - run: uv run --package course-api python -c "import api.main"
+      - run: uv run --package course-agent pytest agent/tests -q
