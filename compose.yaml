@@ -2,14 +2,14 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: api/Dockerfile
+      dockerfile: docker/api.Dockerfile
     networks:
       - gateway
     env_file:
       - .env
     volumes:
       - ./backend:/backend_app
-      - /backend_app/.venv
+      - /backend_app/.venv-api
     command: ["uv", "run", "--package", "course-api", "fastapi", "dev", "api/src/api/main.py", "--host", "0.0.0.0", "--port", "8000"]
     labels:
       - "traefik.enable=true"
@@ -20,6 +20,21 @@ services:
       - "traefik.http.routers.backend.middlewares=backend-stripprefix"
       - "traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes=/api"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  ingestion:
+    build:
+      context: ./backend
+      dockerfile: docker/ingestion.Dockerfile
+    networks:
+      - gateway
+    env_file:
+      - .env
+    profiles:
+      - tools
+    volumes:
+      - ./backend:/backend_app
+      - /backend_app/.venv-ingestion
+
 
   frontend:
     build:
