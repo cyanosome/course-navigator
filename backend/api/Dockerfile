@@ -15,6 +15,7 @@ COPY pyproject.toml uv.lock ./
 COPY core ./core
 COPY api ./api
 COPY ingestion ./ingestion
+COPY agent ./agent
 
 RUN uv sync --frozen --package course-api
 
