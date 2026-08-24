@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "course-core",
+    "google-adk>=2.6,<3.0",
     "pydantic>=2.13.0,<3.0.0",
 ]
 
@@ -15,6 +16,12 @@ course-core = { workspace = true }
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "db: 実 Neo4j / PostgreSQL が要るテスト（CI では -m 'not db' で除外する）",
+    "llm: 実 LLM API が要るテスト（CI では -m 'not llm' で除外する）",
 ]
 
 [build-system]

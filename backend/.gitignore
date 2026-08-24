@@ -16,3 +16,6 @@ __pycache__/
 # IDE Settings
 .vscode/
 .idea/
+
+# 実験ログ（agent/trace.py が書き出す trace-YYYYMMDD.jsonl）
+logs/

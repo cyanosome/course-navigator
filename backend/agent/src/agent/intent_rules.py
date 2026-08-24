@@ -126,6 +126,16 @@ def _catalog() -> tuple[_CourseEntry, ...]:
     return tuple(sorted(entries, key=lambda e: e.code))
 
 
+def course_titles() -> tuple[str, ...]:
+    """登録済み科目名の一覧（コード昇順）。
+
+    respond_unclear（層B）の聞き返しが「登録済み科目名一覧」を添えるために使う。
+    courses.json を2箇所から読むと §5.3 の単一ソース原則が崩れるので、
+    カタログの読み口はこのモジュールに閉じる。
+    """
+    return tuple(entry.title for entry in _catalog())
+
+
 @functools.cache
 def _keyword_scan_order() -> tuple[tuple[str, str, str], ...]:
     """(mode, 元のキーワード, 正規化キーワード) を文字数の降順に並べた走査順。
