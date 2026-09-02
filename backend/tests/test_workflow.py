@@ -84,7 +84,6 @@ def neo4j_backend():
     deps.set_backends(None, driver)
     yield driver
     deps.set_backends(None, None)
-    asyncio.run(driver.close())
 
 
 @pytest.mark.parametrize("case", SEARCH_CASES, ids=_ids(SEARCH_CASES))
@@ -194,10 +193,18 @@ def test_trace_jsonl_is_appended(tmp_path: Path) -> None:
 @pytest.mark.parametrize("case", GOLDEN, ids=_ids(GOLDEN))
 def test_reproducibility(case: dict, neo4j_backend, tmp_path: Path) -> None:
     """A4: 同じ質問を3回実行して candidates と evidence が完全一致すること。"""
-    runs = [
-        asyncio.run(runner.run_course_navigator(case["question"], trace_dir=tmp_path))[1]
-        for _ in range(3)
-    ]
+
+    async def _run_thrice():
+        try:
+            results = []
+            for _ in range(3):
+                res = await runner.run_course_navigator(case["question"], trace_dir=tmp_path)
+                results.append(res[1])
+            return results
+        finally:
+            await neo4j_backend.close()
+
+    runs = asyncio.run(_run_thrice())
 
     if case["mode"] != "unclear":
         # 探索が空のまま3回一致しても再現性の検証にならないので、非空を先に見る。
@@ -205,3 +212,4 @@ def test_reproducibility(case: dict, neo4j_backend, tmp_path: Path) -> None:
     for record in runs[1:]:
         assert record.candidates == runs[0].candidates
         assert record.traversed_edges == runs[0].traversed_edges
+
