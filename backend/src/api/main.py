@@ -11,7 +11,7 @@ import asyncpg
 from fastapi import FastAPI
 from neo4j import AsyncGraphDatabase
 
-from course_core import config
+from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
 from api.routers import integrated, neo4j, postgres
@@ -42,6 +42,9 @@ async def lifespan(app: FastAPI):
         auth=(config.NEO4J_USER, config.NEO4J_PASSWORD),
     )
     app.state.neo4j_driver = neo4j_driver
+
+    # --- 初期シードデータの自動投入（DBが空の場合のみ） ---
+    await seeder.seed_initial_data_if_empty(pool, neo4j_driver)
 
     yield
 
