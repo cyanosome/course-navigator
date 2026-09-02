@@ -111,7 +111,7 @@ export default function IntegratedTest() {
   return (
     <TestPageLayout
       styles={styles}
-      title="Postgres + Neo4j Integrated Test"
+      title="test2-3: Integrated DB Communication Test"
       subtitle="授業シラバス情報（Postgres）と履修関係トポロジー（Neo4j）をマージする、GraphRAG 基礎技術の複合デモ画面です。"
       message={message}
       formCardTitle="シラバス一括登録"

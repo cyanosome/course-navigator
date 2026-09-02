@@ -64,7 +64,7 @@ export default function Neo4jTest() {
   return (
     <TestPageLayout
       styles={styles}
-      title="Neo4j Communication Test"
+      title="test2-2: Neo4j Communication Test"
       subtitle="Frontend (React) ⇔ Backend (FastAPI) ⇔ Neo4j (GraphDB) の疎通テスト用ページです。"
       message={message}
       formCardTitle="グラフデータ登録"

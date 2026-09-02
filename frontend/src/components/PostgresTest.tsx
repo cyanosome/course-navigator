@@ -58,7 +58,7 @@ export default function PostgresTest() {
   return (
     <TestPageLayout
       styles={styles}
-      title="PostgreSQL Communication Test"
+      title="test2-1: PostgreSQL Communication Test"
       subtitle="Frontend (React) ⇔ Backend (FastAPI) ⇔ PostgreSQL の疎通テスト用ページです。"
       message={message}
       formCardTitle="データ登録"

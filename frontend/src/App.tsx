@@ -3,6 +3,7 @@ import heroImg from './assets/hero.png'
 import PostgresTest from './components/PostgresTest'
 import Neo4jTest from './components/Neo4jTest'
 import IntegratedTest from './components/IntegratedTest'
+import AgentTest from './components/AgentTest'
 import './App.css'
 
 function App() {
@@ -16,18 +17,25 @@ function App() {
           </div>
           <div style={styles.navLinks}>
             <Link to="/" style={styles.navLink}>Home</Link>
-            <Link to="/test1" style={styles.navLink}>Postgres Test (test1)</Link>
-            <Link to="/test2" style={styles.navLink}>Neo4j Test (test2)</Link>
-            <Link to="/test3" style={styles.navLink}>Integrated Test (test3)</Link>
+            <Link to="/test2-1" style={styles.navLink}>test2-1: postgres</Link>
+            <Link to="/test2-2" style={styles.navLink}>test2-2: neo4j</Link>
+            <Link to="/test2-3" style={styles.navLink}>test2-3: integratedDB</Link>
+            <Link to="/test3-1" style={styles.navLink}>test3-1: static_agent</Link>
           </div>
         </nav>
 
         {/* ルーティング定義 */}
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
+          <Route path="/test2-1" element={<PostgresTest />} />
+          <Route path="/test2-2" element={<Neo4jTest />} />
+          <Route path="/test2-3" element={<IntegratedTest />} />
+          <Route path="/test3-1" element={<AgentTest />} />
+          {/* 旧パス互換 */}
           <Route path="/test1" element={<PostgresTest />} />
           <Route path="/test2" element={<Neo4jTest />} />
           <Route path="/test3" element={<IntegratedTest />} />
+          <Route path="/test4" element={<AgentTest />} />
         </Routes>
       </div>
     </BrowserRouter>
