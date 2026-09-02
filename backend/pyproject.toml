@@ -9,11 +9,18 @@ dependencies = [
     "pydantic>=2.13.0,<3.0.0",
     "asyncpg>=0.30.0,<0.31.0",
     "neo4j>=5.28.0,<6.0.0",
+    "google-adk>=2.6,<3.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "db: 実 Neo4j / PostgreSQL が要るテスト（CI では -m 'not db' で除外する）",
+    "llm: 実 LLM API が要るテスト（CI では -m 'not llm' で除外する）",
 ]
 
 [build-system]
