@@ -2,15 +2,15 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: docker/api.Dockerfile
+      dockerfile: Dockerfile
     networks:
       - gateway
     env_file:
       - .env
     volumes:
       - ./backend:/backend_app
-      - /backend_app/.venv-api
-    command: ["uv", "run", "--package", "course-api", "fastapi", "dev", "api/src/api/main.py", "--host", "0.0.0.0", "--port", "8000"]
+      - /backend_app/.venv
+    command: ["uv", "run", "fastapi", "dev", "src/api/main.py", "--host", "0.0.0.0", "--port", "8000"]
     labels:
       - "traefik.enable=true"
       # 環境変数 $DOMAIN を使用してルーティング
@@ -23,8 +23,8 @@ services:
 
   ingestion:
     build:
-      context: ./backend
-      dockerfile: docker/ingestion.Dockerfile
+      context: ./ingestion
+      dockerfile: Dockerfile
     networks:
       - gateway
     env_file:
@@ -32,8 +32,8 @@ services:
     profiles:
       - tools
     volumes:
-      - ./backend:/backend_app
-      - /backend_app/.venv-ingestion
+      - ./ingestion:/ingestion_app
+      - /ingestion_app/.venv
 
 
   frontend:

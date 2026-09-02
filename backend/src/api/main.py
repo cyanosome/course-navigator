@@ -1,6 +1,6 @@
 """アプリケーションのエントリポイント。
 
-CI（`uv run --package course-api python -c "import api.main"`）および起動コマンド
+CI（`uv run python -c "import api.main"`）および起動コマンド
 （`fastapi dev src/api/main.py`）が参照するため、`app` をここで公開し続ける。
 接続の初期化は lifespan 内に閉じ込め、モジュール読み込みでは副作用を起こさない。
 """
