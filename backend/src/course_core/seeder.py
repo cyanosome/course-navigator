@@ -133,3 +133,52 @@ async def seed_initial_data_if_empty(
                         await neo4j_repo.merge_topics(session, c_id, topics)
 
         logger.info("シードデータ投入が完了しました (%d 件)。", len(courses))
+
+
+async def _run_cli() -> None:
+    """CLIから単体実行された際のシード投入処理。
+
+    FastAPI サーバーを起動することなく、スタンドアロンで PostgreSQL および
+    Neo4j への接続を確立し、シードデータの強制投入（force=True）を実行して
+    安全に接続をクローズします。
+    """
+    from course_core import config
+
+    # 1. 接続に必要な環境変数の検証
+    config.validate_required_env()
+
+    # 2. PostgreSQL 接続プールの作成とテーブル初期化（DDL）
+    pool = await asyncpg.create_pool(
+        host=config.DB_HOST,
+        port=config.DB_PORT,
+        user=config.DB_USER,
+        password=config.DB_PASSWORD,
+        database=config.DB_NAME,
+    )
+    async with pool.acquire() as conn:
+        await postgres_repo.create_tables(conn)
+
+    # 3. Neo4j 非同期ドライバの初期化
+    from neo4j import AsyncGraphDatabase
+
+    driver = AsyncGraphDatabase.driver(
+        config.NEO4J_URI,
+        auth=(config.NEO4J_USER, config.NEO4J_PASSWORD),
+    )
+
+    # 4. シードデータの投入とコネクションの確実な解放
+    try:
+        await seed_initial_data_if_empty(pool, driver, force=True)
+    finally:
+        await pool.close()
+        await driver.close()
+
+
+if __name__ == "__main__":
+    # コマンドライン（python -m course_core.seeder）から直接実行された場合のみエントリ
+    import asyncio
+
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(_run_cli())
+
+
