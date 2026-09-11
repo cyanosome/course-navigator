@@ -1,193 +1,143 @@
-# AI駆動型シラバスグラフDBメディア (AI-Driven Syllabus GraphDB Media)
+# Course Navigator (大学履修選択支援AI)
 
-## 概要
+[![CI](https://github.com/cyanosome/course-navigator/actions/workflows/ci.yml/badge.svg)](https://github.com/cyanosome/course-navigator/actions/workflows/ci.yml)
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](docs/adr/0003-use-uv-package-manager-and-python-3-14.md)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](docs/adr/0004-use-vite-react19-spa-and-docker-polling.md)
+[![Neo4j 5](https://img.shields.io/badge/Neo4j-5-008CC1?logo=neo4j&logoColor=white)](docs/adr/0002-use-polyglot-persistence-postgres-and-neo4j.md)
 
-### はじめに
-本プロジェクトは、大学のシラバスからAIを活用して情報を抽出し、グラフデータベース（GraphDB）でありながらベクトル検索機能も備えた **Neo4j** 上に統合データベースを構築することで、履修系統図や教科書情報などを踏まえた複数科目の横断的な検索・推薦を可能にする支援システムです。
-
-### 背景
-* **リスクヘッジ的な授業選択**: 学生は単位取得の不確実性を避けるため、友人と同じ授業やいわゆる「楽単（単位が取りやすい授業）」を選択しがちです。これにより、授業に対する学生全体のモチベーション低下や、一部の人気授業への抽選集中といった問題が生じています。
-* **単位取得リスクとシラバスの難解さ**: 半年間の努力が単位に結びつくかどうかのリスクは学生にとって大きく、また提供されるシラバスの内容だけでは授業の具体的なイメージや自分に必要な知識との関連性がピンと来ないのが現状です。その結果、「自分のやりたい授業」と「単位取得の確実性」のバランスにおいて、前者を妥協せざるを得なくなっています。
-* **学際的分野での理解の困難さ**: 特にGMS（グローバル・メディア・スタディーズ）学部のように複数の分野を学際的に学ぶ学部では、シラバスに書かれている内容が専門的かつ多岐にわたるため、学生がその意義を正しく理解することが困難なケースが多々あります。
-
-### 目的
-本研究およびシステムの目的は、学生が自身の興味関心や将来のゴールに合致した正しい授業を選択できるよう支援するAIエージェントを構築することです。
-本システムにより、授業とのマッチング効率を向上させ、学生の学びに対する熱意を高め、大学生活の満足度を向上させることを目指します。また、学生の意欲向上に伴い授業全体の質も向上するという好循環を創出します。
-
-具体的には、シラバス、教科書の目次、履修系統図、教員データ等を統合した単一の **Neo4j** データベース内にグラフ構造とベクトル表現を構築し、GraphRAG（Retrieval-Augmented Generation using Graphs）を用いて、学生に適した授業を柔軟に提案・検索できる環境を実現します。
-
-### アプローチ
-1. **公的データの収集**: シラバス、教科書目次、履修系統図、教員プロフィール等のデータを収集します。
-2. **Neo4jによる統合DB構築**: 静的解析処理およびAI（LLM）を用いて、収集したテキストデータから関係性を表す「グラフ構造」と、意味の近さを表す「ベクトル表現（ベクトル埋め込み）」を **Neo4j上に一元的に構築** します。
-3. **GraphRAGの実装**: Neo4jのグラフクエリ（Cypher）とベクトル検索インデックスを組み合わせた高度なハイブリッド検索（GraphRAG）システムを構築し、LLMがアクセス可能なインターフェースを整備します。
-4. **Web UIの提供**: GraphRAGによる回答や推薦結果を、直感的かつ分かりやすく閲覧できるWebアプリケーションとして可視化します。
-
-### 入出力の例
-* **スケジュールや定性的な難易度への対応**
-  曜日・時限などのスケジュール属性や、「この授業は難しいか？」といった定性的な曖昧質問に対しても、関連情報（前提知識やシラバスの評価基準など）を組み合わせて柔軟に回答することを目指します。
-
-* **入力例1**: `データサイエンス入門を取ることにしたんだけど、他にオススメある？`
-* **出力例1**:
-  > データサイエンス入門のシラバスや指定された教科書などから、金3限の線形代数を取ると良いかもしれません。また、一般にデータサイエンスは、ドメイン知識があることで、さらに効果的になります。科学とアートによるゼミ形式の授業｢教養ゼミ1｣や｢データサイエンス実習｣｢社会分析基礎｣などはどうでしょうか？
-
-* **入力例2**: `自分は研究で、データベースとメディアで、情報をより届けるための研究をしている。その分野から、今年の履修をするべき授業を教えて`
-* **出力例2**:
-  > 技術系なら以下の授業がオススメです。
-  > * データベースとメディア, アーキテクチャ入門…
-  >
-  > メディアを学習するなら、以下の法学分野やコミュニケーション分野も参考になります！
-  > * 著作権の経済分析, メディア法基礎, 特許 of 経済分野, 災害コミュニケーション, リスク社会論…
+大学のシラバス・履修系統図・外部学習資源を知識グラフ（Neo4j）として構造化し、LLM Agent と GraphRAG を通じて学生が自己の関心や将来像に基づいた主体的な科目選択を行えるようにする学術研究・支援システムです。
 
 ---
 
-## ディレクトリ構成
+## 1. プロジェクトの背景と目的
 
-プロジェクトの全体像は以下の通りです。
+### 1.1 背景：なぜ学生は「防衛的な選択」に走るのか
+* **「楽単」という損失回避行動**: 半年間の学修の質と生活リズムを左右する重要な決定であるにもかかわらず、講義内容や単位取得の不確実性が高いため、多くの学生は出席や課題の負担が少ない「楽単」を合理的に選択せざるを得なくなっています。
+* **情報の不在ではなく「探索の摩擦」と「専門知識の非対称性」**: シラバスなどの公的データは公開されていますが、専門的な記述が多くカリキュラム全体を見通す知識がない学生にとって、それらを読み解くハードルが極めて高いのが実情です。
+* **シラバスは「点」の情報**: 科目単体の説明にとどまり、学問分野の全体像の中でその科目がどこに位置し、自分の将来像や次の学修ステップにどう繋がるかという「線や面（文脈）」が見えません。
 
-```
+### 1.2 コアアプローチ：「点を繋ぐメディア」としての統合システム
+本システムは、**客観的な標準知識体系（地図）** と **大学の開講科目（点）**、そして **学外の公開教材（OCW / MOOCs 等）** を有機的に接続し、LLM エージェントとの対話を通じて最適な学習パスを導き出します。
+
+1. **CS2023 基準オントロジー（Ground Truth）**: ACM/IEEE CS2023 体系を共通軸とし、全大学・全科目の客観的な位置づけを規定。
+2. **Neo4j 多層ナレッジグラフ**: 「標準オントロジー層」「大学カリキュラム層」「シラバス詳細層」「学習資源（Web教材）層」をリレーションで結合。
+3. **LLM Agent × GraphRAG**: 学生の興味・将来像・時間割制約を解釈し、知識グラフに裏打ちされた再現性・説明性の高い履修プランを提案。
+
+> より詳細な設計思想・データ構造・数理モデルについては [docs/architecture.md](docs/architecture.md) を参照してください。
+
+---
+
+## 2. システム構成
+
+```text
 course-navigator/
 ├── compose.yaml          # アプリケーション層（backend, frontend）のDocker Compose設定
-├── Dockerfile            # （未使用/プレースホルダー）
-├── Makefile              # 開発用共通コマンド定義
-├── shell.sh              # 開発コンテナ接続用スクリプト (Linux/macOS)
-├── shell.bat             # 開発コンテナ接続用スクリプト (Windows)
-├── .env.sample           # アプリケーション層環境変数のサンプル
-├── backend/              # バックエンド（API / AI処理）
-│   ├── Dockerfile        # uvベース of Python環境イメージ定義
-│   ├── pyproject.toml    # パッケージ依存関係の定義
-│   ├── uv.lock           # 依存関係ロックファイル
-│   ├── main.py           # FastAPIエントリーポイント
-│   └── README.md         # バックエンドのドキュメント
-├── frontend/             # フロントエンド（Web UI）
-│   ├── Dockerfile        # Node.jsベースのWebアプリ起動イメージ定義
-│   ├── package.json      # パッケージ依存関係およびスクリプト定義
-│   ├── vite.config.ts    # Vite設定ファイル
-│   ├── index.html        # エントリーHTML
-│   ├── src/              # Reactコンポーネント・ソースコード
-│   └── README.md         # フロントエンドのドキュメント
-├── db/                   # データベース関連
-│   ├── compose.yaml      # データベース層（postgres, neo4j）のDocker Compose設定
-│   ├── .env.sample       # データベース層環境変数のサンプル
-│   ├── postgres/         # PostgreSQL
-│   │   └── Dockerfile    # タイムゾーン等の基本設定
-│   ├── neo4j/            # Neo4j
-│   │   └── Dockerfile    # ベースイメージ定義
-│   └── postgresql/       # PostgreSQLデータ保存用空ディレクトリ
-└── proxy/                # リバースプロキシ（Traefik）
-    ├── compose.yaml      # プロキシ層のDocker Compose設定
-    ├── traefik.yaml      # Traefikのルーティング・SSL・ダッシュボード設定
-    └── .env.sample       # プロキシ層環境変数のサンプル
+├── Makefile              # 開発用共通コマンド
+├── shell.sh / shell.bat  # コンテナ接続用スクリプト（Linux / Windows）
+├── .env.sample           # アプリケーション層の環境変数サンプル
+├── docs/                 # プロジェクト公式ドキュメント
+│   ├── architecture.md   # システムアーキテクチャ設計書
+│   ├── roadmap.md        # 研究・開発ロードマップ
+│   └── adr/              # アーキテクチャ決定記録 (ADR-0001〜0010)
+├── backend/              # バックエンド（FastAPI / Python 3.14 / uv 管理）
+│   ├── src/
+│   │   ├── api/          # FastAPI エンドポイント
+│   │   ├── agent/        # ADK ワークフロー・意図パーサ・Evidence 生成
+│   │   └── course_core/  # 共通モデル・スキーマ・DB接続
+│   └── tests/            # ユニットテスト / Golden 14問テスト
+├── frontend/             # フロントエンド（React 19 + Vite + TypeScript）
+│   └── src/              # 対話 UI・グラフ可視化コンポーネント
+├── db/                   # データベース層
+│   ├── compose.yaml      # DB層 Compose設定 (PostgreSQL, Neo4j + APOC)
+│   ├── postgres/         # PostgreSQL 設定・Dockerfile
+│   └── neo4j/            # Neo4j 設定・Dockerfile
+├── ingestion/            # シラバス・カリキュラムデータ収集・GraphRAG構築バッチ
+└── proxy/                # リバースプロキシ層 (Traefik v3.6)
+    ├── compose.yaml      # Traefik Compose設定
+    └── traefik.yaml      # ルーティング・SSL設定
 ```
 
 ---
 
-## 各種ディレクトリの役割と意味
+## 3. 研究・開発ロードマップ (Roadmap)
 
-### 1. プロキシ層 (`proxy/`)
-リバースプロキシである **Traefik v3.6** を管理します。
-外部に構築された共通ネットワーク `gateway` を通して、すべてのコンテナと接続します。
-ホスト名に基づいたリクエストの交通整理、ダッシュボードの提供、本番環境における Let's Encrypt を用いた SSL 証明書の自動取得などを担います。
+現在、プロジェクトは **Phase 2（Agent疎通 & GraphRAG入出力基盤確立）** から **Phase 3（長崎大学プロトタイプ先行検証）** へと進捗しています。
 
-### 2. データベース層 (`db/`)
-データ蓄積および検索を担うデータベース群を管理します。
-* **Neo4j (v5)**: 本システムのコアとなるデータベースです。科目間の履修系統（前提条件、推薦順序）や、分野・キーワード同士のネットワーク構造をグラフ形式で保持すると同時に、Neo4jに内蔵されている **ベクトルインデックス機能** を活用することで、シラバス文章や目次などのベクトル検索（VectorDBとしての役割）も同一のデータベース内で一元的に実現します。GraphRAG向けに必須のAPOCプラグインを自動導入するよう設定されています。
-* **PostgreSQL (v18)**: ユーザー情報やその他の補助的な構造化データを永続化します。
+| フェーズ | 名称 | 状態 | 主な内容 |
+| :---: | :--- | :---: | :--- |
+| **Phase 1** | **フルスタック統合基盤の構築** | **完了** | Traefik / FastAPI / React 19 / PostgreSQL / Neo4j 疎通完了 |
+| **Phase 2** | **LLM Agent 疎通 & GraphRAG 入出力基盤** | **進行中** | ADK Workflow、Golden 14問テスト、静的エージェント UI 疎通 |
+| **Phase 3** | **長崎大データ Ingestion & プロトタイプ検索アプリ** | **次期** | 情報データ科学部データ先行投入、サークル実証実験、UI最適化 |
+| **Phase 4** | **CS2023 オントロジー統合 & Web教材 Ingestion** | 未着手 | CS2023 知識マッピング、OCW / MOOCs 外部教材連携、多層グラフ化 |
+| **Phase 5** | **パイロットデプロイ & 推薦精度向上実験** | 未着手 | 教員・研究室データ統合、近接性判定アルゴリズム検証、横断大学展開 |
 
-### 3. アプリケーション層 (ルート / `backend/` / `frontend/`)
-エンドユーザーおよびAIエージェントが稼働する領域です。
-* **backend (FastAPI)**: Pythonの超高速パッケージマネージャー `uv` でパッケージ管理されています。LLMとのやり取り、Neo4jに対するグラフクエリ（Cypher）およびベクトル検索、それらを組み合わせたGraphRAGの推論処理を実行し、APIとして公開します。
-* **frontend (Vite + React + TypeScript)**: 直感的でレスポンシブなユーザーインターフェースを提供します。バックエンドAPIと連携し、履修系統図の可視化や対話形式の科目検索画面を描画します。
+> 各フェーズの詳細や実験計画は [docs/roadmap.md](docs/roadmap.md) を参照してください。
 
 ---
 
-## Dockerを用いたコンテナ起動方法
+## 4. クイックスタート (Docker 起動手順)
 
-本システムは、ネットワーク分離と保守性を向上させるため、**プロキシ層**、**データベース層**、**アプリケーション層** の3段階に分けて構成されています。
-
-これらは `gateway` という共通の外部ブリッジネットワークで接続されます。以下の手順に従って順に起動してください。
+各サービスはネットワーク分離と保守性向上のため、共有外部ネットワーク `gateway` を介して連携します。
 
 ### 前提条件
-Docker および Docker Compose がインストールされている必要があります。
+- Docker および Docker Compose がインストールされていること
 
 ### 起動手順
 
-#### 1. 共通ネットワークの作成
-コンテナ間通信を行うための外部ネットワーク `gateway` を作成します。
 ```bash
+# 1. 共通ネットワークの作成（初回のみ）
 docker network create gateway
-```
 
-#### 2. 環境変数の準備
-各ディレクトリの `.env.sample` ファイルを `.env` としてコピーし、必要に応じて設定値を変更します。
-
-```bash
-# 1. ルートディレクトリ用
+# 2. 環境変数の準備
 cp .env.sample .env
-
-# 2. データベース層用
 cp db/.env.sample db/.env
-
-# 3. プロキシ層用
 cp proxy/.env.sample proxy/.env
-```
-> [!NOTE]
-> ローカル環境でのデフォルトドメインは `cource-navigator.localhost` に設定されています。
 
-#### 3. プロキシ層の起動
-リバースプロキシである Traefik を起動します。
-```bash
-cd proxy
-docker compose up -d
-cd ..
-```
+# 3. プロキシ層の起動 (Traefik)
+docker compose -f proxy/compose.yaml up -d
 
-#### 4. データベース層の起動
-PostgreSQL および Neo4j を起動します。
-```bash
-cd db
-docker compose up -d
-cd ..
-```
+# 4. データベース層の起動 (PostgreSQL / Neo4j)
+docker compose -f db/compose.yaml up -d
 
-#### 5. アプリケーション層の起動
-バックエンドとフロントエンドを起動します。
-```bash
+# 5. アプリケーション層の起動 (Backend / Frontend)
 docker compose up -d --build
 ```
 
----
+### アクセス先一覧 (ローカル開発環境)
 
-## 起動後のアクセス先一覧
-
-すべてのサービスが起動すると、ローカル環境では以下のURLで各システムにアクセス可能です。
-
-| サービス名 | アクセスURL | 役割 |
+| サービス | URL | 役割 |
 | :--- | :--- | :--- |
-| **Frontend Web UI** | [http://cource-navigator.localhost/](http://cource-navigator.localhost/) | 授業検索・グラフ可視化画面 |
-| **Backend API** | [http://cource-navigator.localhost/api/](http://cource-navigator.localhost/api/) | FastAPIエンドポイント (Docs: `/api/docs`) |
-| **Neo4j Browser** | [http://cource-navigator.localhost/browser/](http://cource-navigator.localhost/browser/) | グラフおよびベクトル構造のクエリ・可視化ツール |
-| **Traefik Dashboard** | [http://localhost:8080/](http://localhost:8080/) | プロキシのルーティング状態確認ツール |
-
-* Neo4j Browser の初期ログイン情報は `db/.env` 内の `NEO4J_AUTH` 設定に依存します。
+| **Frontend Web UI** | [http://course-navigator.localhost/](http://course-navigator.localhost/) | 授業検索・履修対話画面 |
+| **Backend API** | [http://course-navigator.localhost/api/](http://course-navigator.localhost/api/) | FastAPI Swagger Docs: `/api/docs` |
+| **Neo4j Browser** | [http://course-navigator.localhost/browser/](http://course-navigator.localhost/browser/) | グラフDB可視化・Cypher実行ツール |
+| **Traefik Dashboard** | [http://localhost:8080/](http://localhost:8080/) | プロキシルーティング監視 |
 
 ---
 
-## 便利な開発用コマンド
+## 5. 開発者向けガイド
 
-### コンテナ内シェルへの接続
-開発中にコンテナ内へ入り、データベースの確認やコマンド実行を行いたい場合は、提供されているショートカットコマンドを使用します。
+### コンテナへのシェル接続
+```bash
+# Windows
+shell.bat backend        # Backend (FastAPI / Agent)
+shell.bat postgres       # PostgreSQL
+shell.bat neo4j          # Neo4j
 
-* **Windows (PowerShell/CMD)**:
-  ```cmd
-  shell.bat <サービス名>
-  # 例: shell.bat backend
-  # 例: shell.bat postgres
-  ```
-* **Linux / macOS**:
-  ```bash
-  ./shell.sh <サービス名>
-  ```
-* **Makefile の利用 (makeが利用可能な環境)**:
-  ```bash
-  make shell SERVICE=<サービス名>
-  ```
+# Linux / macOS
+./shell.sh backend
+# または Makefile
+make shell SERVICE=backend
+```
+
+### テスト実行 (Backend)
+```bash
+# CI と同様の高速テスト（DB/LLM 不要の純関数・Golden 14問テスト）
+uv run pytest tests -q -m "not db and not llm"
+
+# 実 DB（Neo4j / PostgreSQL）を起動した状態での結合テスト
+uv run pytest tests -q -m "db"
+```
+
+### アーキテクチャ決定記録 (ADR)
+本プロジェクトでは、重要な技術選定や構造変更を ADR として記録・管理しています。
+過去の技術的経緯や決定事項の詳細は [docs/adr/README.md](docs/adr/README.md) を参照してください。
