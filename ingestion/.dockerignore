@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Virtual Environment
+.venv/
+
+# Ingestion Data (Mount via volume in compose if needed)
+data/raw/*
+!data/raw/.gitkeep
+data/parsed/*
+!data/parsed/.gitkeep
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*.class
+*.pyo
+*.pyd
+
+# UV & Package Caches
+.uv/
+.cache/
+
+# Environment variables & secrets
+.env
+.env.*
+
+# Logs & Temporary files
+logs/
+*.log
+tmp/
+.pytest_cache/
+.coverage
+htmlcov/
