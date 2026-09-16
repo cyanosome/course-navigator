@@ -68,7 +68,7 @@ course-navigator/
 | **Phase 1** | **フルスタック統合基盤の構築** | **完了** | Traefik / FastAPI / React 19 / PostgreSQL / Neo4j 疎通完了 |
 | **Phase 2** | **LLM Agent 疎通 & GraphRAG 入出力基盤** | **進行中** | ADK Workflow、Golden 14問テスト、静的エージェント UI 疎通 |
 | **Phase 3** | **長崎大データ Ingestion & プロトタイプ検索アプリ** | **次期** | 情報データ科学部データ先行投入、サークル実証実験、UI最適化 |
-| **Phase 4** | **CS2023 オントロジー統合 & Web教材 Ingestion** | 未着手 | CS2023 知識マッピング、OCW / MOOCs 外部教材連携、多層グラフ化 |
+| **Phase 4** | **CS2023 オントロジー統合 & Web教材 Ingestion** | 未着手 | CS2023 知識マッピング、開志創造大連携（講義詳細データ検証 / 交渉中）、OCW / MOOCs 外部教材連携、多層グラフ化 |
 | **Phase 5** | **パイロットデプロイ & 推薦精度向上実験** | 未着手 | 教員・研究室データ統合、近接性判定アルゴリズム検証、横断大学展開 |
 
 > 各フェーズの詳細や実験計画は [docs/roadmap.md](docs/roadmap.md) を参照してください。
