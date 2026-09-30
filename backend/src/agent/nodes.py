@@ -9,6 +9,7 @@
 純関数 or 層A にあり、ここはそれらを ADK のノード signature に合わせて包むだけ。
 """
 
+import os
 from collections.abc import Awaitable, Callable
 
 from google.adk import Context, Event
@@ -16,6 +17,7 @@ from google.genai import types
 
 from agent import deps, intent_rules, rank
 from agent.schemas import AnswerPayload, Candidate, CandidateSet, SearchIntent
+from course_core import config
 from course_core.graph import traversal
 from course_core.schemas.traversal import Envelope
 
@@ -28,6 +30,7 @@ __all__ = [
     "rank_candidates",
     "respond_unclear",
     "route_by_mode",
+    "route_initial",
     "search_by_topic",
 ]
 
@@ -64,6 +67,19 @@ def _question_text(node_input: object) -> str:
     if isinstance(node_input, types.Content):
         return "".join(part.text or "" for part in (node_input.parts or []))
     return str(node_input)
+
+
+def route_initial(node_input: object, ctx: Context) -> Event:
+    """MCP 先行型ワークフローのルート判定ノード。
+
+    AGENT_ENABLE_MCP が有効かつ GEMINI_API_KEY が設定されている場合は "mcp"、
+    それ以外（キーなし、フォールバック時）は "static" を返す。
+    """
+    has_api_key = bool(config.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"))
+    is_mcp_enabled = bool(config.AGENT_ENABLE_MCP)
+
+    target_route = "mcp" if (is_mcp_enabled and has_api_key) else "static"
+    return Event(output=node_input, route=[target_route])
 
 
 def parse_intent(node_input: object, ctx: Context) -> Event:

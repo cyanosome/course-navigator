@@ -19,6 +19,15 @@ NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
+# LLM Agent 設定 (Google ADK & Neo4j MCP)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini-2.5-flash")
+AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
+AGENT_ENABLE_MCP = os.getenv("AGENT_ENABLE_MCP", "true").lower() in ("true", "1", "yes")
+AGENT_INSTRUCTION_PATH = os.getenv(
+    "AGENT_INSTRUCTION_PATH", "src/agent/prompts/compose_answer.md"
+)
+
 # 未設定時に起動を止める必須（秘密）環境変数
 REQUIRED_SECRETS = ("DB_PASSWORD", "NEO4J_PASSWORD")
 

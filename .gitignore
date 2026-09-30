@@ -1,2 +1,4 @@
 # Environment configurations
 .env
+.adk/
+**/.adk/

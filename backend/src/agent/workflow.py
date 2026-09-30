@@ -4,37 +4,109 @@
 ノードの中身が関数であっても edges からノードを外さない（§10）。
 """
 
+from typing import Any
 from google.adk import Workflow
 
 from agent import nodes
 
-__all__ = ["WORKFLOW_NAME", "workflow"]
+__all__ = [
+    "WORKFLOW_NAME",
+    "build_agent_workflow",
+    "build_mcp_first_workflow",
+    "build_workflow",
+    "workflow",
+]
 
 WORKFLOW_NAME = "course_navigator_workflow"
 
-workflow = Workflow(
-    name=WORKFLOW_NAME,
-    edges=[
-        # edges の先頭には文字列 "START" が必須（2026-08-05 の ADK smoke で確定）。
-        # 省くと実行時ではなく Workflow(...) の構築時に
-        #   ValidationError: Graph validation failed.
-        #   START node (name: '__START__') not found in graph nodes.
-        # で落ちる。3要素以上のチェーン記法はこのエントリ指定にだけ使う。
-        ("START", nodes.parse_intent, nodes.route_by_mode),
-        (
-            nodes.route_by_mode,
-            {
-                "next_step": nodes.expand_forward,
-                "prereq": nodes.expand_backward,
-                "topic": nodes.search_by_topic,
-                "unclear": nodes.respond_unclear,
-            },
-        ),
-        # 3経路 → 合流ノード rank_candidates
-        (nodes.expand_forward, nodes.rank_candidates),
-        (nodes.expand_backward, nodes.rank_candidates),
-        (nodes.search_by_topic, nodes.rank_candidates),
-        # 合流ノード → 回答生成（ステップ6 でこの右辺を Agent に差し替える）
-        (nodes.rank_candidates, nodes.compose_answer),
-    ],
-)
+
+def build_workflow(
+    name: str = WORKFLOW_NAME,
+    compose_node: Any = nodes.compose_answer,
+) -> Workflow:
+    """共通の DAG 構造を構築するファクトリ関数。
+
+    edges の先頭には文字列 "START" が必須。
+    終端の compose_node には、静的ノード（nodes.compose_answer）または
+    LlmAgent ノードを渡すことができる。
+    """
+    return Workflow(
+        name=name,
+        edges=[
+            ("START", nodes.parse_intent, nodes.route_by_mode),
+            (
+                nodes.route_by_mode,
+                {
+                    "next_step": nodes.expand_forward,
+                    "prereq": nodes.expand_backward,
+                    "topic": nodes.search_by_topic,
+                    "unclear": nodes.respond_unclear,
+                },
+            ),
+            # 3経路 → 合流ノード rank_candidates
+            (nodes.expand_forward, nodes.rank_candidates),
+            (nodes.expand_backward, nodes.rank_candidates),
+            (nodes.search_by_topic, nodes.rank_candidates),
+            # 合流ノード → 回答生成（静的ノード or Agent ノード）
+            (nodes.rank_candidates, compose_node),
+        ],
+    )
+
+
+# 静的ワークフロー（CI / test3-1 用の後方互換エクスポート）
+workflow = build_workflow()
+
+
+def build_agent_workflow(
+    name: str = "course_navigator_agent_workflow",
+    **agent_kwargs: Any,
+) -> Workflow:
+    """回答生成に LlmAgent (Neo4j MCP ツール装備) を配置した Agent ワークフローを構築する。"""
+    from agent.compose_agent import build_compose_agent
+
+    agent_node = build_compose_agent(**agent_kwargs)
+    return build_workflow(name=name, compose_node=agent_node)
+
+
+def build_mcp_first_workflow(
+    name: str = "course_navigator_mcp_first_workflow",
+    **agent_kwargs: Any,
+) -> Workflow:
+    """MCP 先行型ワークフロー（ルート完全分離型）を構築する。
+
+    START ➔ route_initial
+    route_initial:
+        "mcp": mcp_agent (Neo4j MCP ツール装備、自律探索・回答生成)
+        "static": parse_intent ➔ route_by_mode ➔ 3経路 ➔ rank_candidates ➔ compose_answer
+    """
+    from agent.mcp_agent import build_mcp_agent
+
+    mcp_agent_node = build_mcp_agent(**agent_kwargs)
+
+    return Workflow(
+        name=name,
+        edges=[
+            ("START", nodes.route_initial),
+            (
+                nodes.route_initial,
+                {
+                    "mcp": mcp_agent_node,
+                    "static": nodes.parse_intent,
+                },
+            ),
+            (nodes.parse_intent, nodes.route_by_mode),
+            (
+                nodes.route_by_mode,
+                {
+                    "next_step": nodes.expand_forward,
+                    "prereq": nodes.expand_backward,
+                    "topic": nodes.search_by_topic,
+                    "unclear": nodes.respond_unclear,
+                },
+            ),
+            (nodes.expand_forward, nodes.rank_candidates),
+            (nodes.expand_backward, nodes.rank_candidates),
+            (nodes.search_by_topic, nodes.rank_candidates),
+            (nodes.rank_candidates, nodes.compose_answer),
+        ],
+    )
