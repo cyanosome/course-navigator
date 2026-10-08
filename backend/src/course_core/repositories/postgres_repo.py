@@ -9,6 +9,10 @@ import asyncpg
 
 # --- スキーマ定義（lifespan から呼び出す） ---
 
+ENABLE_VECTOR_EXTENSION = """
+CREATE EXTENSION IF NOT EXISTS vector;
+"""
+
 CREATE_TEST_POSTGRES = """
 CREATE TABLE IF NOT EXISTS test_postgres (
     id UUID PRIMARY KEY,
@@ -31,11 +35,29 @@ CREATE TABLE IF NOT EXISTS test_postgres_syllabus (
 );
 """
 
+CREATE_TEST_COURSE_EMBEDDINGS = """
+CREATE TABLE IF NOT EXISTS test_course_embeddings (
+    id UUID PRIMARY KEY,
+    course_id UUID REFERENCES test_postgres_syllabus(id) ON DELETE CASCADE,
+    embedding vector(1536),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
+CREATE_HNSW_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_course_embeddings_hnsw 
+ON test_course_embeddings 
+USING hnsw (embedding vector_cosine_ops);
+"""
+
 
 async def create_tables(conn: asyncpg.Connection) -> None:
     """テスト用テーブルを作成する（存在しない場合のみ）。"""
+    await conn.execute(ENABLE_VECTOR_EXTENSION)
     await conn.execute(CREATE_TEST_POSTGRES)
     await conn.execute(CREATE_TEST_POSTGRES_SYLLABUS)
+    await conn.execute(CREATE_TEST_COURSE_EMBEDDINGS)
+    await conn.execute(CREATE_HNSW_INDEX)
 
 
 # --- test_postgres エンドポイント用 ---
