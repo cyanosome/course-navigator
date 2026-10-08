@@ -104,11 +104,11 @@ docker compose --profile tools run --rm ingestion uv run python -m src.fetchers.
 # （参考）長崎大学（一時停止中）
 docker compose --profile tools run --rm ingestion uv run python -m src.fetchers.nagasaki.fetch_data
 
-# 3. 解析・テキスト抽出・構造化 (Parser)(未実装)
+# 3. 解析・テキスト抽出・構造化 (Parser)
 docker compose --profile tools run --rm ingestion uv run python -m src.parsers.komazawa.parser
 
-# 4. Neo4j / PostgreSQL への一括投入パイプライン(未実装)
-docker compose --profile tools run --rm ingestion uv run python -m src.main --target komazawa
+# 4. Neo4j へのベースグラフ一括投入 (Graph Loader: Course, Professor, Department)
+docker compose --profile tools run --rm ingestion uv run python -m src.graph.loader
 ```
 
 #### コンテナ内でインタラクティブに作業・デバッグする場合
@@ -131,7 +131,7 @@ uv run python -m src.parsers.nagasaki.parser
 
 ## 5. ロードマップと今後の展開
 
-- [ ] **Phase 3（現在）**: 駒澤大学 シラバスおよびカリキュラムデータの Ingestion 実装と Neo4j へのグラフ初期投入（長崎大 PDF は一時停止 / ADR-0011）
+- [x] **Phase 3（現在）**: 駒澤大学 シラバスおよびカリキュラムデータの Ingestion 実装と Neo4j へのグラフ初期投入（完了: 6,803件 / ADR-0011）
 - [ ] **Phase 3（現在）**: 前提科目ツリーおよび履修推奨エッジの結合検証
 - [ ] **Phase 4（次期）**: ACM/IEEE CS2023 基準オントロジー投入パイプラインの実装
 - [ ] **Phase 4（次期）**: LLM による学内科目 ↔ CS2023 オントロジーの自動推論マッピング (`[:MAPS_TO]`)
