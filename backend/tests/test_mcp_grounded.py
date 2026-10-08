@@ -25,6 +25,7 @@ from google.genai import types
 
 import fake_graph
 from agent import deps, grounding, nodes, rdb_tools, runner
+from agent.compose_agent import build_compose_agent
 from agent.mcp_agent import build_grounded_mcp_agent, build_mcp_agent
 from agent.schemas import AnswerPayload, GroundedAnswer
 from agent.workflow import build_mcp_grounded_workflow
@@ -324,6 +325,31 @@ def test_build_grounded_mcp_agent_adds_rdb_tool():
 def test_build_mcp_agent_default_has_no_extra_tools():
     """adk web が使う既定の mcp_agent には RDB ツールが付かない（既存挙動の維持）。"""
     assert build_mcp_agent(model="gemini-2.5-flash", enable_mcp=False).tools == []
+
+
+def test_rdb_instructions_only_in_grounded_agent():
+    """RDB 手順は grounded 版だけに連結し、共有プロンプトには書かない。
+
+    ツールを持たない mcp_agent / compose_agent が未宣言ツールを呼ぶと ADK が
+    ValueError で実行を止めるため、共有プロンプトに get_course_details が出てはいけない。
+    """
+    grounded = build_grounded_mcp_agent(model="gemini-2.5-flash", enable_mcp=False)
+    plain = build_mcp_agent(model="gemini-2.5-flash", enable_mcp=False)
+    compose = build_compose_agent(model="gemini-2.5-flash", enable_mcp=False)
+
+    assert "get_course_details" in grounded.instruction
+    assert grounded.instruction.startswith(plain.instruction)
+    assert "get_course_details" not in plain.instruction
+    assert "get_course_details" not in compose.instruction
+
+
+def test_grounded_agent_respects_explicit_instruction():
+    agent = build_grounded_mcp_agent(
+        model="gemini-2.5-flash", instruction="明示指定の指示", enable_mcp=False
+    )
+
+    assert agent.instruction == "明示指定の指示"
+    assert agent.tools == [rdb_tools.get_course_details]
 
 
 # --- run_mcp_grounded（偽 LLM / 偽 DB で通電） ----------------------------------

@@ -21,6 +21,11 @@ from course_core import config
 
 __all__ = ["build_grounded_mcp_agent", "build_mcp_agent"]
 
+# RDB ツールを持つ grounded 版だけに連結する追補プロンプト。共有プロンプト（compose_answer.md）に
+# 書くと、ツールを持たない adk web の mcp_agent / compose_agent が未宣言ツールを呼んで落ちうる。
+_GROUNDED_ADDENDUM_PATH = Path(__file__).resolve().parent / "prompts" / "grounded_addendum.md"
+_PROMPT_SEPARATOR = "\n\n"
+
 
 def _load_instruction() -> str:
     """プロンプトファイルを読み込む。"""
@@ -100,9 +105,27 @@ def build_mcp_agent(
     )
 
 
-def build_grounded_mcp_agent(**agent_kwargs: Any) -> LlmAgent:
+def _load_grounded_addendum() -> str:
+    if not _GROUNDED_ADDENDUM_PATH.is_file():
+        raise FileNotFoundError(f"追補プロンプトが見つかりません: {_GROUNDED_ADDENDUM_PATH}")
+    return _GROUNDED_ADDENDUM_PATH.read_text(encoding="utf-8")
+
+
+def build_grounded_mcp_agent(
+    instruction: str | None = None, **agent_kwargs: Any
+) -> LlmAgent:
     """test3-2 用の mcp_agent。Neo4j MCP に加えて RDB ツール get_course_details を持つ。
 
+    instruction 未指定時は共有プロンプトに RDB 手順の追補（grounded_addendum.md）を連結する。
     adk web（agent.py）の root_agent が使う build_mcp_agent() の既定構成は変えない。
     """
-    return build_mcp_agent(extra_tools=[get_course_details], **agent_kwargs)
+    active_instruction = (
+        instruction
+        if instruction is not None
+        else _load_instruction() + _PROMPT_SEPARATOR + _load_grounded_addendum()
+    )
+    return build_mcp_agent(
+        instruction=active_instruction,
+        extra_tools=[get_course_details],
+        **agent_kwargs,
+    )
