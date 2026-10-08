@@ -40,8 +40,12 @@ ingestion/
 │   ├── parsed/             # 構造化抽出済み JSON / CSV データ
 │   └── curriculum/         # カリキュラムマップ・履修系統図定義
 └── src/
+    ├── fetchers/           # シラバス等の生データ収集
+    │   ├── komazawa/       # 駒澤大学用フェッチャー (syllabus_information.js)
+    │   └── nagasaki/       # 長崎大学用フェッチャー (PDF)
     ├── parsers/            # PDF / Web シラバス解析・テキストクレンジング
-    │   └── nagasaki/       # 長崎大学 情報データ科学部用パーサー
+    │   ├── komazawa/       # 駒澤大学用パーサー
+    │   └── nagasaki/       # 長崎大学用パーサー (一時停止)
     ├── graph/              # Neo4j 投入ロジック（APOC バッチインポート・Cypher）
     │   ├── schema.py       # ノード・リレーション定義
     │   └── loader.py       # Course, Prerequisite 等の一括ロード処理
@@ -93,14 +97,18 @@ docker compose -f db/compose.yaml up -d
 # 1. コンテナイメージのビルド（初回および pyproject.toml / Dockerfile 更新時）
 docker compose --profile tools build ingestion
 
-# 2. 長崎大学シラバス等の公式 PDF 取得 (Fetcher)
+# 2. シラバス等の公式データ取得 (Fetcher)
+# 駒澤大学（全科目静的インデックス取得）
+docker compose --profile tools run --rm ingestion uv run python -m src.fetchers.komazawa.fetch_data
+
+# （参考）長崎大学（一時停止中）
 docker compose --profile tools run --rm ingestion uv run python -m src.fetchers.nagasaki.fetch_data
 
-# 3. PDF 解析・テキスト抽出・構造化 (Parser)(未実装)
-docker compose --profile tools run --rm ingestion uv run python -m src.parsers.nagasaki.parser
+# 3. 解析・テキスト抽出・構造化 (Parser)(未実装)
+docker compose --profile tools run --rm ingestion uv run python -m src.parsers.komazawa.parser
 
 # 4. Neo4j / PostgreSQL への一括投入パイプライン(未実装)
-docker compose --profile tools run --rm ingestion uv run python -m src.main --target nagasaki
+docker compose --profile tools run --rm ingestion uv run python -m src.main --target komazawa
 ```
 
 #### コンテナ内でインタラクティブに作業・デバッグする場合
