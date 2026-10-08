@@ -79,6 +79,22 @@ async def get_syllabus_ids_by_codes(
     return {row["code"]: str(row["id"]) for row in rows}
 
 
+async def get_syllabi_by_codes(
+    conn: asyncpg.Connection, codes: list[str]
+) -> list[asyncpg.Record]:
+    """指定コード群のシラバス詳細を一括取得する（読み取り専用・N+1 回避）。
+
+    存在しないコードは結果に含まれない（呼び出し側で未検出として扱う）。
+    """
+    if not codes:
+        return []
+    return await conn.fetch(
+        "SELECT code, title, instructor, schedule, credits, syllabus_text "
+        "FROM test_postgres_syllabus WHERE code = ANY($1) ORDER BY code ASC",
+        codes,
+    )
+
+
 async def get_syllabus_id_by_code(conn: asyncpg.Connection, code: str) -> str | None:
     row = await conn.fetchrow(
         "SELECT id FROM test_postgres_syllabus WHERE code = $1", code
