@@ -137,6 +137,38 @@ def test_truncate_text():
     assert grounding.truncate_text("abcdefg", 5) == "abcde…"
 
 
+def test_normalize_codes_strips_brackets_and_full_width():
+    """回答文の書式のまま入った括弧・全角は外して照合する。大文字小文字は変えない。"""
+    codes = [
+        "[GMS-303]",
+        "ＧＭＳ－３０３",
+        "【GMS-401】",
+        "［GMS-302］",
+        "　GMS-301 ",
+        "",
+        " [] ",
+        "gms-303",
+    ]
+
+    assert grounding.normalize_codes(codes) == [
+        "GMS-303",
+        "GMS-401",
+        "GMS-302",
+        "GMS-301",
+        "gms-303",
+    ]
+
+
+def test_build_grounded_answer_matches_bracketed_and_full_width_codes():
+    payload = AnswerPayload(answer="回答", cited_codes=["[GMS-303]", "ＧＭＳ－３０３"])
+
+    grounded = grounding.build_grounded_answer(payload, [_seed_row(_KNOWN_CODE)])
+
+    assert grounded.cited_codes == [_KNOWN_CODE]
+    assert [source.code for source in grounded.sources] == [_KNOWN_CODE]
+    assert grounded.unverified_codes == []
+
+
 def test_build_grounded_answer_splits_known_and_unknown_codes():
     """出典は DB の行から作り、DB に無いコードは unverified_codes に回る。"""
     payload = AnswerPayload(

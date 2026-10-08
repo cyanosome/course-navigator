@@ -5,6 +5,8 @@
 出典としては出さない（ハルシネーション検出）。I/O を持たないので DB 無しでテストできる。
 """
 
+import string
+import unicodedata
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -23,6 +25,9 @@ __all__ = [
 SOURCE_ORIGIN = "postgres:test_postgres_syllabus"
 EXCERPT_MAX_CHARS = 120
 _ELLIPSIS = "…"
+# LLM が回答文の書式（例 "[GMS-303]" / "【GMS-303】"）のまま cited_codes に入れてくる括弧。
+# NFKC 後に外すので全角の［］や全角空白もここで落ちる。
+_CODE_STRIP_CHARS = string.whitespace + "[]【】"
 
 
 def truncate_text(text: str | None, max_chars: int) -> str:
@@ -34,9 +39,18 @@ def truncate_text(text: str | None, max_chars: int) -> str:
     return text[:max_chars] + _ELLIPSIS
 
 
+def _normalize_code(code: str) -> str:
+    """NFKC で全角英数・記号を半角に寄せ、前後の空白と括弧を外す。大文字小文字は変えない。"""
+    return unicodedata.normalize("NFKC", code).strip(_CODE_STRIP_CHARS)
+
+
 def normalize_codes(codes: Iterable[str]) -> list[str]:
-    """前後の空白を除いて空文字を捨て、出現順を保ったまま重複を除く。"""
-    return list(dict.fromkeys(code.strip() for code in codes if code.strip()))
+    """各コードを正規化して空文字を捨て、出現順を保ったまま重複を除く。
+
+    例: "[GMS-303]" / "ＧＭＳ－３０３" / " GMS-303 " はすべて "GMS-303" になる。
+    """
+    normalized = (_normalize_code(code) for code in codes)
+    return list(dict.fromkeys(code for code in normalized if code))
 
 
 def source_from_row(row: Mapping[str, Any]) -> Source:
