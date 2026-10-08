@@ -250,9 +250,10 @@ async def run_mcp_grounded(
             new_message=types.Content(role="user", parts=[types.Part(text=question)]),
         ):
             events.append(event)
+        # ツールセットの終了処理（MCP サブプロセスの停止）は latency に含めない。
+        latency_ms = int((time.perf_counter() - started) * 1000)
     finally:
         await _close_toolsets(active_agent)
-    latency_ms = int((time.perf_counter() - started) * 1000)
 
     node_sequence = _collapse_repeats(
         name for event in events if (name := _node_name(event)) is not None
