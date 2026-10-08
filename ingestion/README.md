@@ -54,28 +54,88 @@ ingestion/
 
 ---
 
-## 3. データ処理フロー (Phase 3: Nagasaki Univ.)
+---
 
-```mermaid
-flowchart LR
-    PDF["長崎大学シラバス<br/>(PDF / 公開資料)"] --> Parse["PDF テキスト抽出<br/>および構造化"]
-    Map["カリキュラム系統図<br/>(履修モデル・前提関係)"] --> Parse
-    Parse --> Clean["クレンジング<br/>(科目名・単位・教員・到達目標)"]
-    Clean --> LoadNeo4j["Neo4j 投入<br/>(APOC バッチインポート)"]
-    Clean --> LoadPG["PostgreSQL 投入<br/>(メタデータ・補助情報)"]
-    LoadNeo4j --> Graph[("Neo4j GraphDB<br/>(:Course)-[:PREREQUISITE_OF]->")]
-```
+## 3. 実装状況サマリー (Status & Progress)
 
-1. **収集 (Extract)**: 長崎大学 情報データ科学部の公開シラバス PDF および履修系統図を取得。
-2. **抽出・構造化 (Transform)**: 講義名、科目コード、開講期、単位数、担当教員、到達目標、講義計画、および前提履修条件をパース。
-3. **グラフ構築 (Load)**:
-   - `Course` ノードの生成（プロパティ: 科目コード、科目名、単位数、クレンジング済みシラバス本文等）
-   - `PREREQUISITE_OF`（前提条件）、`BELONGS_TO`（学年・分野カテゴリ）リレーションの結合
-   - Neo4j APOC プロシージャを活用したトランザクション制御と高速一括ロード
+### 3.1 できている点 (Completed)
+
+* **[Extract] 概要データの一括取得 (Fetcher)**:
+  * [`src/fetchers/komazawa/fetch_data.py`](src/fetchers/komazawa/fetch_data.py)
+  * `syllabus_information.js`（約35.2MB、全6,803科目）をストリーミングで安定ダウンロード。
+  * べき等性（ダウンロード済みファイルのスキップ）および強制再取得フラグ（`--force`）を完備。
+* **[Transform] 構造化解析・クレンジング (Parser)**:
+  * [`src/parsers/komazawa/parser.py`](src/parsers/komazawa/parser.py)
+  * 文字列内の制御文字（生改行・タブ等）に対応した安全な JSON パース（`strict=False`）。
+  * `subject` テキストから **カナ読み、開講期（通年/前期/後期）、単位数、開講曜日、時限、教員カナ** を動的に抽出。
+  * 全角スペースや連続空行のサニタイズ（全6,803件パース成功、エラー0件）。
+* **[Load] ベース Graph の一括構築 (Graph Loader)**:
+  * [`src/graph/loader.py`](src/graph/loader.py), [`src/graph/schema.py`](src/graph/schema.py)
+  * `Course.code`, `Professor.name`, `Department.name` の一意制約（`CREATE CONSTRAINT`）の自動適用。
+  * `UNWIND $batch`（1,000件単位）による一括 MERGE により、**8.66秒で全6,803件の投入完了**。
+  * ノード: `Course` (6,803件), `Professor` (1,026件), `Department` (190件)
+  * エッジ: `[:TAUGHT_BY]` (6,803件), `[:BELONGS_TO]` (6,803件)
+* **[Quality] テストの完備**:
+  * モックを活用した単体テスト（全22件）が Docker コンテナ内で 100% 通過。
+
+### 3.2 出来ていない点・今後の課題 (Pending / To-Do)
+
+* **PostgreSQL への永続化 (RDB Ingestion)**:
+  * PostgreSQL 側の `courses` テーブル（マスターデータ）への一括投入スクリプトの実装（`asyncpg` 利用）。
+* **詳細データの取り込み (HTML Parser / Detail Fetcher)**:
+  * 個別詳細HTML（`detail/{rishu_code}.html`）のバッチ収集。
+  * 第1回〜第15回の授業計画、評価方法の内訳（定期試験〇%、レポート〇%等）、教科書・参考書の表組み構造のパース。
+  * RDB（`course_details` テーブル / JSONB）への格納。
+* **履修系統図（カリキュラムツリー・学修系統図）との関係性の紐付け**:
+  * 学部・学科ごとの履修系統図（PDF / 公開資料）の収集・構造化。
+  * 学修段階（基礎・基幹・展開・発展）や学年配当、必修・選択区分ノードの生成と、シラバス科目とのリレーション接続 (`[:PART_OF_CURRICULUM]`, `[:RECOMMENDED_BEFORE]`)。
+* **前提科目エッジ (`[:REQUIRES_PREREQUISITE]`) の構築**:
+  * シラバス本文やカリキュラム資料から「〇〇履修済み」等の前提条件を抽出し、科目間エッジを接続。
+* **GDS (Graph Data Science) によるセマンティック類似度エッジ (`[:SIMILAR_TO]`) の生成**:
+  * 科目テキスト（`text`）の Embedding（ベクトル埋め込み）生成。
+  * Neo4j Vector Index の作成。
+  * Neo4j GDS（kNN / Node Similarity 等）を用いた `[:SIMILAR_TO {score: ...}]` エッジの自動導出。
+* **CS2023 オントロジー統合 (Phase 4)**:
+  * ACM/IEEE CS2023 基準オントロジーノード群の投入と、学内科目との自動推論マッピング (`[:MAPS_TO]`)。
 
 ---
 
-## 4. 実行方法（開発環境）
+## 4. データ処理フロー (Komazawa Univ.)
+
+```mermaid
+flowchart TD
+    subgraph Extract["1. 収集 (Fetcher)"]
+        RawJS["syllabus_information.js<br/>(35.2 MB / 6,803件)"]
+        RawHTML["detail/*.html<br/>(未実装 / 詳細HTML)"]
+        RawTree["履修系統図・カリキュラム資料<br/>(未実装 / 学修系統図)"]
+    end
+
+    subgraph Transform["2. 抽出・クレンジング (Parser)"]
+        Parser["src/parsers/komazawa/parser.py"]
+        RawJS --> Parser
+        SummaryJSON["data/parsed/.../courses_summary.json<br/>(完了 / 6,803件)"]
+        Parser --> SummaryJSON
+    end
+
+    subgraph LoadGraph["3. GraphDB 構築 (完了)"]
+        SummaryJSON --> Loader["src/graph/loader.py"]
+        Loader --> Neo4j[("Neo4j GraphDB<br/>・Course (6,803)<br/>・Professor (1,026)<br/>・Department (190)<br/>・TAUGHT_BY / BELONGS_TO")]
+    end
+
+    subgraph Pending["4. 今後の拡張 (未着手)"]
+        SummaryJSON -.-> LoadPG["PostgreSQL 投入<br/>(courses マスター)"]
+        RawHTML -.-> DetailParser["詳細HTML パース<br/>(各回計画・評価割合)"]
+        DetailParser -.-> PG_Detail["PostgreSQL 投入<br/>(course_details)"]
+        RawTree -.-> TreeParser["系統図パース<br/>(学修段階・推奨順序)"]
+        TreeParser -.-> Neo4j
+        SummaryJSON -.-> Embed["Embedding & GDS<br/>[:SIMILAR_TO] エッジ生成"]
+        Embed -.-> Neo4j
+    end
+```
+
+---
+
+## 5. 実行方法（開発環境）
 
 C 拡張ライブラリ（`asyncpg` 等）や PDF 解析ツールの環境差異を防ぐため、**Docker コンテナ内での実行を標準**としています。
 
@@ -121,7 +181,7 @@ docker compose --profile tools up -d ingestion
 docker compose exec ingestion bash
 
 # （コンテナ内で実行）
-uv run python -m src.parsers.nagasaki.parser
+uv run python -m src.parsers.komazawa.parser
 ```
 
 > [!NOTE]
@@ -129,7 +189,7 @@ uv run python -m src.parsers.nagasaki.parser
 
 ---
 
-## 5. ロードマップと今後の展開
+## 6. ロードマップと今後の展開
 
 - [x] **Phase 3（現在）**: 駒澤大学 シラバスおよびカリキュラムデータの Ingestion 実装と Neo4j へのグラフ初期投入（完了: 6,803件 / ADR-0011）
 - [ ] **Phase 3（現在）**: 前提科目ツリーおよび履修推奨エッジの結合検証
