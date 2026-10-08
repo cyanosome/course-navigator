@@ -17,9 +17,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from google.adk import Event, Workflow
 from google.adk.agents.llm_agent import LlmAgent
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.models.base_llm import BaseLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.base_toolset import BaseToolset
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 from google.genai import types
 
@@ -404,6 +407,68 @@ def test_run_mcp_grounded_mcp_route_with_scripted_llm(monkeypatch, fake_pool):
     assert result.tool_calls[0].args == {"codes": [_KNOWN_CODE, _UNKNOWN_CODE]}
     assert _KNOWN_CODE in (result.tool_calls[0].result_summary or "")
     assert result.latency_ms >= 0
+
+
+class _RecordingToolset(BaseToolset):
+    """close() の呼び出し回数だけを記録する McpToolset の代役（ツールは持たない）。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.close_calls = 0
+
+    async def get_tools(self, readonly_context: ReadonlyContext | None = None) -> list[BaseTool]:
+        return []
+
+    async def close(self) -> None:
+        self.close_calls += 1
+
+
+class _LlmFailure(RuntimeError):
+    pass
+
+
+class _FailingLlm(BaseLlm):
+    """1ターン目で例外を投げる偽モデル（LLM API 障害の代役）。"""
+
+    model: str = "failing-fake-llm"
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        raise _LlmFailure("LLM API が応答しない")
+        yield  # 非同期ジェネレータにするための到達しない yield
+
+
+def test_run_mcp_grounded_closes_toolsets_after_success(monkeypatch, fake_pool):
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    toolset = _RecordingToolset()
+    agent = _scripted_agent()
+    agent.tools.append(toolset)
+
+    result = asyncio.run(runner.run_mcp_grounded(_QUESTION, agent=agent))
+
+    assert result.route == "mcp"
+    assert toolset.close_calls == 1
+
+
+def test_run_mcp_grounded_closes_toolsets_when_run_raises(monkeypatch, fake_pool):
+    """実行中に例外が出てもツールセット（MCP サブプロセス）を閉じ、例外は握りつぶさない。"""
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    toolset = _RecordingToolset()
+    agent = LlmAgent(
+        name="mcp_agent",
+        model=_FailingLlm(),
+        instruction="テスト用",
+        tools=[toolset, rdb_tools.get_course_details],
+        output_schema=AnswerPayload,
+    )
+
+    with pytest.raises(_LlmFailure):
+        asyncio.run(runner.run_mcp_grounded(_QUESTION, agent=agent))
+
+    assert toolset.close_calls == 1
 
 
 def test_run_mcp_grounded_falls_back_to_static(monkeypatch, no_backends):
