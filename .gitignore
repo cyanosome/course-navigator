@@ -1,2 +1,9 @@
 # Environment configurations
 .env
+.env.*
+
+# Ingestion raw & parsed data (Copyright & IP Protection)
+ingestion/data/raw/*
+!ingestion/data/raw/.gitkeep
+ingestion/data/parsed/*
+!ingestion/data/parsed/.gitkeep

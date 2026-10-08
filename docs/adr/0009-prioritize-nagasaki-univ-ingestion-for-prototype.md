@@ -1,9 +1,9 @@
 # [ADR-0009] 最速プロトタイプ検証のための長崎大学データ先行 Ingestion への方針転換
 
-- **ステータス**: 承認済 (Accepted)
+- **ステータス**: 置換 (Superseded by ADR-0011)
 - **起票日**: 2026-09-09
 - **決定者 / 議論の場**: yuto (@cyanosome), ibuki, akiha (@Akitoshi-Hasegawa) / MTG 0909
-- **関連リンク**: `docs/roadmap.md` (Phase 3), `docs/architecture.md`
+- **関連リンク**: [ADR-0011](0011-pivot-from-nagasaki-to-komazawa-ingestion.md), `docs/roadmap.md` (Phase 3), `docs/architecture.md`
 
 ---
 
@@ -96,3 +96,12 @@
 - MTG 0909 議事録・決定ログ (2026-09-09)
 - `docs/roadmap.md` (Phase 3 & Phase 4)
 - 長崎大学 情報データ科学部 公式シラバス・カリキュラム公開ページ
+
+---
+
+## 8. 追記 (2026-10-08: 専門科目 PDF 非公開に伴う一時停止と代替ピボット)
+
+2026-10-08 のデータ調査により、長崎大学において一般公開されているシラバス PDF は「全学向け教養教育科目」のみであり、カリキュラムマップ（`35.pdf`）に対応する「情報データ科学部専門科目」のシラバス PDF は学外非公開（学内システム限定）であることが判明した。
+専門科目間の前提関係ツリーが接続できない状態ではプロトタイプの有効性検証が成立しないため、PDF 解析による長崎大学先行 Ingestion は一旦停止（保留）とし、代替として駒澤大学シラバスデータを用いた Ingestion にピボットすることを決定した。
+
+詳細は **[ADR-0011: 専門科目シラバス非公開に伴う長崎大学 Ingestion の一時停止と駒澤大学データへのピボット](0011-pivot-from-nagasaki-to-komazawa-ingestion.md)** を参照。

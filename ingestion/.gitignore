@@ -1,0 +1,30 @@
+# ==========================================
+# Ingestion Data Directory (Copyright & IP Protection)
+# ==========================================
+# Do not commit raw syllabus PDFs or scraped data
+data/raw/*
+!data/raw/.gitkeep
+
+# Do not commit intermediate parsed data
+data/parsed/*
+!data/parsed/.gitkeep
+
+# Virtual Environment
+.venv/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*.class
+
+# UV Cache
+.uv/
+
+# Environment Variables
+.env
+.env.*
+
+# Logs & Temporary files
+logs/
+*.log
+tmp/
