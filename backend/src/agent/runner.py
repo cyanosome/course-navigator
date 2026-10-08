@@ -25,7 +25,6 @@ from pydantic import BaseModel, Field
 
 from agent import trace as trace_log
 from agent.grounding import truncate_text
-from agent.mcp_agent import build_grounded_mcp_agent
 from agent.schemas import AnswerPayload, CandidateSet, GroundedAnswer, SearchIntent, Source
 from agent.trace import TraceRecord
 from agent.workflow import build_mcp_grounded_workflow, workflow
@@ -234,6 +233,10 @@ async def run_mcp_grounded(
     agent はテストで偽モデルの LlmAgent を差し込む口（未指定なら build_grounded_mcp_agent）。
     trace JSONL は §8.2 の静的探索用の形式なので、この経路では書かない。
     """
+    # mcp_agent は mcp パッケージを読み込むので遅延 import にする（workflow.py と同じ方針）。
+    # モジュール先頭で読むと静的経路や `import api.main` まで mcp に依存してしまう。
+    from agent.mcp_agent import build_grounded_mcp_agent
+
     active_agent = agent if agent is not None else build_grounded_mcp_agent()
     active = Runner(
         node=build_mcp_grounded_workflow(agent_node=active_agent),
