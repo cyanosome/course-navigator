@@ -6,7 +6,8 @@ services:
     container_name: postgres
     restart: always
     ports:
-      - "5432:5432" # ホストからの開発用アクセスを許可
+      # ホストからの開発・管理用アクセス（本番環境での外部露出を防ぐため 127.0.0.1 に制限）
+      - "${DB_BIND_IP:-127.0.0.1}:5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -24,8 +25,10 @@ services:
     container_name: neo4j
     restart: always
     ports:
-      - "7474:7474" # Neo4j Browser (HTTP)
-      - "7687:7687" # Bolt Protocol (FastAPI接続用)
+      # Neo4j Browser (HTTP) / Bolt Protocol (ホストからの開発・管理用)
+      # 本番環境での外部露出を防ぐため 127.0.0.1 に制限
+      - "${DB_BIND_IP:-127.0.0.1}:7474:7474"
+      - "${DB_BIND_IP:-127.0.0.1}:7687:7687"
     environment:
       NEO4J_AUTH: ${NEO4J_AUTH}
       NEO4J_PLUGINS: '["apoc"]' # GraphRAG用のAPOCプラグインを自動導入
