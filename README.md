@@ -112,6 +112,39 @@ docker compose up -d --build
 | **Neo4j Browser** | [http://course-navigator.localhost/browser/](http://course-navigator.localhost/browser/) | グラフDB可視化・Cypher実行ツール |
 | **Traefik Dashboard** | [http://localhost:8080/](http://localhost:8080/) | プロキシルーティング監視 |
 
+### Neo4j Browser 接続ガイド (Connection URI と認証情報)
+
+Neo4j Browser (`/browser/`) を開いた際、初回に表示されるログイン画面（**Connect to Neo4j**）への入力内容です。  
+Web UI の表示（HTTP: 80 / 7474）とは別に、ブラウザからデータベース本体へのクエリ実行には **Bolt プロトコル（ポート `7687`）** による直接通信が行われるため、環境に応じた **Connection URI** と認証情報の入力が必要です。
+
+> [!NOTE]
+> **本番環境を見据えたセキュリティ設計**:  
+> 本システムでは Traefik による「公開ポート最小化（外部公開は 80/443 のみ）」のインフラ方針を遵守するため、データベースポート（Postgres: `5432` / Neo4j: `7474`, `7687`）は外部インターネット（`0.0.0.0`）に開放せず、ホストのループバックアドレス（`127.0.0.1`）に限定してバインドされています（`db/compose.yaml` の `DB_BIND_IP` 設定）。
+
+#### 1. 接続先 URI (Connection URI) の入力
+
+| 実行環境 | Connection URI の入力例 | 接続方法と補足 |
+| :--- | :--- | :--- |
+| **ローカル開発環境** | `bolt://localhost:7687`<br>*(または `neo4j://localhost:7687`)* | 開発端末上のループバックポート（`127.0.0.1:7687`）へ直接接続します。 |
+| **本番サーバー環境<br>(SSH トンネル利用・標準)** | `bolt://localhost:7687` | 本番環境では外部直接アクセスが遮断されているため、作業端末から SSH ポートフォワードを実施して安全に接続します。<br>`ssh -L 7687:localhost:7687 user@server` |
+
+#### 2. 認証情報 (Username / Password) の確認先
+
+Neo4j の認証情報は **`db/.env`** の環境変数を参照して入力します。
+
+* **参照先ファイル**: `db/.env`
+* **対象の環境変数**: `NEO4J_AUTH`
+* **設定フォーマット**: `NEO4J_AUTH=<ユーザー名>/<パスワード>` （スラッシュ区切り）
+  * 例: `NEO4J_AUTH=neo4j/secure_password_please_change` の場合
+    * **Authentication type**: `Username / Password`
+    * **Username**: `neo4j` （`/` より前の値）
+    * **Password**: `secure_password_please_change` （`/` より後の値）
+
+> [!TIP]
+> **バックエンド（FastAPI）の接続先との違い**:  
+> バックエンドコンテナから接続する際は、同一 Docker ネットワーク（`gateway`）内でのコンテナ間通信となるため、`.env` の `NEO4J_URI=bolt://neo4j:7687` を使用します。  
+> 一方、Neo4j Browser は**「利用者の PC ブラウザ」**がクライアントとして Bolt 通信を行うため、手元から到達可能な `localhost`（ローカル環境または SSH トンネル経由）を指定する必要があります。
+
 ---
 
 ## 5. 開発者向けガイド
