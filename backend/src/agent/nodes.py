@@ -15,14 +15,16 @@ from collections.abc import Awaitable, Callable
 from google.adk import Context, Event
 from google.genai import types
 
-from agent import deps, intent_rules, rank
+from agent import deps, grounding, intent_rules, rank
 from agent.schemas import AnswerPayload, Candidate, CandidateSet, SearchIntent
 from course_core import config
 from course_core.graph import traversal
+from course_core.repositories import postgres_repo
 from course_core.schemas.traversal import Envelope
 
 __all__ = [
     "MODE_STATE_KEY",
+    "attach_sources",
     "compose_answer",
     "expand_backward",
     "expand_forward",
@@ -39,6 +41,10 @@ __all__ = [
 MODE_STATE_KEY = "temp:mode"
 
 _UNSET_DRIVER_NOTE = "Neo4j ドライバが未設定です（deps.set_backends が呼ばれていません）。"
+_UNSET_POOL_NOTE = (
+    "PostgreSQL 接続プールが未設定のため出典を検証できませんでした"
+    "（deps.set_backends が呼ばれていません）。"
+)
 _NO_CANDIDATE_ANSWER = "該当する科目が見つかりませんでした。"
 
 # §12 変更2 の定型文。禁止語（難しい / 簡単 / 楽 / おすすめ / 評判 / 単位が取りやすい）を
@@ -164,6 +170,24 @@ def compose_answer(node_input: CandidateSet, ctx: Context) -> Event:
             cited_codes=[candidate.code for candidate in node_input.candidates],
         )
     )
+
+
+async def attach_sources(node_input: AnswerPayload, ctx: Context) -> Event:
+    """mcp_agent の後段で出典を付ける決定論ノード（LLM 0回・test3-2）。
+
+    出典は LLM の生成テキストではなく、cited_codes を PostgreSQL で引き直した行から作る。
+    DB に無いコードは unverified_codes に回す（ハルシネーション検出）。
+    LlmAgent の出力は dict で届くが、ADK が型注釈に従って AnswerPayload に変換する。
+    """
+    pool = deps.db_pool()
+    if pool is None:
+        return Event(output=grounding.ungrounded_answer(node_input, _UNSET_POOL_NOTE))
+
+    async with pool.acquire() as conn:
+        rows = await postgres_repo.get_syllabi_by_codes(
+            conn, grounding.normalize_codes(node_input.cited_codes)
+        )
+    return Event(output=grounding.build_grounded_answer(node_input, rows))
 
 
 def respond_unclear(node_input: SearchIntent, ctx: Context) -> Event:

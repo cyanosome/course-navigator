@@ -15,10 +15,16 @@ from google.adk.tools.mcp_tool.mcp_toolset import (
     StdioServerParameters,
 )
 
+from agent.rdb_tools import get_course_details
 from agent.schemas import AnswerPayload
 from course_core import config
 
-__all__ = ["build_mcp_agent"]
+__all__ = ["build_grounded_mcp_agent", "build_mcp_agent"]
+
+# RDB ツールを持つ grounded 版だけに連結する追補プロンプト。共有プロンプト（compose_answer.md）に
+# 書くと、ツールを持たない adk web の mcp_agent / compose_agent が未宣言ツールを呼んで落ちうる。
+_GROUNDED_ADDENDUM_PATH = Path(__file__).resolve().parent / "prompts" / "grounded_addendum.md"
+_PROMPT_SEPARATOR = "\n\n"
 
 
 def _load_instruction() -> str:
@@ -48,6 +54,7 @@ def build_mcp_agent(
     model: str | None = None,
     instruction: str | None = None,
     enable_mcp: bool | None = None,
+    extra_tools: list[Any] | None = None,
 ) -> LlmAgent:
     """MCP 先行型エージェント (LlmAgent) を構築する。
 
@@ -55,6 +62,7 @@ def build_mcp_agent(
         model: 使用する LLM モデル名。未指定時は config.AGENT_MODEL。
         instruction: システムプロンプト。未指定時はプロンプトファイルから読み込み。
         enable_mcp: Neo4j MCP ツールを付与するか。未指定時は config.AGENT_ENABLE_MCP。
+        extra_tools: MCP ツールに追加で持たせるツール。未指定時は追加しない。
     """
     active_model = model or config.AGENT_MODEL
     active_instruction = instruction or _load_instruction()
@@ -81,6 +89,8 @@ def build_mcp_agent(
         )
         connection_params = StdioConnectionParams(server_params=server_params)
         tools.append(McpToolset(connection_params=connection_params))
+    if extra_tools:
+        tools.extend(extra_tools)
 
     # GEMINI_API_KEY が config にあれば環境変数へ伝播（Google GenAI SDK 連携用）
     if config.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
@@ -92,4 +102,30 @@ def build_mcp_agent(
         instruction=active_instruction,
         tools=tools,
         output_schema=AnswerPayload,
+    )
+
+
+def _load_grounded_addendum() -> str:
+    if not _GROUNDED_ADDENDUM_PATH.is_file():
+        raise FileNotFoundError(f"追補プロンプトが見つかりません: {_GROUNDED_ADDENDUM_PATH}")
+    return _GROUNDED_ADDENDUM_PATH.read_text(encoding="utf-8")
+
+
+def build_grounded_mcp_agent(
+    instruction: str | None = None, **agent_kwargs: Any
+) -> LlmAgent:
+    """test3-2 用の mcp_agent。Neo4j MCP に加えて RDB ツール get_course_details を持つ。
+
+    instruction 未指定時は共有プロンプトに RDB 手順の追補（grounded_addendum.md）を連結する。
+    adk web（agent.py）の root_agent が使う build_mcp_agent() の既定構成は変えない。
+    """
+    active_instruction = (
+        instruction
+        if instruction is not None
+        else _load_instruction() + _PROMPT_SEPARATOR + _load_grounded_addendum()
+    )
+    return build_mcp_agent(
+        instruction=active_instruction,
+        extra_tools=[get_course_details],
+        **agent_kwargs,
     )
