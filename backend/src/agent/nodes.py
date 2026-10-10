@@ -28,6 +28,7 @@ __all__ = [
     "compose_answer",
     "expand_backward",
     "expand_forward",
+    "mcp_route_enabled",
     "parse_intent",
     "rank_candidates",
     "respond_unclear",
@@ -75,16 +76,23 @@ def _question_text(node_input: object) -> str:
     return str(node_input)
 
 
+def mcp_route_enabled() -> bool:
+    """route_initial が "mcp" を選ぶ条件（AGENT_ENABLE_MCP 有効かつ GEMINI_API_KEY 設定済み）。
+
+    runner の事前接続確認も同じ判定を使うので、条件はここ1か所にまとめる。
+    """
+    has_api_key = bool(config.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"))
+    is_mcp_enabled = bool(config.AGENT_ENABLE_MCP)
+    return is_mcp_enabled and has_api_key
+
+
 def route_initial(node_input: object, ctx: Context) -> Event:
     """MCP 先行型ワークフローのルート判定ノード。
 
     AGENT_ENABLE_MCP が有効かつ GEMINI_API_KEY が設定されている場合は "mcp"、
     それ以外（キーなし、フォールバック時）は "static" を返す。
     """
-    has_api_key = bool(config.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"))
-    is_mcp_enabled = bool(config.AGENT_ENABLE_MCP)
-
-    target_route = "mcp" if (is_mcp_enabled and has_api_key) else "static"
+    target_route = "mcp" if mcp_route_enabled() else "static"
     return Event(output=node_input, route=[target_route])
 
 
