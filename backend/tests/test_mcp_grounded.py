@@ -8,6 +8,7 @@ ADR-0010 に従い、実 LLM / 実 DB を呼ばずに CI で回る形にして�
 
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -23,6 +24,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.base_toolset import BaseToolset
+from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset
 from google.genai import types
 
@@ -409,15 +411,32 @@ def test_run_mcp_grounded_mcp_route_with_scripted_llm(monkeypatch, fake_pool):
     assert result.latency_ms >= 0
 
 
-class _RecordingToolset(BaseToolset):
-    """close() の呼び出し回数だけを記録する McpToolset の代役（ツールは持たない）。"""
+def _noop_tool() -> dict[str, str]:
+    """ツールセットの代役が返すダミーツール（偽モデルは呼ばない）。"""
+    return {}
 
-    def __init__(self) -> None:
+
+class _RecordingToolset(BaseToolset):
+    """get_tools() / close() の呼び出し回数を記録する McpToolset の代役。
+
+    既定ではダミーツールを1件返す。error を渡すと get_tools() がそれを送出する
+    （MCP サーバーの起動失敗・接続タイムアウトの代役）。
+    """
+
+    def __init__(
+        self, tools: list[BaseTool] | None = None, error: Exception | None = None
+    ) -> None:
         super().__init__()
+        self._tools = tools if tools is not None else [FunctionTool(func=_noop_tool)]
+        self._error = error
+        self.get_tools_calls = 0
         self.close_calls = 0
 
     async def get_tools(self, readonly_context: ReadonlyContext | None = None) -> list[BaseTool]:
-        return []
+        self.get_tools_calls += 1
+        if self._error is not None:
+            raise self._error
+        return list(self._tools)
 
     async def close(self) -> None:
         self.close_calls += 1
@@ -487,6 +506,77 @@ def test_run_mcp_grounded_falls_back_to_static(monkeypatch, no_backends):
     assert _KNOWN_CODE in result.cited_codes
     assert result.sources == []
     assert result.tool_calls == []
+
+
+def _agent_with_toolset(toolset: BaseToolset) -> LlmAgent:
+    """LLM が呼ばれたら _LlmFailure で落ちるエージェント（静的経路に倒れたかの判定用）。"""
+    return LlmAgent(
+        name="mcp_agent",
+        model=_FailingLlm(),
+        instruction="テスト用",
+        tools=[toolset, rdb_tools.get_course_details],
+        output_schema=AnswerPayload,
+    )
+
+
+def _enable_mcp_route_with_fake_graph(monkeypatch) -> None:
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    fake_graph.install(monkeypatch)
+    deps.set_backends(None, fake_graph.FakeDriver())
+
+
+def test_run_mcp_grounded_falls_back_when_toolset_fails(monkeypatch, no_backends, caplog):
+    """MCP の接続失敗を握りつぶしてツール無しの LLM を動かさず、静的経路 + 理由付きで返す。"""
+    _enable_mcp_route_with_fake_graph(monkeypatch)
+    toolset = _RecordingToolset(
+        error=ConnectionError("Failed to create MCP session: timed out after 5.0s")
+    )
+    caplog.set_level(logging.WARNING, logger=runner.__name__)
+
+    result = asyncio.run(runner.run_mcp_grounded(_QUESTION, agent=_agent_with_toolset(toolset)))
+
+    assert result.route == "static"
+    assert result.model is None
+    assert result.node_sequence[0] == "parse_intent"
+    assert _KNOWN_CODE in result.cited_codes
+    assert result.tool_calls == []
+    assert len(result.notes) == 1
+    assert "ConnectionError" in result.notes[0]
+    assert "timed out after 5.0s" in result.notes[0]
+    assert any(
+        record.levelno == logging.WARNING and record.name == runner.__name__
+        for record in caplog.records
+    )
+    assert toolset.close_calls == 1
+
+
+def test_run_mcp_grounded_falls_back_when_toolset_has_no_tools(monkeypatch, no_backends):
+    _enable_mcp_route_with_fake_graph(monkeypatch)
+    toolset = _RecordingToolset(tools=[])
+
+    result = asyncio.run(runner.run_mcp_grounded(_QUESTION, agent=_agent_with_toolset(toolset)))
+
+    assert result.route == "static"
+    assert len(result.notes) == 1
+    assert "0件" in result.notes[0]
+    assert toolset.close_calls == 1
+
+
+def test_run_mcp_grounded_skips_preflight_when_mcp_disabled(monkeypatch, no_backends):
+    """mcp に振らない条件では事前接続しない（従来どおり route_initial が static に振る）。"""
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", False)
+    fake_graph.install(monkeypatch)
+    deps.set_backends(None, fake_graph.FakeDriver())
+    toolset = _RecordingToolset(error=ConnectionError("呼ばれてはいけない"))
+
+    result = asyncio.run(runner.run_mcp_grounded(_QUESTION, agent=_agent_with_toolset(toolset)))
+
+    assert result.route == "static"
+    assert result.node_sequence[:2] == ["route_initial", "parse_intent"]
+    assert result.notes == []
+    assert toolset.get_tools_calls == 0
+    assert toolset.close_calls == 1
 
 
 # --- エンドポイント -------------------------------------------------------------

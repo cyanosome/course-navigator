@@ -10,6 +10,7 @@ Runner のシグネチャが調査結果と変わっても、修正はこのフ�
 """
 
 import json
+import logging
 import time
 import uuid
 from collections.abc import Iterable
@@ -25,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from agent import trace as trace_log
 from agent.grounding import truncate_text
+from agent.nodes import mcp_route_enabled
 from agent.schemas import AnswerPayload, CandidateSet, GroundedAnswer, SearchIntent, Source
 from agent.trace import TraceRecord
 from agent.workflow import build_mcp_grounded_workflow, workflow
@@ -42,6 +44,13 @@ __all__ = [
 _USER_ID = "course-navigator"
 # tool_calls の result_summary に載せる応答 JSON の上限文字数（画面表示用）。
 _RESULT_SUMMARY_MAX_CHARS = 600
+# MCP 接続失敗の理由（例外メッセージ）を notes に載せるときの上限文字数。
+_PREFLIGHT_DETAIL_MAX_CHARS = 300
+_MCP_UNAVAILABLE_NOTE = (
+    "MCP ツールを取得できなかったため、LLM を使わず静的探索の結果を返しました（{detail}）。"
+)
+
+logger = logging.getLogger(__name__)
 
 
 def build_runner() -> Runner:
@@ -221,6 +230,27 @@ async def _close_toolsets(agent: LlmAgent) -> None:
             await tool.close()
 
 
+async def _preflight_toolsets(agent: LlmAgent) -> str | None:
+    """エージェントの各ツールセットからツール一覧を取れるか、LLM を動かす前に確かめる。
+
+    ADK は LLM フロー内でツールセットの取得失敗を握りつぶし、ツール無しのまま実行を続ける
+    （サイレント失敗）。取得に失敗したか0件だったら理由の文字列を、全て取れたら None を返す。
+    取得できたツール一覧と MCP セッションは ADK 側にキャッシュされ、本実行で再利用される。
+    """
+    for tool in agent.tools:
+        if not isinstance(tool, BaseToolset):
+            continue
+        toolset_name = type(tool).__name__
+        try:
+            tools = await tool.get_tools()
+        except Exception as exc:  # 理由を notes とログに残して静的経路へ倒す（握りつぶさない）
+            detail = f"{toolset_name}: {type(exc).__name__}: {exc}"
+            return truncate_text(detail, _PREFLIGHT_DETAIL_MAX_CHARS)
+        if not tools:
+            return f"{toolset_name}: ツールが0件でした"
+    return None
+
+
 async def run_mcp_grounded(
     question: str,
     *,
@@ -230,6 +260,8 @@ async def run_mcp_grounded(
 
     MCP が使えない（AGENT_ENABLE_MCP 無効 / GEMINI_API_KEY 未設定）ときは route_initial が
     static に振るので、静的 DAG の回答を route="static" で返す。
+    mcp に振る条件のときは先にツールセットを取得してみて、失敗・0件なら LLM をツール欠けの
+    まま動かさず、静的 DAG の回答を route="static" と理由入りの notes で返す。
     agent はテストで偽モデルの LlmAgent を差し込む口（未指定なら build_grounded_mcp_agent）。
     trace JSONL は §8.2 の静的探索用の形式なので、この経路では書かない。
     """
@@ -238,15 +270,24 @@ async def run_mcp_grounded(
     from agent.mcp_agent import build_grounded_mcp_agent
 
     active_agent = agent if agent is not None else build_grounded_mcp_agent()
-    active = Runner(
-        node=build_mcp_grounded_workflow(agent_node=active_agent),
-        session_service=InMemorySessionService(),
-        auto_create_session=True,
-    )
+    # MCP の事前接続（従来は LLM フロー内で行われていた）も latency に含める。
     started = time.perf_counter()
 
     events: list[Event] = []
+    notes: list[str] = []
     try:
+        failure = await _preflight_toolsets(active_agent) if mcp_route_enabled() else None
+        if failure is None:
+            node = build_mcp_grounded_workflow(agent_node=active_agent)
+        else:
+            logger.warning("MCP ツールを取得できないため静的探索で回答します: %s", failure)
+            notes.append(_MCP_UNAVAILABLE_NOTE.format(detail=failure))
+            node = workflow
+        active = Runner(
+            node=node,
+            session_service=InMemorySessionService(),
+            auto_create_session=True,
+        )
         async for event in active.run_async(
             user_id=_USER_ID,
             session_id=uuid.uuid4().hex,
@@ -292,6 +333,7 @@ async def run_mcp_grounded(
         route="static",
         answer=payload.answer,
         cited_codes=payload.cited_codes,
+        notes=notes,
         node_sequence=node_sequence,
         latency_ms=latency_ms,
     )
