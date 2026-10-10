@@ -84,7 +84,7 @@ export default function McpAgentTest() {
     <div style={testPageStyles.container}>
       <h1 style={testPageStyles.title}>test3-2: mcp_agent (LLM + Neo4j MCP + RDB)</h1>
       <p style={testPageStyles.subtitle}>
-        本画面（test3-2: mcp_agent）は、LLM Agent が Neo4j を MCP ツールで探索し、候補科目のシラバス詳細を PostgreSQL ツールで確認して回答します。回答の後段で決定論ノード（attach_sources）が引用コードを DB で引き直し、出典カードを DB の行から組み立てます。DB に無いコードは「未検証」として警告します。MCP が無効、または GEMINI_API_KEY が未設定の場合は test3-1 と同じ静的 DAG で回答します（route: static）。
+        本画面（test3-2: mcp_agent）は、LLM Agent が Neo4j を MCP ツールで探索し、候補科目のシラバス詳細を PostgreSQL ツールで確認して回答します。回答の後段で決定論ノード（attach_sources）が引用コードを DB で引き直し、出典カードを DB の行から組み立てます。DB に無いコードは「未検証」として警告します。MCP が無効、GEMINI_API_KEY が未設定、または MCP ツールを取得できなかった場合は test3-1 と同じ静的 DAG で回答します（route: static）。
       </p>
 
       {/* エラーアラート */}
@@ -165,7 +165,9 @@ export default function McpAgentTest() {
 
             {result.route === 'static' && (
               <p style={{ fontSize: '0.85rem', color: 'var(--text)', marginTop: 0 }}>
-                MCP が無効、または GEMINI_API_KEY が未設定のため、静的 DAG（test3-1 と同じ経路）で回答しました。
+                {result.notes.length > 0
+                  ? 'MCP ツールを取得できなかったため、静的 DAG（test3-1 と同じ経路）で回答しました（理由は下の注記を参照）。'
+                  : 'MCP が無効、または GEMINI_API_KEY が未設定のため、静的 DAG（test3-1 と同じ経路）で回答しました。'}
               </p>
             )}
 
