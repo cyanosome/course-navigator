@@ -25,6 +25,9 @@ __all__ = ["build_grounded_mcp_agent", "build_mcp_agent"]
 # 書くと、ツールを持たない adk web の mcp_agent / compose_agent が未宣言ツールを呼んで落ちうる。
 _GROUNDED_ADDENDUM_PATH = Path(__file__).resolve().parent / "prompts" / "grounded_addendum.md"
 _PROMPT_SEPARATOR = "\n\n"
+# MCP セッション確立の待ち時間（秒）。`uv run neo4j-mcp-server` は起動に約6秒かかり、
+# ADK 既定の 5.0 秒では接続前にタイムアウトしてツール無しで実行されてしまう。
+_MCP_SESSION_TIMEOUT_SECONDS = 30.0
 
 
 def _load_instruction() -> str:
@@ -87,7 +90,9 @@ def build_mcp_agent(
             args=["run", "neo4j-mcp-server"],
             env=env,
         )
-        connection_params = StdioConnectionParams(server_params=server_params)
+        connection_params = StdioConnectionParams(
+            server_params=server_params, timeout=_MCP_SESSION_TIMEOUT_SECONDS
+        )
         tools.append(McpToolset(connection_params=connection_params))
     if extra_tools:
         tools.extend(extra_tools)
