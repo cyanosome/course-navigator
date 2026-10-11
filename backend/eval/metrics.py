@@ -178,11 +178,16 @@ class ConditionSummary(BaseModel):
     llm_requests_mean: float | None
     llm_requests_median: float | None
     search_llm_requests_mean: float | None
+    search_llm_requests_median: float | None
     tool_calls_mean: float | None
     tool_calls_median: float | None
+    search_tool_calls_mean: float | None
+    search_tool_calls_median: float | None
     latency_mean_s: float | None
     latency_median_s: float | None
+    search_latency_mean_s: float | None
     search_latency_median_s: float | None
+    mcp_preflight_median_s: float | None  # M1 のみ（副次指標）
     input_tokens_total: int
     output_tokens_total: int
     thoughts_tokens_total: int
@@ -231,11 +236,18 @@ def summarize_condition(
         llm_requests_mean=_mean([record.llm_requests for record in ok]),
         llm_requests_median=_median([record.llm_requests for record in ok]),
         search_llm_requests_mean=_mean([record.llm_requests for record in ok_search]),
+        search_llm_requests_median=_median([record.llm_requests for record in ok_search]),
         tool_calls_mean=_mean([record.tool_call_count for record in ok]),
         tool_calls_median=_median([record.tool_call_count for record in ok]),
+        search_tool_calls_mean=_mean([record.tool_call_count for record in ok_search]),
+        search_tool_calls_median=_median([record.tool_call_count for record in ok_search]),
         latency_mean_s=_seconds(_mean([record.latency_ms for record in ok])),
         latency_median_s=_seconds(_median([record.latency_ms for record in ok])),
+        search_latency_mean_s=_seconds(_mean([record.latency_ms for record in ok_search])),
         search_latency_median_s=_seconds(_median([record.latency_ms for record in ok_search])),
+        mcp_preflight_median_s=_seconds(
+            _median([record.mcp_preflight_ms for record in ok if record.mcp_preflight_ms is not None])
+        ),
         input_tokens_total=sum(record.input_tokens for record in own),
         output_tokens_total=sum(record.output_tokens for record in own),
         thoughts_tokens_total=sum(record.thoughts_tokens for record in own),

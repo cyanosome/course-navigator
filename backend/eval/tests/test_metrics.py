@@ -156,6 +156,9 @@ def test_summarize_mixes_search_and_unclear():
     assert summary.unclear_pass == 1
     assert summary.search_llm_requests_mean == 1.0
     assert summary.search_latency_median_s == 3.0
+    assert summary.search_latency_mean_s == 3.0
+    assert summary.search_tool_calls_mean == 0.0
+    assert summary.mcp_preflight_median_s is None  # M1 以外は事前接続しない
     assert summary.latency_median_s == pytest.approx(1.55)
 
 
