@@ -1,0 +1,57 @@
+{
+  "sessions": [
+    {
+      "run_id": "20261011T151056Z",
+      "started_at": "2026-10-11T15:10:56+00:00",
+      "finished_at": "2026-10-11T15:26:50+00:00",
+      "git_sha": "74817be",
+      "model": "gemini-3.8-flash",
+      "agent_enable_mcp": true,
+      "generation_config": "未指定（API 既定値。本番の組み立て関数が渡していないため）",
+      "conditions": [
+        "static",
+        "static_llm",
+        "mcp_free",
+        "mcp_grounded"
+      ],
+      "questions": [
+        "q01",
+        "q02",
+        "q03",
+        "q04",
+        "q05",
+        "q06",
+        "q07",
+        "q08",
+        "q09",
+        "q10",
+        "q11",
+        "q12",
+        "q13",
+        "q14"
+      ],
+      "db_counts": {
+        "postgres_syllabus": 20,
+        "neo4j_course": 20
+      },
+      "prompt_sha256_16": {
+        "compose_answer.md": "c899ffa897378fbd",
+        "grounded_addendum.md": "c480b9ee68df78ac",
+        "STATIC_LLM_INSTRUCTION": "4c673fab62c998e9"
+      },
+      "budget": 384,
+      "per_run_llm_cap": 25,
+      "run_timeout_seconds": 300,
+      "retry": "HTTP (429, 503) で 30秒×試行回数待って最大3回",
+      "python": "3.14.2",
+      "libraries": {
+        "google-adk": "2.8.0",
+        "google-genai": "2.21.0",
+        "mcp": "1.30.0",
+        "neo4j-mcp-server": "1.6.0"
+      },
+      "llm_requests_used": 197,
+      "aborted": false
+    }
+  ]
+}
