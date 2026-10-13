@@ -3,7 +3,7 @@
 - 実施日: 2026-10-13（実行は 18:19〜18:30 JST）
 - 実験者: Aki_Ha（GitHub 4kito4）。**Aki_Ha 個人の予備実験であり、チーム全体の本実験ではない。**
   本実験は駒澤のデータで行う予定で、この実験はそのための実験基盤をシードで組み立てて通したもの。
-- ブランチ: `dev/akiha_eval-harness`（GitHub に push 済み。`dev/akiha_node-eval` の上に積んでいる）
+- ブランチ: `dev/akiha_eval-harness`（GitHub に push 済み。PR [#16](https://github.com/cyanosome/course-navigator/pull/16)、`dev/akiha_node-eval`（PR #15）の上に積んでいる）
 - 関連: Yuto の計画書 [`docs/experiments/vector-vs-graph-evaluation.md`](vector-vs-graph-evaluation.md)（4手法の定義）、
   事前登録 [`backend/eval/prereg_retrieval_seed.md`](../../backend/eval/prereg_retrieval_seed.md)、
   機械生成のサマリー [`backend/eval/results/2026-10-13_retrieval_seed_summary.md`](../../backend/eval/results/2026-10-13_retrieval_seed_summary.md)
