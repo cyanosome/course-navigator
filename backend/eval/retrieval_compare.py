@@ -174,6 +174,13 @@ class Session:
         used_embedding = sum(int(item.get("embedding_requests", 0)) for item in sessions)
         return LLM_BUDGET_TOTAL - used_llm, EMBEDDING_BUDGET_TOTAL - used_embedding
 
+    def finish(self) -> None:
+        """finally から呼ぶ。成功の印（aborted=False）が付いていなければ途中で止まったとみなす。"""
+        self.data["finished_at"] = _now()
+        if self.data["aborted"] is None:
+            self.data["aborted"] = True
+        self.save()
+
     def save(self) -> None:
         sessions = [item for item in _load_sessions(self.path) if item.get("run_id") != self.data["run_id"]]
         sessions.append(self.data)
@@ -199,9 +206,10 @@ def _sha256(text: str) -> str:
 # --- 接続 -------------------------------------------------------------------------
 
 
-async def _exact_search(conn: asyncpg.Connection) -> None:
-    """§3.4: HNSW を使わず厳密検索にする（pgvector README の方法）。接続ごとに1回だけ。"""
-    await conn.execute("SET enable_indexscan = off")
+# §3.4: HNSW を使わず厳密検索にする（pgvector README の enable_indexscan = off）。
+# プールは接続を返すたびに RESET ALL するので、SET ではなく接続の起動パラメータで渡す
+# （起動パラメータはセッションの既定値になり、RESET ALL のあとも残る）。
+EXACT_SEARCH_SETTINGS = {"enable_indexscan": "off"}
 
 
 async def connect_eval_db() -> asyncpg.Pool:
@@ -218,7 +226,7 @@ async def connect_eval_db() -> asyncpg.Pool:
         database=settings["EVAL_DB_NAME"],
         user=settings["EVAL_DB_USER"],
         password=os.environ["EVAL_DB_PASSWORD"],
-        init=_exact_search,
+        server_settings=EXACT_SEARCH_SETTINGS,
         min_size=1,
         max_size=2,
     )
@@ -306,21 +314,26 @@ async def corpus_snapshot(pool: asyncpg.Pool, driver: AsyncDriver, corpus: Corpu
 
 
 async def check_exact_search_plan(pool: asyncpg.Pool) -> dict[str, Any]:
-    """§3.4: ベクトル検索の SQL が HNSW を使わない計画になることを EXPLAIN で確かめる。"""
+    """§3.4: ベクトル検索の SQL が HNSW を使わない計画になることを EXPLAIN で確かめる。
+
+    プールが返却時に RESET ALL するので、取得し直しても設定が残ることまで見るために2回確かめる。
+    """
     zero = vector_literal([0.0] * (EMBEDDING_DIMENSIONS - 1) + [1.0])
     sql = (
         f"EXPLAIN (FORMAT JSON) SELECT s.code FROM {EMBEDDING_TABLE} e JOIN {SYLLABUS_TABLE} s "
         "ON s.id = e.course_id ORDER BY e.embedding <=> $1::vector ASC, s.code ASC LIMIT 11"
     )
-    async with pool.acquire() as conn:
-        plan = await conn.fetchval(sql, zero)
-        indexscan = await conn.fetchval("SHOW enable_indexscan")
-    plan_text = json.dumps(plan) if not isinstance(plan, str) else plan
-    uses_hnsw = "idx_course_embeddings_hnsw" in plan_text
-    if uses_hnsw:
-        raise SystemExit("ベクトル検索が HNSW インデックスを使う計画になっています（厳密検索になっていない）")
-    node_types = sorted(set(_plan_node_types(json.loads(plan_text))))
-    return {"enable_indexscan": indexscan, "uses_hnsw_index": uses_hnsw, "plan_node_types": node_types}
+    node_types: set[str] = set()
+    settings: list[str] = []
+    for _ in range(2):
+        async with pool.acquire() as conn:
+            plan = await conn.fetchval(sql, zero)
+            settings.append(await conn.fetchval("SHOW enable_indexscan"))
+        plan_text = json.dumps(plan) if not isinstance(plan, str) else plan
+        if "idx_course_embeddings_hnsw" in plan_text:
+            raise SystemExit("ベクトル検索が HNSW インデックスを使う計画になっています（厳密検索になっていない）")
+        node_types.update(_plan_node_types(json.loads(plan_text)))
+    return {"enable_indexscan": settings, "uses_hnsw_index": False, "plan_node_types": sorted(node_types)}
 
 
 def _plan_node_types(plan: Any) -> list[str]:
@@ -373,8 +386,7 @@ async def setup_db(args: argparse.Namespace) -> None:
         )
         print(json.dumps(index, ensure_ascii=False, default=str))
     finally:
-        session.data["finished_at"] = _now()
-        session.save()
+        session.finish()
         await pool.close()
         await driver.close()
 
@@ -444,8 +456,7 @@ async def embed_docs(args: argparse.Namespace) -> None:
         )
         print(f"embedded {len(texts)} documents in 1 request; raw norm {min(norms):.6f}..{max(norms):.6f}")
     finally:
-        session.data["finished_at"] = _now()
-        session.save()
+        session.finish()
         await pool.close()
 
 
@@ -497,8 +508,7 @@ async def embed_queries(args: argparse.Namespace) -> None:
             }
         )
     finally:
-        session.data["finished_at"] = _now()
-        session.save()
+        session.finish()
         await pool.close()
 
 
@@ -650,8 +660,7 @@ async def run_retrieval(args: argparse.Namespace) -> None:
             }
         )
     finally:
-        session.data["finished_at"] = _now()
-        session.save()
+        session.finish()
         await pool.close()
         await driver.close()
 

@@ -33,7 +33,12 @@ _NONE = "—"
 _CORPUS_SIZE = 20
 
 # 事前登録からの逸脱（実行後に分かったものをここに足し、サマリーに出す）
-DEVIATIONS: list[str] = []
+DEVIATIONS: list[str] = [
+    "§3.4 の厳密検索の設定は、接続ごとの SET ではなく接続の起動パラメータ（server_settings）で "
+    "enable_indexscan = off を渡した。asyncpg のプールは接続を返すたびに RESET ALL を流すので、"
+    "SET だと2回目以降の取得で設定が消え、HNSW を使う計画になることを実行前の EXPLAIN の確認で見つけたため。"
+    "効果（セッション単位でインデックス走査を使わない）は登録どおりで、検索結果を記録する前に直した。",
+]
 
 
 def _fmt(value: float | None, digits: int = 2) -> str:
