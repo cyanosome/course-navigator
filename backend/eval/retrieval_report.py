@@ -292,9 +292,21 @@ def _unclear(records: Sequence[RetrievalRecord], cases: Mapping[str, GoldenCase]
     return lines
 
 
-def _generation(records: Sequence[GenerationRecord], search_ids: Sequence[str]) -> list[str]:
+def _outside_in_evidence(record: GenerationRecord, retrieval: Mapping[tuple[str, str], RetrievalRecord]) -> int:
+    """候補外の引用のうち、LLM に渡した上位5件の根拠文（経路の表記など）に現れたコードの数。"""
+    source = retrieval.get((record.condition, record.question_id))
+    if source is None or record.score is None:
+        return 0
+    evidence = " ".join(text for entry in source.ranked[: len(record.candidate_codes)] for text in entry.evidence)
+    return sum(1 for code in record.score.outside_candidates if code in evidence)
+
+
+def _generation(
+    records: Sequence[GenerationRecord], retrieval: Sequence[RetrievalRecord], search_ids: Sequence[str]
+) -> list[str]:
     if not records:
         return ["## 生成", "", "生成の記録はありません。", ""]
+    by_key = {(r.condition, r.question_id): r for r in retrieval}
     rows = []
     for condition in CONDITIONS:
         own = [r for r in records if r.condition == condition and r.question_id in search_ids]
@@ -305,6 +317,7 @@ def _generation(records: Sequence[GenerationRecord], search_ids: Sequence[str]) 
                 f"{len(ok)}/{len(own)}",
                 sum(len(r.unverified_codes) for r in ok),
                 sum(len(r.score.outside_candidates) for r in ok if r.score),
+                sum(_outside_in_evidence(r, by_key) for r in ok),
                 _fmt(_mean([r.score.recall for r in ok if r.score])),
                 _fmt(_mean([r.score.precision for r in ok if r.score])),
                 sum(len(r.score.forbidden_hits) for r in ok if r.score),
@@ -316,15 +329,16 @@ def _generation(records: Sequence[GenerationRecord], search_ids: Sequence[str]) 
         )
     lines = ["## 生成（検索系10問×4条件、上位5件から LLM 1回）", ""]
     lines += _table(
-        ["条件", "成功", "未検証コード 合計", "候補外の引用 合計", "recall 平均", "precision 平均", "forbidden 合計",
+        ["条件", "成功", "未検証コード 合計", "候補外の引用 合計", "うち根拠文に現れるコード", "recall 平均", "precision 平均", "forbidden 合計",
          "LLM 回数 平均", "入力トークン 平均", "出力トークン 平均", "所要時間 中央値 s"],
         rows,
     )
     lines += [
         "",
         "列の意味: 未検証コードは、回答が引用したコードのうち PostgreSQL に行が無いもの（存在しない科目）。"
-        "候補外の引用は、起点以外で LLM に渡した5件に無いコードを引用した数。recall / precision は引用（起点を除く）を"
-        "golden の期待科目と突き合わせたもの。",
+        "候補外の引用は、起点以外で LLM に渡した5件に無いコードを引用した数。そのうち、渡した5件の根拠文"
+        "（前提関係の経路の表記や入口科目の名前）に現れるコードの数を隣の列に出す（指示文の規則1は根拠文の内容を使うことを認めている）。"
+        "recall / precision は引用（起点を除く）を golden の期待科目と突き合わせたもの。",
         "",
     ]
     failures = [r for r in records if not r.success]
@@ -357,7 +371,7 @@ def render_summary(
     lines += _comparisons(retrieval, cases, search_ids)
     lines += _per_question(retrieval, cases, search_ids)
     lines += _unclear(retrieval, cases, spec_by_id)
-    lines += _generation(generation, search_ids)
+    lines += _generation(generation, retrieval, search_ids)
     lines += ["## 事前登録に照らした判定", ""]
     verdicts = evaluate_hypotheses(retrieval, generation, cases, spec_matches)
     lines += _table(["仮説", "判定", "根拠"], [[v.hypothesis, v.label, v.detail] for v in verdicts])
