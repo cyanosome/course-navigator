@@ -2,16 +2,20 @@
 
 backend コンテナの /backend_app で実行する。実験用 DB の接続先は EVAL_DB_* で渡す（dev の DB_* は使わない）:
 
-    uv run --no-sync python -m eval.retrieval_compare setup-db --manifest <m.json> --git-sha <sha>
-    uv run --no-sync python -m eval.retrieval_compare embed-docs --manifest <m.json> --git-sha <sha>
-    uv run --no-sync python -m eval.retrieval_compare embed-queries --manifest <m.json> --git-sha <sha>
-    uv run --no-sync python -m eval.retrieval_compare retrieve --out <r.jsonl> --git-sha <sha>
-    uv run --no-sync python -m eval.retrieval_compare generate --input <r.jsonl> [--out <g.jsonl>] --git-sha <sha>
+    uv run --no-sync python -m eval.retrieval_compare setup-db --manifest <m.json> <GIT>
+    uv run --no-sync python -m eval.retrieval_compare embed-docs --manifest <m.json> <GIT>
+    uv run --no-sync python -m eval.retrieval_compare embed-queries --manifest <m.json> <GIT>
+    uv run --no-sync python -m eval.retrieval_compare retrieve --out <r.jsonl> <GIT>
+    uv run --no-sync python -m eval.retrieval_compare generate --input <r.jsonl> [--out <g.jsonl>] <GIT>
     uv run --no-sync python -m eval.retrieval_compare summarize --input <r.jsonl>
 
+<GIT> は `--git-sha "$(git rev-parse HEAD)" --git-status "$(git status --porcelain)"`（ホストで評価する）。
+コンテナに .git が無いので外から渡し、未コミットの変更があれば実行しない（前のコマンドが eval/results/ に書いた
+未追跡の結果だけは許す）。各セッションには、コンテナから見えた backend のソースの指紋（eval.provenance）も記録する。
+
 manifest は既定で <r.jsonl> と同じ場所の <stem>_manifest.json。全コマンドの LLM・埋め込みのリクエスト数を
-sessions に積み、§7 の予算（LLM 150 回・埋め込み 100 回）の残りをそこから計算する。
-本番コードの挙動は変えない（traversal・rank・grounding・compose_agent は呼ぶだけ）。
+sessions に積み、予算（既定は §7 の LLM 150 回・埋め込み 100 回。--llm-budget / --embedding-budget で指定）の
+残りをそこから計算する。本番コードの挙動は変えない（traversal・rank・grounding・compose_agent は呼ぶだけ）。
 """
 
 import argparse
@@ -41,7 +45,7 @@ from agent.grounding import build_grounded_answer, normalize_codes
 from agent.schemas import AnswerPayload
 from course_core import config
 from course_core.repositories import postgres_repo
-from eval import node_compare, retrieval_report
+from eval import node_compare, provenance, retrieval_report
 from eval.corpus import (
     EMBEDDING_TABLE,
     SEED_PATH,
@@ -151,16 +155,36 @@ CREATE TABLE IF NOT EXISTS eval_document_embedding_meta (
 
 
 class Session:
-    """manifest の1セッション（1コマンドの実行）。終わったら必ず finished_at を書く。"""
+    """manifest の1セッション（1コマンドの実行）。終わったら必ず finished_at を書く。
 
-    def __init__(self, path: Path, command: str, git_sha: str) -> None:
+    作業ツリーが汚れていれば作らずに止める（eval/results/ の未追跡の結果だけは許し、untracked_outputs に残す）。
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        command: str,
+        git_sha: str,
+        *,
+        git_status: str,
+        llm_budget: int = LLM_BUDGET_TOTAL,
+        embedding_budget: int = EMBEDDING_BUDGET_TOTAL,
+    ) -> None:
+        untracked_outputs = provenance.require_clean(git_status)
         self.path = path
+        self.llm_budget = llm_budget
+        self.embedding_budget = embedding_budget
         self.data: dict[str, Any] = {
             "command": command,
             "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
             "started_at": _now(),
             "finished_at": None,
             "git_sha": git_sha,
+            "git_status_clean": True,
+            "untracked_outputs": untracked_outputs,
+            "source_tree": provenance.source_fingerprint(BACKEND_ROOT),
+            "eval_db": eval_db_identity(),
+            "budget": {"llm": llm_budget, "embedding": embedding_budget},
             "merge": MERGE_INFO,
             "llm_requests": 0,
             "embedding_requests": 0,
@@ -168,11 +192,22 @@ class Session:
             "aborted": None,
         }
 
+    @classmethod
+    def from_args(cls, path: Path, command: str, args: argparse.Namespace) -> Session:
+        return cls(
+            path,
+            command,
+            args.git_sha,
+            git_status=args.git_status,
+            llm_budget=args.llm_budget,
+            embedding_budget=args.embedding_budget,
+        )
+
     def remaining(self) -> tuple[int, int]:
         sessions = _load_sessions(self.path)
         used_llm = sum(int(item.get("llm_requests", 0)) for item in sessions)
         used_embedding = sum(int(item.get("embedding_requests", 0)) for item in sessions)
-        return LLM_BUDGET_TOTAL - used_llm, EMBEDDING_BUDGET_TOTAL - used_embedding
+        return self.llm_budget - used_llm, self.embedding_budget - used_embedding
 
     def finish(self) -> None:
         """finally から呼ぶ。成功の印（aborted=False）が付いていなければ途中で止まったとみなす。"""
@@ -212,7 +247,16 @@ def _sha256(text: str) -> str:
 EXACT_SEARCH_SETTINGS = {"enable_indexscan": "off"}
 
 
-async def connect_eval_db() -> asyncpg.Pool:
+def eval_db_identity() -> dict[str, str | None]:
+    """manifest に残す実験用 DB の接続先（パスワードは含めない）。"""
+    return {
+        "host": os.environ.get("EVAL_DB_HOST"),
+        "name": os.environ.get("EVAL_DB_NAME", EVAL_DB_DEFAULTS["EVAL_DB_NAME"]),
+    }
+
+
+async def connect_eval_db(database: str | None = None) -> asyncpg.Pool:
+    """database を渡すと EVAL_DB_NAME の代わりにそのデータベースへつなぐ（再現実行の突き合わせ用）。"""
     missing = [name for name in EVAL_DB_REQUIRED if not os.environ.get(name)]
     if missing:
         raise SystemExit(f"実験用 DB の環境変数が未設定です: {missing}")
@@ -223,7 +267,7 @@ async def connect_eval_db() -> asyncpg.Pool:
     return await asyncpg.create_pool(
         host=host,
         port=int(settings["EVAL_DB_PORT"]),
-        database=settings["EVAL_DB_NAME"],
+        database=database or settings["EVAL_DB_NAME"],
         user=settings["EVAL_DB_USER"],
         password=os.environ["EVAL_DB_PASSWORD"],
         server_settings=EXACT_SEARCH_SETTINGS,
@@ -353,7 +397,7 @@ def library_versions() -> dict[str, str]:
 
 
 async def setup_db(args: argparse.Namespace) -> None:
-    session = Session(args.manifest, "setup-db", args.git_sha)
+    session = Session.from_args(args.manifest, "setup-db", args)
     pool = await connect_eval_db()
     driver = connect_neo4j()
     try:
@@ -401,7 +445,7 @@ def _embedder(budget: int) -> Embedder:
 
 
 async def embed_docs(args: argparse.Namespace) -> None:
-    session = Session(args.manifest, "embed-docs", args.git_sha)
+    session = Session.from_args(args.manifest, "embed-docs", args)
     _, embedding_left = session.remaining()
     embedder = _embedder(embedding_left)
     pool = await connect_eval_db()
@@ -461,7 +505,7 @@ async def embed_docs(args: argparse.Namespace) -> None:
 
 
 async def embed_queries(args: argparse.Namespace) -> None:
-    session = Session(args.manifest, "embed-queries", args.git_sha)
+    session = Session.from_args(args.manifest, "embed-queries", args)
     _, embedding_left = session.remaining()
     embedder = _embedder(embedding_left)
     specs = load_specs(args.specs)
@@ -607,7 +651,7 @@ async def run_retrieval(args: argparse.Namespace) -> None:
     if out_path.exists():
         raise SystemExit(f"{out_path} は既にあります")
     manifest = args.manifest or manifest_path(out_path)
-    session = Session(manifest, "retrieve", args.git_sha)
+    session = Session.from_args(manifest, "retrieve", args)
     cases = load_golden()
     specs = load_specs(args.specs)
     spec_matches = {spec.question_id: spec_matches_golden(spec, cases[spec.question_id]) for spec in specs}
@@ -806,7 +850,7 @@ async def run_generation(args: argparse.Namespace) -> None:
     input_path: Path = args.input
     out_path: Path = args.out or input_path
     manifest = args.manifest or manifest_path(input_path)
-    session = Session(manifest, "generate", args.git_sha)
+    session = Session.from_args(manifest, "generate", args)
     session.data["output"] = out_path.name
     cases = load_golden()
     specs = {spec.question_id: spec for spec in load_specs(args.specs)}
@@ -912,24 +956,38 @@ def summarize(args: argparse.Namespace) -> None:
     print(f"wrote {out}")
 
 
-def main(argv: Sequence[str] | None = None) -> None:
+def _add_run_arguments(sub: argparse.ArgumentParser) -> None:
+    """記録を残すコマンドに共通の引数（出所と予算）。"""
+    sub.add_argument("--git-sha", required=True, help="ホストの git rev-parse HEAD（コンテナ内に .git が無いので外から渡す）")
+    sub.add_argument(
+        "--git-status",
+        required=True,
+        help="ホストの git status --porcelain の出力。eval/results/ の未追跡ファイル以外があれば実行しない",
+    )
+    sub.add_argument("--llm-budget", type=int, default=LLM_BUDGET_TOTAL, help="この manifest 全体の LLM リクエストの上限")
+    sub.add_argument(
+        "--embedding-budget", type=int, default=EMBEDDING_BUDGET_TOTAL, help="この manifest 全体の埋め込みリクエストの上限"
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m eval.retrieval_compare", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("setup-db", "embed-docs", "embed-queries"):
         sub = commands.add_parser(name)
         sub.add_argument("--manifest", type=Path, required=True)
-        sub.add_argument("--git-sha", required=True, help="コンテナ内に .git が無いので外から渡す")
+        _add_run_arguments(sub)
         sub.add_argument("--specs", type=Path, default=DEFAULT_SPECS)
     retrieve = commands.add_parser("retrieve")
     retrieve.add_argument("--out", type=Path, required=True)
     retrieve.add_argument("--manifest", type=Path)
-    retrieve.add_argument("--git-sha", required=True)
+    _add_run_arguments(retrieve)
     retrieve.add_argument("--specs", type=Path, default=DEFAULT_SPECS)
     generate = commands.add_parser("generate")
     generate.add_argument("--input", type=Path, required=True)
     generate.add_argument("--out", type=Path)
     generate.add_argument("--manifest", type=Path)
-    generate.add_argument("--git-sha", required=True)
+    _add_run_arguments(generate)
     generate.add_argument("--specs", type=Path, default=DEFAULT_SPECS)
     generate.add_argument("--questions", default="all")
     generate.add_argument("--conditions", default="all")
@@ -938,7 +996,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     summary.add_argument("--manifest", type=Path)
     summary.add_argument("--specs", type=Path, default=DEFAULT_SPECS)
     summary.add_argument("--out", type=Path)
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
     handlers = {
         "setup-db": setup_db,
         "embed-docs": embed_docs,

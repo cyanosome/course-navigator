@@ -31,6 +31,8 @@ LABELS = {
 }
 _NONE = "—"
 _CORPUS_SIZE = 20
+# 予算を記録していない manifest（元の実行）の分母。prereg_retrieval_seed.md §7 の値
+_DEFAULT_BUDGET = {"llm": 150, "embedding": 100}
 
 # 事前登録からの逸脱（実行後に分かったものをここに足し、サマリーに出す）
 DEVIATIONS: list[str] = [
@@ -96,10 +98,14 @@ def _overview(sessions: Sequence[Mapping[str, Any]], generation: Sequence[Genera
     models = sorted({record.model for record in generation if record.model})
     llm_used = sum(int(item.get("llm_requests", 0)) for item in sessions)
     embedding_used = sum(int(item.get("embedding_requests", 0)) for item in sessions)
+    budget = next((item["budget"] for item in reversed(sessions) if "budget" in item), _DEFAULT_BUDGET)
+    clean = retrieve.get("git_status_clean", "未記録")
+    source = retrieve.get("source_tree", {})
     lines = [
         "## 実行条件",
         "",
-        f"- 検索の run_id: {retrieve.get('run_id', _NONE)}（git {retrieve.get('git_sha', _NONE)}）。"
+        f"- 検索の run_id: {retrieve.get('run_id', _NONE)}（git {retrieve.get('git_sha', _NONE)}、作業ツリー clean={clean}、"
+        f"ソースの指紋 {source.get('files', _NONE)} ファイル {str(source.get('sha256', ''))[:16] or _NONE}…）。"
         f"マージ: {retrieve.get('merge', {}).get('merged_branch', _NONE)} @ {retrieve.get('merge', {}).get('merged_head', _NONE)}",
         f"- コーパス: PostgreSQL {corpus.get('postgres_rows', _NONE)} 行（sha256 {str(corpus.get('postgres_rows_sha256', ''))[:16]}…）、"
         f"seed/courses.json（{str(corpus.get('seed_courses_json_sha256', ''))[:16]}…）、"
@@ -115,7 +121,8 @@ def _overview(sessions: Sequence[Mapping[str, Any]], generation: Sequence[Genera
         f"繰り返し {params.get('repeats', _NONE)} 回、hybrid の入口 m={params.get('hybrid_entry_count', _NONE)}、"
         f"RRF k={params.get('rrf_k', _NONE)}、全文検索 {params.get('fulltext_index', _NONE)}（{params.get('fulltext_analyzer', _NONE)}）",
         f"- 生成: モデル {models or _NONE}、応答の model_version {versions or _NONE}、生成設定は API 既定値",
-        f"- リクエスト数（manifest の全セッション、煙テストを含む）: LLM {llm_used} / 150、埋め込み {embedding_used} / 100",
+        f"- リクエスト数（manifest の全セッション、煙テストを含む）: LLM {llm_used} / {budget['llm']}、"
+        f"埋め込み {embedding_used} / {budget['embedding']}",
         "",
     ]
     return lines
