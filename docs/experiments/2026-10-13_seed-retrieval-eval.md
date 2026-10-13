@@ -3,7 +3,7 @@
 - 実施日: 2026-10-13（実行は 18:19〜18:30 JST）
 - 実験者: Aki_Ha（GitHub 4kito4）。**Aki_Ha 個人の予備実験であり、チーム全体の本実験ではない。**
   本実験は駒澤のデータで行う予定で、この実験はそのための実験基盤をシードで組み立てて通したもの。
-- ブランチ: `dev/akiha_eval-harness`（ローカルのみ。push していない）
+- ブランチ: `dev/akiha_eval-harness`（GitHub に push 済み。`dev/akiha_node-eval` の上に積んでいる）
 - 関連: Yuto の計画書 [`docs/experiments/vector-vs-graph-evaluation.md`](vector-vs-graph-evaluation.md)（4手法の定義）、
   事前登録 [`backend/eval/prereg_retrieval_seed.md`](../../backend/eval/prereg_retrieval_seed.md)、
   機械生成のサマリー [`backend/eval/results/2026-10-13_retrieval_seed_summary.md`](../../backend/eval/results/2026-10-13_retrieval_seed_summary.md)
@@ -60,7 +60,7 @@ Yuto の計画書は4つの手法（Pure Vector、Vector + Metadata、Pure Graph
 | 実験用 RDB | `cn-eval-pgvector` コンテナ（この実験のために新しく立てた）。PostgreSQL 18.6 + pgvector 0.8.7。イメージは Yuto の `db/postgres/Dockerfile`（`FROM pgvector/pgvector:pg18`）から `cn-eval-pgvector:pg18` としてビルド。専用ボリューム `cn_eval_pgvector_data`、ネットワーク `gateway`、ホストへのポート公開なし |
 | dev の RDB | `postgres` コンテナ（PostgreSQL 18.4 alpine）。シードの20行のコピー元として `pg_dump` で読んだだけ。書き込みなし |
 | コード | 実行時の HEAD は 38016bc。検索と生成は、厳密検索の修正（§6.3）を加えた作業ツリーで実行し、その内容を直後に 79084ad としてコミットした。結果のコミットは 6c507c0 |
-| マージ | `origin/test/vector-graph-eval`（9766c06。pgvector の Dockerfile と test_course_embeddings の DDL、計画書）を `dev/akiha_node-eval` に取り込んだもの（マージコミット cfe7558） |
+| マージ | `origin/test/vector-graph-eval`（9766c06。pgvector の Dockerfile と test_course_embeddings の DDL、計画書）を、`dev/akiha_node-eval`（9c5a236）から分岐した `dev/akiha_eval-harness` に取り込んだもの（マージコミット cfe7558） |
 | 埋め込み | `gemini-embedding-2`、`output_dimensionality=1536`。返ってきたベクトルの長さ（L2 ノルム）は 0.9999995〜1.0000006 で、公式文書の「gemini-embedding-2 は 3072 以外の次元でも自動で正規化し直す」と一致した。念のため保存前に L2 正規化をかけた（値はほぼ変わらず、コサインの順位には影響しない） |
 | 埋め込みの書式 | 公式文書（https://ai.google.dev/gemini-api/docs/embeddings 、Last updated 2026-10-09 UTC）に従い、gemini-embedding-2 は task_type を使わずテキストの先頭に指示を書く。質問は `task: search result \| query: {質問文}`、文書は `title: {科目名} \| text: {本文}` |
 | 回答生成の LLM | `gemini-3.8-flash`（`config.AGENT_MODEL` の既定値。応答の model_version も同じ）。温度などは API の既定値 |
