@@ -1,0 +1,55 @@
+=== Q1: データサイエンスの次に取るべき科目は?
+status 200 wall_ms 101232
+route mcp model gemini-3.8-flash latency_ms 92555
+node_sequence ['route_initial', 'mcp_agent', 'attach_sources']
+  tool read-cypher {"query": "MATCH (c:Course) WHERE c.title CONTAINS 'データサイエンス' RETURN c"}
+  tool read-cypher {"query": "MATCH (c:Course {code: 'GMS-301'})<-[r:REQUIRES_PREREQUISITE*1..3]-(next:Course)\nRETURN next.code AS code, next.title AS title, length(r) AS distanc…
+  tool read-cypher {"query": "MATCH p = (c:Course {code: 'GMS-301'})<-[:REQUIRES_PREREQUISITE*1..3]-(next:Course)\nRETURN next.code AS code, next.title AS title, length(p) AS dist…
+  tool read-cypher {"query": "MATCH p = (c:Course {code: 'GMS-301'})<-[:REQUIRES_PREREQUISITE*1..4]-(next:Course)\nRETURN [n in nodes(p) | n.title] AS path, next.code AS code, nex…
+  tool read-cypher {"query": "MATCH p = (c:Course {code: 'GMS-303'})<-[:REQUIRES_PREREQUISITE*1..3]-(next:Course)\nRETURN next.code AS code, next.title AS title"}
+  tool read-cypher {"query": "MATCH p = (c:Course {code: 'GMS-401'})<-[:REQUIRES_PREREQUISITE*1..3]-(next:Course)\nRETURN next.code AS code, next.title AS title"}
+  tool read-cypher {"query": "MATCH (c:Course)-[:REQUIRES_PREREQUISITE]->(prereq:Course)\nWHERE c.code IN ['GMS-303', 'GMS-401']\nRETURN c.code AS course_code, c.title AS course_t…
+  tool read-cypher {"query": "MATCH (c:Course {code: 'GMS-301'})-[:COVERS_TOPIC]->(t:Topic)<-[:COVERS_TOPIC]-(other:Course)\nRETURN other.code AS code, other.title AS title, t.nam…
+  tool get_course_details {"codes": ["GMS-301", "GMS-303", "GMS-401", "GMS-202"]}
+  tool set_model_response {"cited_codes": ["GMS-301", "GMS-303", "GMS-401", "GMS-202"], "answer": "### 1. 結論・要約\n\n「データサイエンス入門 [GMS-301]」を修了した後に履修可能な後続科目（前提条件として指定されている講義）は、以下の2科目です。\n\n…
+cited_codes ['GMS-301', 'GMS-303', 'GMS-401', 'GMS-202']
+sources ['GMS-301:データサイエンス入門', 'GMS-303:機械学習', 'GMS-401:データサイエンス実習', 'GMS-202:線形代数']
+unverified_codes []
+notes []
+answer ### 1. 結論・要約 /  / 「データサイエンス入門 [GMS-301]」を修了した後に履修可能な後続科目（前提条件として指定されている講義）は、以下の2科目です。 /  / - **機械学習 [GMS-303]** / - **データサイエンス実習 [GMS-401]** /  / --- /  / ### 2. 各科目の紹介と履修パス /  / #### **機械学習 [GMS-303]** / - **担�
+
+[exited with code 0]
+=== Q2: 機械学習を取るには何が必要?
+status 200 wall_ms 62099
+route mcp model gemini-3.8-flash latency_ms 60931
+node_sequence ['route_initial', 'mcp_agent', 'attach_sources']
+  tool read-cypher {"query": "MATCH (c:Course) WHERE c.title CONTAINS '機械学習' RETURN c"}
+  tool read-cypher {"query": "MATCH (c:Course {code: 'GMS-303'})-[r]->(target) RETURN type(r) AS rel, target"}
+  tool read-cypher {"query": "MATCH path = (c:Course {code: 'GMS-303'})-[:REQUIRES_PREREQUISITE*1..3]->(prereq:Course)\nRETURN path"}
+  tool get_course_details {"codes": ["GMS-303", "GMS-301", "GMS-202", "GMS-201", "GMS-203", "GMS-102", "GMS-101"]}
+  tool set_model_response {"cited_codes": ["GMS-303", "GMS-301", "GMS-202", "GMS-201", "GMS-203", "GMS-102", "GMS-101"], "answer": "### 1. 結論・要約\n\n「機械学習 [GMS-303]」を履修するためには、直接の前提科目として以下…
+cited_codes ['GMS-303', 'GMS-301', 'GMS-202', 'GMS-201', 'GMS-203', 'GMS-102', 'GMS-101']
+sources ['GMS-303:機械学習', 'GMS-301:データサイエンス入門', 'GMS-202:線形代数', 'GMS-201:プログラミング入門', 'GMS-203:統計学基礎', 'GMS-102:基礎数学', 'GMS-101:情報リテラシー']
+unverified_codes []
+notes []
+answer ### 1. 結論・要約 /  / 「機械学習 [GMS-303]」を履修するためには、直接の前提科目として以下の2科目を修了している必要があります。 /  / - **線形代数 [GMS-202]** / - **データサイエンス入門 [GMS-301]** /  / さらに、これらの前
+=== Q3: データベースの担当教員と開講時期を教えて
+status 200 wall_ms 54686
+route mcp model gemini-3.8-flash latency_ms 53243
+node_sequence ['route_initial', 'mcp_agent', 'attach_sources']
+  tool read-cypher {"query": "MATCH (c:Course) WHERE c.title CONTAINS 'データベース' OR c.code CONTAINS 'DB' RETURN c.code AS code, c.title AS title"}
+  tool get_course_details {"codes": ["GMS-302"]}
+  tool read-cypher {"query": "MATCH (c:Course {code: 'GMS-302'})\nOPTIONAL MATCH (c)-[:REQUIRES_PREREQUISITE]->(prereq:Course)\nOPTIONAL MATCH (next:Course)-[:REQUIRES_PREREQUISIT…
+  tool set_model_response {"cited_codes": ["GMS-302", "GMS-201", "GMS-402"], "answer": "### 結論・要約\n「データベース [GMS-302]」の担当教員および開講時期は以下の通りです。\n\n- **担当教員**: 高橋 准教授\n- **開講時期**: 春学期 水曜2限\n\n…
+cited_codes ['GMS-302', 'GMS-201', 'GMS-402']
+sources ['GMS-302:データベース', 'GMS-201:プログラミング入門', 'GMS-402:メディア情報論']
+unverified_codes []
+notes []
+answer ### 結論・要約 / 「データベース [GMS-302]」の担当教員および開講時期は以下の通りです。 /  / - **担当教員**: 高橋 准教授 / - **開講時期**: 春学期 水曜2限 /  / --- /  / ### 科目詳細情報 / - **科目名**: データベース [GMS-302] / -
+=== OLD /test/agent Q1
+status 200 wall_ms 850
+keys ['answer', 'candidates', 'cited_codes', 'intent', 'node_sequence', 'traversed_edges']
+cited_codes [] node_sequence ['parse_intent', 'route_by_mode', 'respond_unclear']
+answer お尋ねの名称に当てはまる科目が複数あります。どれについてお答えしましょうか。 / 候補: GMS-301、GMS-401
+
+[exited with code 0]
