@@ -844,6 +844,9 @@ async def run_generation(args: argparse.Namespace) -> None:
                         break
                 if aborted:
                     break
+    except BaseException:  # 予算切れ以外で止まったときも manifest に途中終了として残す
+        aborted = True
+        raise
     finally:
         session.data.update(
             {
