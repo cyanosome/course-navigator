@@ -1,6 +1,6 @@
 # シード20科目での検索方式比較（Vector / Graph / Hybrid）実験報告
 
-- 実施日: 2026-10-13（実行は 18:19〜18:30 JST）
+- 実施日: 2026-10-13（実行は 18:19〜18:30 JST。コミット済みのコードからの再現実行は 19:31〜19:40 JST、§14）
 - 実験者: Aki_Ha（GitHub 4kito4）。**Aki_Ha 個人の予備実験であり、チーム全体の本実験ではない。**
   本実験は駒澤のデータで行う予定で、この実験はそのための実験基盤をシードで組み立てて通したもの。
 - ブランチ: `dev/akiha_eval-harness`（GitHub に push 済み。PR [#16](https://github.com/cyanosome/course-navigator/pull/16)、`dev/akiha_node-eval`（PR #15）の上に積んでいる）
@@ -14,6 +14,10 @@
 
 **結論（シードの範囲で）**: 「次に取れる」「前提」の問いでは Pure Graph（NDCG@5 1.00）と Hybrid（0.91）が Pure Vector（0.60）を上回ったが、正解自体がグラフ探索の出力なので、グラフの優位の証拠ではない。
 前提違反（今は取れない科目の推薦）はグラフ側のほうが多く（合計10・13 対 7）、今の「3段先までの後続すべて」を返す探索は前提充足を保証しない。回答生成ではどの条件も存在しない科目コードを作らなかった（40回中0件）。
+
+**再現実行（§14）**: 元の実行は未コミットの修正を含む作業ツリーで行っていたので、コミット済みのコード（067fdc2、clean な作業ツリー）から最初からやり直した。
+埋め込みは34本すべてビット一致し、検索の56行（14問×4条件）は順位・スコア・指標がすべて元と一致し、仮説の判定 H0〜H7 も同じになった。
+生成は40回とも成功して存在しないコードは0件だったが、同じ入力でも LLM の引用は揺れ、Hybrid の3問で引用の集合が元と違った。上の数字はコミット済みのコードで成り立つ。
 
 ---
 
@@ -59,7 +63,7 @@ Yuto の計画書は4つの手法（Pure Vector、Vector + Metadata、Pure Graph
 | グラフ DB | `neo4j` コンテナ（dev 用）。Neo4j 5.26.27 Community。シード20科目が投入済み（Course 20、Topic 20、REQUIRES_PREREQUISITE 19本、COVERS_TOPIC 36本）。読み取りのみ。全文検索インデックス1つだけ追加（§5.2） |
 | 実験用 RDB | `cn-eval-pgvector` コンテナ（この実験のために新しく立てた）。PostgreSQL 18.6 + pgvector 0.8.7。イメージは Yuto の `db/postgres/Dockerfile`（`FROM pgvector/pgvector:pg18`）から `cn-eval-pgvector:pg18` としてビルド。専用ボリューム `cn_eval_pgvector_data`、ネットワーク `gateway`、ホストへのポート公開なし |
 | dev の RDB | `postgres` コンテナ（PostgreSQL 18.4 alpine）。シードの20行のコピー元として `pg_dump` で読んだだけ。書き込みなし |
-| コード | 実行時の HEAD は 38016bc。検索と生成は、厳密検索の修正（§6.3）を加えた作業ツリーで実行し、その内容を直後に 79084ad としてコミットした。結果のコミットは 6c507c0 |
+| コード | 実行時の HEAD は 38016bc。検索と生成は、厳密検索の修正（§6.3）を加えた作業ツリーで実行し、その内容を直後に 79084ad としてコミットした。結果のコミットは 6c507c0。この「作業ツリー = 79084ad」は記録時には機械的に確かめておらず、§14 の再現実行（067fdc2 の clean な作業ツリー）で同じ結果が出ることを確かめた |
 | マージ | `origin/test/vector-graph-eval`（9766c06。pgvector の Dockerfile と test_course_embeddings の DDL、計画書）を、`dev/akiha_node-eval`（9c5a236）から分岐した `dev/akiha_eval-harness` に取り込んだもの（マージコミット cfe7558） |
 | 埋め込み | `gemini-embedding-2`、`output_dimensionality=1536`。返ってきたベクトルの長さ（L2 ノルム）は 0.9999995〜1.0000006 で、公式文書の「gemini-embedding-2 は 3072 以外の次元でも自動で正規化し直す」と一致した。念のため保存前に L2 正規化をかけた（値はほぼ変わらず、コサインの順位には影響しない） |
 | 埋め込みの書式 | 公式文書（https://ai.google.dev/gemini-api/docs/embeddings 、Last updated 2026-10-09 UTC）に従い、gemini-embedding-2 は task_type を使わずテキストの先頭に指示を書く。質問は `task: search result \| query: {質問文}`、文書は `title: {科目名} \| text: {本文}` |
@@ -229,20 +233,25 @@ docker run -d --name cn-eval-pgvector --network gateway --env-file server.env \
 # client.env: EVAL_DB_HOST=cn-eval-pgvector / EVAL_DB_PORT=5432 / EVAL_DB_NAME=coursenavigator_eval
 #             EVAL_DB_USER=eval / EVAL_DB_PASSWORD=<server.env と同じ値>
 # 以下はすべて backend コンテナ内（-w /backend_app）。Git Bash では MSYS_NO_PATHCONV=1 を付ける
-RUN="docker exec --env-file client.env -w /backend_app course-navigator-backend-1 uv run --no-sync python -m eval.retrieval_compare"
-M=eval/results/<日付>_retrieval_seed_manifest.json
+# aa8caff 以降、記録を残すコマンドには --git-status（ホストの git status --porcelain）が要る（§14.2）。
+# 未コミットの変更があれば実行を拒む。git status はコマンドごとにホストで取り直す
 SHA=$(git rev-parse HEAD)
-$RUN setup-db      --manifest $M --git-sha $SHA
-$RUN embed-docs    --manifest $M --git-sha $SHA      # 埋め込み API 1回
-$RUN embed-queries --manifest $M --git-sha $SHA      # 埋め込み API 14回
-$RUN retrieve  --out eval/results/<日付>_retrieval_seed.jsonl --git-sha $SHA
-$RUN generate  --input eval/results/<日付>_retrieval_seed.jsonl --git-sha $SHA   # LLM 40回
-$RUN summarize --input eval/results/<日付>_retrieval_seed.jsonl
+run() { docker exec --env-file client.env -w /backend_app course-navigator-backend-1 \
+  uv run --no-sync python -m eval.retrieval_compare "$@" --git-sha "$SHA" --git-status "$(git status --porcelain)"; }
+M=eval/results/<日付>_retrieval_seed_manifest.json
+run setup-db      --manifest $M
+run embed-docs    --manifest $M      # 埋め込み API 1回
+run embed-queries --manifest $M      # 埋め込み API 14回
+run retrieve  --out eval/results/<日付>_retrieval_seed.jsonl
+run generate  --input eval/results/<日付>_retrieval_seed.jsonl   # LLM 40回
+docker exec -w /backend_app course-navigator-backend-1 \
+  uv run --no-sync python -m eval.retrieval_compare summarize --input eval/results/<日付>_retrieval_seed.jsonl
 ```
 
+予算の上限は既定で LLM 150回・埋め込み100回（manifest 全体）。`--llm-budget` / `--embedding-budget` で変えられる。
 QuerySpec を作り直すときは `python -m eval.query_spec --out eval/specs/seed_query_specs.json`（DB も API も使わない）。
 検索は埋め込みが同じなら決定的に同じ結果になる。埋め込みは API から作り直すと同じ値になる保証がないので、今回の値は manifest のハッシュ
-（文書 7a54e8c2…、質問 9da17baf…）で照合する。埋め込みそのものは実験用 DB のボリュームにだけあり、リポジトリには入れていない。生成は同じ入力でも揺れる。
+（文書 7a54e8c2…、質問 9da17baf…）で照合する（§14 の再現実行では、作り直した34本がすべてビット一致した）。埋め込みそのものは実験用 DB のボリュームにだけあり、リポジトリには入れていない。生成は同じ入力でも揺れる。
 
 ### 6.3 厳密検索の確認
 
@@ -426,11 +435,16 @@ C1 を基準にした比（検索系10問）: C2 は所要時間 0.97倍・ク�
 | 生データ（1行1記録。検索56行・生成40行） | `backend/eval/results/2026-10-13_retrieval_seed.jsonl` |
 | 実行条件（コマンドごとの記録、ハッシュ、リクエスト数） | `backend/eval/results/2026-10-13_retrieval_seed_manifest.json` |
 | 機械生成のサマリー（対比較の全表を含む） | `backend/eval/results/2026-10-13_retrieval_seed_summary.md` |
-| 実験用 DB | コンテナ `cn-eval-pgvector`、ボリューム `cn_eval_pgvector_data`（埋め込みはここにだけある） |
+| 実験用 DB | コンテナ `cn-eval-pgvector`、ボリューム `cn_eval_pgvector_data`（埋め込みはここにだけある）。元の実行はデータベース `coursenavigator_eval`、再現実行の R2 は `coursenavigator_eval_replication` |
 | Neo4j に足したもの | 全文検索インデックス `eval_course_topic_fulltext`（Course.title と Topic.name、cjk アナライザ） |
+| 再現実行の事前登録 | `backend/eval/prereg_retrieval_seed_replication.md` |
+| 出所の記録（HEAD・clean・ソースの指紋） | `backend/eval/provenance.py` |
+| 再現実行の突き合わせ | `backend/eval/replication_compare.py`、出力は `backend/eval/results/2026-10-13_retrieval_seed_replication_compare.md`・`.json` |
+| 再現実行の生データ | R1: `backend/eval/results/2026-10-13_retrieval_seed_rerun_original_embeddings.jsonl`（検索56行）と `_manifest.json`。R2: `backend/eval/results/2026-10-13_retrieval_seed_replication.jsonl`（検索56行・生成40行）と `_manifest.json`・`_summary.md` |
 
 コミット（ブランチ `dev/akiha_eval-harness`）: マージ cfe7558 → 事前登録 743ae0b → ハーネスとテスト bf4cb0b → QuerySpec 38016bc →
-厳密検索の修正 79084ad（検索と生成はこの内容で実行）→ サマリーの列の追加 de1104a → 結果 6c507c0 → この記録。
+厳密検索の修正 79084ad（検索と生成はこの内容で実行）→ サマリーの列の追加 de1104a → 結果 6c507c0 → この記録 →
+再現実行の事前登録 e72fca4 → 出所の記録と予算の上限 aa8caff → 突き合わせのスクリプト 067fdc2（再現実行はこのコミットで実行）→ 再現実行の結果 50bc824 → §14。
 
 ## 13. 次にやること（駒澤のデータが揃ったら）
 
@@ -441,6 +455,118 @@ C1 を基準にした比（検索系10問）: C2 は所要時間 0.97倍・ク�
 5. 前提関係が無いので、前提違反の指標と「前提」の向きの展開は使えない。駒澤のグラフで辿れる関係（同じ教員、同じ学科）を展開に使うかを決める。
 6. 今回の考察3から、「前提科目がすべて履修済みの後続だけを返す」グラフ探索を条件に足すかを相談する（シードのケーススタディとして）。
 7. 事前登録を書いてから流す。
+
+## 14. 再現実行（2026-10-13）
+
+### 14.1 なぜやり直したか
+
+元の実行（§6.1、18:19〜18:30 JST）は、HEAD 38016bc に厳密検索の修正（§6.3）を未コミットのまま加えた作業ツリーで行い、
+その内容を直後に 79084ad としてコミットした。manifest の `git_sha` は 38016bc で、`code_commit_note` の「作業ツリーは 79084ad と同じ内容」は
+機械的には確かめていなかった。記録だけからは、結果がどのコミットのコードから出たかを証明できない状態だった。
+
+元の結果を疑う具体的な根拠は無かった。Docker Desktop のエンジンの再起動（約 18:16 JST、付録の2）は元の実行より前で重ならず、
+検索は各（条件, 質問）で5回とも同じ順位だった。それでも出所の穴を塞ぐため、コミット済みのコードだけで同じ手順をやり直し、同じ結果が出るかを確かめた。
+元の結果のファイルは上書きせず、そのまま残している。
+
+### 14.2 事前登録とハーネスの変更
+
+API を呼ぶ前に、再現実行の目的・手順・予算・比較の定義・予測・結論の規則を
+[`backend/eval/prereg_retrieval_seed_replication.md`](../../backend/eval/prereg_retrieval_seed_replication.md) に書いてコミットした（e72fca4）。
+そのうえでハーネスに次を足した。どちらも検索・採点・生成の入力を作る処理は変えていない。
+
+| コミット | 変更 |
+|---|---|
+| aa8caff | 記録を残す5コマンド（setup-db・embed-docs・embed-queries・retrieve・generate）に `--git-status`（ホストの `git status --porcelain`）を必須にし、未コミットの変更があれば実行を拒む。各セッションに、コンテナから見えた backend のソースの指紋と実験用 DB の名前を記録する。`--llm-budget` / `--embedding-budget` で予算の上限を指定できるようにする |
+| 067fdc2 | 元と再現の結果を突き合わせるスクリプト `backend/eval/replication_compare.py` |
+
+ソースの指紋は、backend 配下のファイル（名前が `.` で始まるもの・`__pycache__`・`logs/`・`eval/results/` を除く）について、改行を LF にそろえて
+git の blob SHA-1 を計算し、その一覧の SHA-256 を取ったもの。コンテナには `.git` が無いので、突き合わせのときにホストの
+`git ls-tree --full-tree -r -z <commit> -- backend` から同じ規則で指紋を作り、一致すれば「コンテナが実行したコード = その commit」と言える。
+
+事前登録からの変更は1件で、API を呼ぶ前に事前登録に追記した。「`git status` が空でなければ拒む」だと、前のコマンドが `eval/results/` に書いた
+manifest が未追跡ファイルとして出るので、2つ目以降のコマンドが必ず止まる。そこで `backend/eval/results/` 配下の未追跡ファイルだけは許し、
+セッションの `untracked_outputs` に残すことにした（既存の結果ファイルの変更や、それ以外の未追跡ファイルは拒む）。
+
+79084ad から再現実行の HEAD（067fdc2）までの backend のコードの差は、サマリーの列の追加（de1104a）、生成の途中終了の記録（c0d2207）と上の2コミットだけである。
+
+### 14.3 何をやり直したか
+
+| 実行 | 中身 | DB | API |
+|---|---|---|---|
+| R1 | 元の埋め込みのまま `retrieve`（14問×4条件×5回）だけを流し直す。埋め込みが同じなので、違いが出ればコードの違いになる | 元の実験用 DB `coursenavigator_eval`（読み取りのみ） | 0回（予算の上限を 0 / 0 に指定） |
+| R2 | 新しいデータベースで最初からやり直す: `setup-db` → `embed-docs` → `embed-queries` → `retrieve` → `generate` → `summarize`（元の煙テストは省いた） | 同じコンテナに新しく作った `coursenavigator_eval_replication` | 埋め込み 15回・LLM 40回（上限は 60 / 50）。429 / 503・やり直しは0回 |
+
+- 時刻（JST）: R1 の retrieve 19:31:41〜19:31:50、R2 の setup-db 19:32:14、embed-docs 19:32:37、embed-queries 19:32:52〜19:33:01、
+  retrieve 19:33:24〜19:33:30、generate 19:33:55〜19:39:39。run_id は manifest の sessions にある。
+- R1 の前に、元の DB に残っている埋め込みを読み出し、元の manifest のハッシュ（文書 7a54e8c2…、質問 9da17baf…）と一致することを確かめた。元の DB の埋め込みは消していない。
+- R2 の DB には、元の手順（§4.4）と同じく dev の `postgres` から `pg_dump` で20行をコピーした。dev・元の実験用 DB・新しい DB の3つで、
+  全列をコード順に連結した md5 が一致した（12a6201f…、元と同じ値）。dev の DB には書き込んでいない。
+- 実行環境は元と同じ: 同じ backend コンテナ（Python 3.14.2、google-adk 2.8.0・google-genai 2.21.0・asyncpg 0.30.0・neo4j 5.28.5）、
+  PostgreSQL 18.6 + pgvector 0.8.7、Neo4j 5.26.27、埋め込みは `gemini-embedding-2`（1536次元）、生成は `gemini-3.8-flash`（応答の model_version も同じ、生成設定は API 既定値）。
+
+### 14.4 出所の確認
+
+R1 の1セッションと R2 の5セッションのすべてで、次の3つが成り立った（`2026-10-13_retrieval_seed_replication_compare.md` の §1）。
+
+| 確認 | 結果 |
+|---|---|
+| 実行時の HEAD（ホストの `git rev-parse HEAD`） | 6セッションとも 067fdc22b4f940d93760b5efd8a40531aa923f9e |
+| 作業ツリー（ホストの `git status --porcelain`） | 6セッションとも、`eval/results/` の未追跡の結果ファイル以外は無し（`git_status_clean = True`） |
+| コンテナから見えたソースの指紋 | 6セッションとも 77ファイル・a3c25f785413a4a3…で、`git ls-tree` から作った 067fdc2 の指紋と一致 |
+
+### 14.5 結果
+
+比較の定義は事前登録 §4.1 のとおり（56行 = 14問×4条件。順位リストは起点を除いた上位10件の科目コードの列）。
+
+| 比較 | 対象 | 一致 | 差の大きさ |
+|---|---|---|---|
+| R1 対 元 | 検索の順位リスト | 56/56 | スコアの差の絶対値の最大 0（浮動小数点の値までまったく同じ） |
+| R1 対 元 | 指標（K=5・10 の Recall・NDCG・forbidden・前提違反など）・evidence・クエリ数 | 各 56/56 | — |
+| R2 対 元 | 埋め込み（文書20・質問14） | 34/34 がビット一致 | 要素の差の最大 0、コサイン類似度の最小 1。返ったベクトルの長さの範囲も元と同じ |
+| R2 対 元 | 検索の順位リスト・指標・evidence・クエリ数 | 各 56/56 | スコアの差の最大 0 |
+| R2 対 元 | コーパス・QuerySpec・golden・厳密検索の計画・パラメータ・ライブラリの版（manifest） | すべて一致 | — |
+| 元・R1・R2 | 仮説の判定 H0〜H6 | すべて同じラベル | — |
+
+表の読み方: 「一致」は、比べた行のうち完全に同じだった数。スコアの差は、同じ科目コードどうしのスコア（C1・C2 はコサイン類似度、C3 はグラフ探索の値、C4 は RRF の値）の差の絶対値の最大。
+ビット一致は、pgvector のテキスト表現が文字単位で同じこと。
+
+検索の指標（§8.1 の表と同じ定義。検索系10問の平均・合計）は、元・R1・R2 で小数第2位まですべて同じになった:
+C1 0.70 / 0.60、C2 0.70 / 0.60、C3 0.98 / 1.00、C4 0.90 / 0.88（Recall@5 / NDCG@5）、forbidden@5 は 7・7・0・4、前提違反@5 は 7・7・10・13。
+所要時間（各問5回の中央値の、10問の中央値）は環境で変わるので比べない（参考: C1 は元 6.1 ms・R1 5.4 ms・R2 5.7 ms、C4 は元 82.0 ms・R1 59.7 ms・R2 45.5 ms）。
+
+回答生成（検索系10問×4条件、R2 対 元）:
+
+| 条件 | 実行 | 成功 | 存在しないコード | 候補外の引用（うち根拠文に現れるコード） | recall | precision | forbidden | 出力トークン 平均 | 所要時間 中央値 |
+|---|---|---|---|---|---|---|---|---|---|
+| C1 | 元 / R2 | 10/10 / 10/10 | 0 / 0 | 0（0） / 0（0） | 0.70 / 0.70 | 0.44 / 0.44 | 7 / 7 | 260 / 258 | 8.0 / 7.1 秒 |
+| C2 | 元 / R2 | 10/10 / 10/10 | 0 / 0 | 0（0） / 0（0） | 0.70 / 0.70 | 0.44 / 0.44 | 7 / 7 | 260 / 263 | 7.0 / 8.6 秒 |
+| C3 | 元 / R2 | 10/10 / 10/10 | 0 / 0 | 1（1） / 1（1） | 1.00 / 1.00 | 1.00 / 1.00 | 0 / 0 | 253 / 264 | 8.5 / 7.6 秒 |
+| C4 | 元 / R2 | 10/10 / 10/10 | 0 / 0 | 10（10） / 6（6） | 0.92 / 0.92 | 0.52 / 0.62 | 8 / 6 | 432 / 391 | 11.2 / 10.1 秒 |
+
+表の読み方: 各セルは「元 / R2」。列の定義は §8.5 と同じ（存在しないコードは科目表に行が無い引用、候補外の引用は起点以外で LLM に渡した5件に無いコード、
+recall・precision・forbidden は起点を除いた引用を golden と突き合わせたもの）。入力トークンは4条件とも元と同じだった（LLM に渡した入力が同じため）。LLM は40回とも1回で済んだ。
+
+- 起点を除いた引用の集合が元と同じだったのは40回中37回。違ったのは C4 の3問で、どれも同じ入力に対する LLM の揺れである。
+  q02 は元が根拠文の経路に出てくる 101・102・202・203 まで引用したのに対し、R2 は 101 だけだった。q07 は元が渡した5件をすべて挙げたのに対し、
+  R2 は期待科目の 101・201 だけを挙げ、402（出してはいけない科目）・102・203 を挙げなかった。q09 は元だけが 101 を引用した。
+  この3問の分だけ、C4 の候補外の引用が 10 → 6、forbidden が 8 → 6、precision が 0.52 → 0.62 に変わった。
+- C1 と C2（同じ候補を渡した）の引用の集合は、元と同じく R2 でも10問すべてで一致した。
+- 仮説 H7 の判定は元と同じ「一部支持」（存在しないコード0、候補外の引用は R2 で7件、すべて根拠文に現れるコード）。
+
+### 14.6 結論
+
+事前登録 §4.3 の規則で、次の2つがどちらも成り立った。
+
+1. **元の検索の結果は、コミット済みのコードで成り立つ。** 067fdc2 の clean な作業ツリーから、元の埋め込みのまま検索を流し直すと（R1）、
+   56行すべてで順位・スコア・指標・根拠文が元とまったく同じになった。コンテナが実行したコードが 067fdc2 であることは、ソースの指紋で機械的に確かめた。
+   元の実行のコード（38016bc＋未コミットの修正）そのものは事後に確かめられないが、検索・採点の処理が同じコミット済みのコードで同じ出力になることは示せた。
+2. **元の結果は再現した。** 埋め込みの API 呼び出しから最初にやり直しても（R2）、埋め込みは34本すべてビット一致し、検索の56行と仮説 H0〜H6 の判定は元と同じになった。
+   生成は40回とも成功して存在しないコードは0件で、H7 の判定も同じだった。生成の細部（C4 の候補外の引用の件数など）は LLM の揺れで変わる。
+
+したがって、§8・§9 の数字と判定はそのまま有効である。生成の表（§8.5）の C4 の候補外の引用・forbidden・precision は1回ごとに揺れる値として読む。
+
+限界: R2 は1回だけで、生成の揺れの大きさは元と R2 の2回を並べただけでは測れない。再現は同じ機械・同じコンテナで約1時間後に行ったもので、
+別の機械や API 側のモデル更新の後でも同じになるかは確かめていない（埋め込みの値と生成の model_version は manifest で照合できる）。
 
 ## 付録: 試行錯誤の経緯
 
@@ -457,3 +583,9 @@ C1 を基準にした比（検索系10問）: C2 は所要時間 0.97倍・ク�
    これをサマリーの列として機械的に出すように足した（de1104a。事前登録の指標は変えていない）。
 6. Yuto のブランチのマージで、backend の起動処理が `CREATE EXTENSION vector` を実行するようになった。dev の `postgres` は pgvector を持たないので、
    このブランチでは backend の API が起動に失敗する（実験は `docker exec` で動かしたので影響なし）。dev の DB のイメージは変えていない。
+7. 再現実行（§14）の準備で、`git status` の確認を「空でなければ拒む」のまま実装すると、前のコマンドが書いた manifest のせいで2つ目のコマンドから
+   必ず止まることに気づいた。事前登録に追記してから、`eval/results/` 配下の未追跡ファイルだけを許す形にした。
+8. 突き合わせのスクリプトを、コミットする前に元の結果どうし（元 対 元）で試しに動かしたところ、両方とも0件を返す行（unclear の問いの C3）で
+   スコアの差が「定義なし」になり、完全一致の判定が成り立たなかった。両方0件の行は差0とみなすように直し、テストを足してからコミットした。
+9. 再現実行の間（19:29〜19:41 JST）は、メインの作業ツリーを `dev/akiha_eval-harness` に切り替えたので、dev の backend API は起動していなかった
+   （このブランチでは起動に失敗するため。6 を参照）。終わったあと `dev/akiha_test3-2` に戻して backend を再起動し、起動したことをログで確かめた。
