@@ -32,4 +32,4 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
       - run: uv run python -c "import api.main"
-      - run: uv run pytest tests -q
+      - run: uv run pytest tests -q -m "not db and not llm"
