@@ -1,0 +1,271 @@
+[
+  {
+    "question_id": "q01",
+    "question": "データサイエンス入門の次に取れる科目は?",
+    "embedding_text": "データサイエンス入門の次に取れる科目は?",
+    "mode": "next_step",
+    "direction": "forward",
+    "anchor_code": "GMS-301",
+    "anchor_title": "データサイエンス入門",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:次 / title:データサイエンス入門",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "データサイエンス入門の次に取れる科目は\\?"
+  },
+  {
+    "question_id": "q02",
+    "question": "GMS-201 の後に進める授業を教えて",
+    "embedding_text": "GMS-201 の後に進める授業を教えて",
+    "mode": "next_step",
+    "direction": "forward",
+    "anchor_code": "GMS-201",
+    "anchor_title": "プログラミング入門",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:進める / code:GMS-201",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "GMS\\-201 の後に進める授業を教えて"
+  },
+  {
+    "question_id": "q03",
+    "question": "プログラミング入門を取ったら次は何が受けられる?",
+    "embedding_text": "プログラミング入門を取ったら次は何が受けられる?",
+    "mode": "next_step",
+    "direction": "forward",
+    "anchor_code": "GMS-201",
+    "anchor_title": "プログラミング入門",
+    "anchor_status": "alias",
+    "alternatives": [],
+    "matched_rule": "keyword:取ったら / alias:プログラミング",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "プログラミング入門を取ったら次は何が受けられる\\?"
+  },
+  {
+    "question_id": "q04",
+    "question": "線形代数の先にある科目は?",
+    "embedding_text": "線形代数の先にある科目は?",
+    "mode": "next_step",
+    "direction": "forward",
+    "anchor_code": "GMS-202",
+    "anchor_title": "線形代数",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:先にある / title:線形代数",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "線形代数の先にある科目は\\?"
+  },
+  {
+    "question_id": "q05",
+    "question": "機械学習を取るのに必要な前提科目は?",
+    "embedding_text": "機械学習を取るのに必要な前提科目は?",
+    "mode": "prereq",
+    "direction": "backward",
+    "anchor_code": "GMS-303",
+    "anchor_title": "機械学習",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:前提 / title:機械学習",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "機械学習を取るのに必要な前提科目は\\?"
+  },
+  {
+    "question_id": "q06",
+    "question": "GMS-401 の履修条件は?",
+    "embedding_text": "GMS-401 の履修条件は?",
+    "mode": "prereq",
+    "direction": "backward",
+    "anchor_code": "GMS-401",
+    "anchor_title": "データサイエンス実習",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:履修条件 / code:GMS-401",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "GMS\\-401 の履修条件は\\?"
+  },
+  {
+    "question_id": "q07",
+    "question": "データベースを受ける前に何が要る?",
+    "embedding_text": "データベースを受ける前に何が要る?",
+    "mode": "prereq",
+    "direction": "backward",
+    "anchor_code": "GMS-302",
+    "anchor_title": "データベース",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:受ける前 / title:データベース",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "データベースを受ける前に何が要る\\?"
+  },
+  {
+    "question_id": "q08",
+    "question": "データベースに近い分野の科目は?",
+    "embedding_text": "データベースに近い分野の科目は?",
+    "mode": "topic",
+    "direction": "topic",
+    "anchor_code": "GMS-302",
+    "anchor_title": "データベース",
+    "anchor_status": "exact",
+    "alternatives": [],
+    "matched_rule": "keyword:近い / title:データベース",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "データベースに近い分野の科目は\\?"
+  },
+  {
+    "question_id": "q09",
+    "question": "統計学基礎と関連する授業は?",
+    "embedding_text": "統計学基礎と関連する授業は?",
+    "mode": "topic",
+    "direction": "topic",
+    "anchor_code": "GMS-203",
+    "anchor_title": "統計学基礎",
+    "anchor_status": "alias",
+    "alternatives": [],
+    "matched_rule": "keyword:関連 / alias:統計学",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "統計学基礎と関連する授業は\\?"
+  },
+  {
+    "question_id": "q10",
+    "question": "メディア情報論に似た科目は?",
+    "embedding_text": "メディア情報論に似た科目は?",
+    "mode": "topic",
+    "direction": "topic",
+    "anchor_code": "GMS-402",
+    "anchor_title": "メディア情報論",
+    "anchor_status": "alias",
+    "alternatives": [],
+    "matched_rule": "keyword:似た / alias:メディア情報",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "メディア情報論に似た科目は\\?"
+  },
+  {
+    "question_id": "q11",
+    "question": "何かおすすめの授業ある?",
+    "embedding_text": "何かおすすめの授業ある?",
+    "mode": "unclear",
+    "direction": null,
+    "anchor_code": null,
+    "anchor_title": null,
+    "anchor_status": "no_anchor",
+    "alternatives": [],
+    "matched_rule": "unclear:no_mode",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "何かおすすめの授業ある\\?"
+  },
+  {
+    "question_id": "q12",
+    "question": "金曜3限に空いてる授業は?",
+    "embedding_text": "金曜3限に空いてる授業は?",
+    "mode": "unclear",
+    "direction": null,
+    "anchor_code": null,
+    "anchor_title": null,
+    "anchor_status": "no_anchor",
+    "alternatives": [],
+    "matched_rule": "unclear:out_of_scope / keyword:限",
+    "constraints": {
+      "term": null,
+      "day": "金",
+      "period": 3,
+      "credits": null
+    },
+    "fulltext_query": "金曜3限に空いてる授業は\\?"
+  },
+  {
+    "question_id": "q13",
+    "question": "この授業難しい?",
+    "embedding_text": "この授業難しい?",
+    "mode": "unclear",
+    "direction": null,
+    "anchor_code": null,
+    "anchor_title": null,
+    "anchor_status": "no_anchor",
+    "alternatives": [],
+    "matched_rule": "unclear:decline / keyword:難しい",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "この授業難しい\\?"
+  },
+  {
+    "question_id": "q14",
+    "question": "データサイエンスの次は?",
+    "embedding_text": "データサイエンスの次は?",
+    "mode": "unclear",
+    "direction": null,
+    "anchor_code": null,
+    "anchor_title": null,
+    "anchor_status": "ambiguous",
+    "alternatives": [
+      "GMS-301",
+      "GMS-401"
+    ],
+    "matched_rule": "keyword:次 / ambiguous:GMS-301,GMS-401",
+    "constraints": {
+      "term": null,
+      "day": null,
+      "period": null,
+      "credits": null
+    },
+    "fulltext_query": "データサイエンスの次は\\?"
+  }
+]
