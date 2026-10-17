@@ -1,4 +1,4 @@
-FROM postgres:18.4-alpine3.24
+FROM pgvector/pgvector:pg18
 
 # タイムゾーンの設定
 ENV TZ=Asia/Tokyo

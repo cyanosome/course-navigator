@@ -73,6 +73,9 @@ _（ブランチ: `test/agent-communication`）_
     - 20件程度のシードデータ（講義情報・履修系統図）をもとに、Frontend の対話 UI と Backend Agent 間でデータ Input/Output が正確に送受信・可視化されるかを確認。
   - **実験 2-4: カリキュラム制約統合推論 (Constraint Integration)**
     - 大学の履修上限単位数や時間割重複を考慮し、エージェントが制約を遵守した提案を出力できるか検証。
+  - **実験 2-5: Vector vs Graph 検索性能・制約充足比較検証** _（ブランチ: `test/vector-graph-eval`）_
+    - Pure Vector, Vector+Metadata, Pure Graph, Graph+Vector の4手法による比較評価（[詳細計画書](experiments/vector-vs-graph-evaluation.md) 参照）。
+
 
 ---
 

@@ -1,0 +1,117 @@
+{
+  "experiment": "retrieval_seed",
+  "sessions": [
+    {
+      "command": "retrieve",
+      "run_id": "20261013T103141Z",
+      "started_at": "2026-10-13T10:31:41+00:00",
+      "finished_at": "2026-10-13T10:31:50+00:00",
+      "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+      "git_status_clean": true,
+      "untracked_outputs": [],
+      "source_tree": {
+        "rule": "backend 配下のファイル。名前が '.' で始まる要素・__pycache__ を含むパス、logs/、eval/results/ を除く。blob SHA-1 は CRLF を LF にそろえて計算する",
+        "files": 77,
+        "sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7"
+      },
+      "eval_db": {
+        "host": "cn-eval-pgvector",
+        "name": "coursenavigator_eval"
+      },
+      "budget": {
+        "llm": 0,
+        "embedding": 0
+      },
+      "merge": {
+        "base_branch": "dev/akiha_node-eval",
+        "merged_branch": "origin/test/vector-graph-eval",
+        "merged_head": "9766c06",
+        "note": "pgvector の Dockerfile・init SQL・test_course_embeddings の DDL・実験計画書を取り込んだ"
+      },
+      "llm_requests": 0,
+      "embedding_requests": 0,
+      "embedding_texts": 0,
+      "aborted": false,
+      "specs": "/backend_app/eval/specs/seed_query_specs.json",
+      "specs_sha256": "7a30d69f4d96b2ea26305600fc598c4d51e3fab6afdabe8cbd7a13eac8fe4032",
+      "golden_sha256": "019dddbbd357ea24c2caa247f6b069a8f5a9f56f278ba5952ce745d83e7543d0",
+      "spec_matches_golden": {
+        "q01": true,
+        "q02": true,
+        "q03": true,
+        "q04": true,
+        "q05": true,
+        "q06": true,
+        "q07": true,
+        "q08": true,
+        "q09": true,
+        "q10": true,
+        "q11": true,
+        "q12": true,
+        "q13": true,
+        "q14": true
+      },
+      "corpus": {
+        "postgres_rows_sha256": "73f5e455e421511a142551c0752695a5db523be5f25deb31f0a3cb3d24f870ad",
+        "postgres_rows": 20,
+        "seed_courses_json_sha256": "842408505adffcfee45a4563af031093f7456b9f35c93a994449624370e95cac",
+        "neo4j_graph_sha256": "f3859a79fb814d96ca37c9a22b608185237d9107b00d60cad3b94cd04d6ea059",
+        "neo4j_counts": {
+          "nodes": 20,
+          "prereqs": 19,
+          "topics": 36
+        },
+        "neo4j_version": {
+          "v": "5.26.27",
+          "edition": "community"
+        },
+        "document_embeddings_sha256": "7a54e8c21dc0628582a8d55fbc88bd19252b1a43392f368bf5ffa37cc24f4118",
+        "document_embeddings": 20,
+        "query_embeddings_sha256": "9da17baf66fd4d2dadb190b500e18aa9799ea26f841b3fa57496414c111ba513",
+        "query_embeddings": 14,
+        "postgres_version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "pgvector_version": "0.8.7"
+      },
+      "exact_search": {
+        "enable_indexscan": [
+          "off",
+          "off"
+        ],
+        "uses_hnsw_index": false,
+        "plan_node_types": [
+          "Hash",
+          "Hash Join",
+          "Limit",
+          "Seq Scan",
+          "Sort"
+        ]
+      },
+      "embedding": {
+        "model": "gemini-embedding-2",
+        "dimensions": 1536,
+        "normalization": "API の自動正規化（文書どおり）＋保存前に L2 正規化",
+        "query_template": "task: search result | query: {content}",
+        "document_template": "title: {title} | text: {content}"
+      },
+      "params": {
+        "retrieve_depth": 11,
+        "k": [
+          5,
+          10
+        ],
+        "repeats": 5,
+        "hybrid_entry_count": 3,
+        "rrf_k": 60,
+        "fulltext_index": "eval_course_topic_fulltext",
+        "fulltext_analyzer": "cjk"
+      },
+      "python": "3.14.2",
+      "libraries": {
+        "google-adk": "2.8.0",
+        "google-genai": "2.21.0",
+        "asyncpg": "0.30.0",
+        "neo4j": "5.28.5"
+      }
+    }
+  ]
+}
