@@ -6,6 +6,7 @@
 
 from typing import Any
 from google.adk import Workflow
+from google.adk.agents.llm_agent import LlmAgent
 
 from agent import nodes
 
@@ -13,6 +14,7 @@ __all__ = [
     "WORKFLOW_NAME",
     "build_agent_workflow",
     "build_mcp_first_workflow",
+    "build_mcp_grounded_workflow",
     "build_workflow",
     "workflow",
 ]
@@ -94,6 +96,60 @@ def build_mcp_first_workflow(
                     "static": nodes.parse_intent,
                 },
             ),
+            (nodes.parse_intent, nodes.route_by_mode),
+            (
+                nodes.route_by_mode,
+                {
+                    "next_step": nodes.expand_forward,
+                    "prereq": nodes.expand_backward,
+                    "topic": nodes.search_by_topic,
+                    "unclear": nodes.respond_unclear,
+                },
+            ),
+            (nodes.expand_forward, nodes.rank_candidates),
+            (nodes.expand_backward, nodes.rank_candidates),
+            (nodes.search_by_topic, nodes.rank_candidates),
+            (nodes.rank_candidates, nodes.compose_answer),
+        ],
+    )
+
+
+def build_mcp_grounded_workflow(
+    name: str = "course_navigator_mcp_grounded_workflow",
+    agent_node: LlmAgent | None = None,
+    **agent_kwargs: Any,
+) -> Workflow:
+    """MCP 先行型 + 出典付与のワークフロー（test3-2）を構築する。
+
+    START ➔ route_initial
+    route_initial:
+        "mcp": mcp_agent (Neo4j MCP + get_course_details) ➔ attach_sources
+        "static": parse_intent ➔ route_by_mode ➔ 3経路 ➔ rank_candidates ➔ compose_answer
+
+    attach_sources は LLM の cited_codes を PostgreSQL で引き直して出典を作る決定論ノード。
+    static 側は build_mcp_first_workflow と同じ静的 DAG。
+    agent_node はテストで偽モデルの LlmAgent を差し込む口（未指定なら build_grounded_mcp_agent）。
+    """
+    from agent.mcp_agent import build_grounded_mcp_agent
+
+    mcp_agent_node = (
+        agent_node if agent_node is not None else build_grounded_mcp_agent(**agent_kwargs)
+    )
+
+    return Workflow(
+        name=name,
+        edges=[
+            ("START", nodes.route_initial),
+            (
+                nodes.route_initial,
+                {
+                    "mcp": mcp_agent_node,
+                    "static": nodes.parse_intent,
+                },
+            ),
+            # mcp ルート: LLM の回答 → DB 由来の出典付与
+            (mcp_agent_node, nodes.attach_sources),
+            # static ルート（build_mcp_first_workflow と同じ）
             (nodes.parse_intent, nodes.route_by_mode),
             (
                 nodes.route_by_mode,

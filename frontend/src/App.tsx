@@ -4,6 +4,7 @@ import PostgresTest from './components/PostgresTest'
 import Neo4jTest from './components/Neo4jTest'
 import IntegratedTest from './components/IntegratedTest'
 import AgentTest from './components/AgentTest'
+import McpAgentTest from './components/McpAgentTest'
 import './App.css'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Link to="/test2-2" style={styles.navLink}>test2-2: neo4j</Link>
             <Link to="/test2-3" style={styles.navLink}>test2-3: integratedDB</Link>
             <Link to="/test3-1" style={styles.navLink}>test3-1: static_agent</Link>
+            <Link to="/test3-2" style={styles.navLink}>test3-2: mcp_agent</Link>
           </div>
         </nav>
 
@@ -31,6 +33,7 @@ function App() {
           <Route path="/test2-2" element={<Neo4jTest />} />
           <Route path="/test2-3" element={<IntegratedTest />} />
           <Route path="/test3-1" element={<AgentTest />} />
+          <Route path="/test3-2" element={<McpAgentTest />} />
           {/* 旧パス互換 */}
           <Route path="/test1" element={<PostgresTest />} />
           <Route path="/test2" element={<Neo4jTest />} />

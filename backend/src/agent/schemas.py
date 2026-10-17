@@ -18,8 +18,10 @@ __all__ = [
     "Candidate",
     "CandidateSet",
     "Evidence",
+    "GroundedAnswer",
     "Mode",
     "SearchIntent",
+    "Source",
     "UnclearKind",
 ]
 
@@ -57,3 +59,28 @@ class CandidateSet(BaseModel):
 class AnswerPayload(BaseModel):
     answer: str  # 日本語の回答文
     cited_codes: list[str] = Field(default_factory=list)  # 回答文で言及した科目コード
+
+
+class Source(BaseModel):
+    """回答の出典1件。LLM の生成テキストではなく DB の行だけから組み立てる。"""
+
+    code: str
+    title: str
+    instructor: str | None = None
+    schedule: str | None = None
+    credits: int | None = None
+    excerpt: str = ""  # シラバス本文の冒頭抜粋
+    origin: str  # 例 "postgres:test_postgres_syllabus"（どの DB のどこから引いたか）
+    url: str | None = None  # 現スキーマに URL 列が無いので当面は常に None
+
+
+class GroundedAnswer(BaseModel):
+    """attach_sources の出力。AnswerPayload に DB 由来の出典と検証結果を足したもの。"""
+
+    answer: str
+    cited_codes: list[str] = Field(default_factory=list)
+    sources: list[Source] = Field(default_factory=list)
+    # LLM が引用したが DB に存在しない（または検証できなかった）コード。出典には出さない。
+    unverified_codes: list[str] = Field(default_factory=list)
+    # 検証できなかった理由など（サイレント失敗の禁止）。
+    notes: list[str] = Field(default_factory=list)

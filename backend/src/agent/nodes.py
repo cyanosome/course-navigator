@@ -15,17 +15,20 @@ from collections.abc import Awaitable, Callable
 from google.adk import Context, Event
 from google.genai import types
 
-from agent import deps, intent_rules, rank
+from agent import deps, grounding, intent_rules, rank
 from agent.schemas import AnswerPayload, Candidate, CandidateSet, SearchIntent
 from course_core import config
 from course_core.graph import traversal
+from course_core.repositories import postgres_repo
 from course_core.schemas.traversal import Envelope
 
 __all__ = [
     "MODE_STATE_KEY",
+    "attach_sources",
     "compose_answer",
     "expand_backward",
     "expand_forward",
+    "mcp_route_enabled",
     "parse_intent",
     "rank_candidates",
     "respond_unclear",
@@ -39,6 +42,10 @@ __all__ = [
 MODE_STATE_KEY = "temp:mode"
 
 _UNSET_DRIVER_NOTE = "Neo4j ドライバが未設定です（deps.set_backends が呼ばれていません）。"
+_UNSET_POOL_NOTE = (
+    "PostgreSQL 接続プールが未設定のため出典を検証できませんでした"
+    "（deps.set_backends が呼ばれていません）。"
+)
 _NO_CANDIDATE_ANSWER = "該当する科目が見つかりませんでした。"
 
 # §12 変更2 の定型文。禁止語（難しい / 簡単 / 楽 / おすすめ / 評判 / 単位が取りやすい）を
@@ -69,16 +76,23 @@ def _question_text(node_input: object) -> str:
     return str(node_input)
 
 
+def mcp_route_enabled() -> bool:
+    """route_initial が "mcp" を選ぶ条件（AGENT_ENABLE_MCP 有効かつ GEMINI_API_KEY 設定済み）。
+
+    runner の事前接続確認も同じ判定を使うので、条件はここ1か所にまとめる。
+    """
+    has_api_key = bool(config.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"))
+    is_mcp_enabled = bool(config.AGENT_ENABLE_MCP)
+    return is_mcp_enabled and has_api_key
+
+
 def route_initial(node_input: object, ctx: Context) -> Event:
     """MCP 先行型ワークフローのルート判定ノード。
 
     AGENT_ENABLE_MCP が有効かつ GEMINI_API_KEY が設定されている場合は "mcp"、
     それ以外（キーなし、フォールバック時）は "static" を返す。
     """
-    has_api_key = bool(config.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"))
-    is_mcp_enabled = bool(config.AGENT_ENABLE_MCP)
-
-    target_route = "mcp" if (is_mcp_enabled and has_api_key) else "static"
+    target_route = "mcp" if mcp_route_enabled() else "static"
     return Event(output=node_input, route=[target_route])
 
 
@@ -164,6 +178,24 @@ def compose_answer(node_input: CandidateSet, ctx: Context) -> Event:
             cited_codes=[candidate.code for candidate in node_input.candidates],
         )
     )
+
+
+async def attach_sources(node_input: AnswerPayload, ctx: Context) -> Event:
+    """mcp_agent の後段で出典を付ける決定論ノード（LLM 0回・test3-2）。
+
+    出典は LLM の生成テキストではなく、cited_codes を PostgreSQL で引き直した行から作る。
+    DB に無いコードは unverified_codes に回す（ハルシネーション検出）。
+    LlmAgent の出力は dict で届くが、ADK が型注釈に従って AnswerPayload に変換する。
+    """
+    pool = deps.db_pool()
+    if pool is None:
+        return Event(output=grounding.ungrounded_answer(node_input, _UNSET_POOL_NOTE))
+
+    async with pool.acquire() as conn:
+        rows = await postgres_repo.get_syllabi_by_codes(
+            conn, grounding.normalize_codes(node_input.cited_codes)
+        )
+    return Event(output=grounding.build_grounded_answer(node_input, rows))
 
 
 def respond_unclear(node_input: SearchIntent, ctx: Context) -> Event:
