@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from pypdf import PdfReader
 
-from src.parsers.komazawa.curriculum_schema import SubjectFieldItem
+from src.transformers.komazawa.curriculum_schema import SubjectFieldItem
 
 logger = logging.getLogger(__name__)
 

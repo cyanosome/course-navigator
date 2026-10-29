@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.curriculum_block_parser import (
+from src.transformers.komazawa.curriculum_block_parser import (
     normalize_string,
     parse_block_pdf,
 )

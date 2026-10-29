@@ -4,14 +4,14 @@ import json
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.parser import (
+from src.transformers.komazawa.parser import (
     extract_js_data,
     clean_text,
     parse_subject_tokens,
     parse_record,
     parse_file,
 )
-from src.parsers.komazawa.schema import CourseSummary
+from src.transformers.komazawa.schema import CourseSummary
 
 
 def test_extract_js_data_normal():

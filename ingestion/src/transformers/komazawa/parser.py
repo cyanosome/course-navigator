@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import ValidationError
 
-from src.parsers.komazawa.schema import CourseSummary
+from src.transformers.komazawa.schema import CourseSummary
 
 logging.basicConfig(
     level=logging.INFO,

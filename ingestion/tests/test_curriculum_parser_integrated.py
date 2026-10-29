@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.curriculum_parser import parse_all_curriculums
+from src.transformers.komazawa.curriculum_parser import parse_all_curriculums
 
 RAW_DIR = (
     Path(__file__).resolve().parent.parent

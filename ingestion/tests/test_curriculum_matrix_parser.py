@@ -3,7 +3,7 @@
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.curriculum_matrix_parser import (
+from src.transformers.komazawa.curriculum_matrix_parser import (
     determine_year_from_x,
     normalize_title,
     parse_matrix_pdf,

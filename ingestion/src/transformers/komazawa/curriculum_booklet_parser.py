@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 from pypdf import PdfReader
 
-from src.parsers.komazawa.curriculum_schema import CurriculumSubjectItem
+from src.transformers.komazawa.curriculum_schema import CurriculumSubjectItem
 
 logger = logging.getLogger(__name__)
 

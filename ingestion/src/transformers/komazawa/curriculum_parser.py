@@ -18,11 +18,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from src.parsers.komazawa.areacode_parser import parse_areacode_pdf, save_areacodes
-from src.parsers.komazawa.curriculum_block_parser import normalize_string, parse_block_pdf
-from src.parsers.komazawa.curriculum_booklet_parser import parse_booklet_pdf
-from src.parsers.komazawa.curriculum_matrix_parser import parse_matrix_pdf
-from src.parsers.komazawa.curriculum_schema import (
+from src.transformers.komazawa.areacode_parser import parse_areacode_pdf, save_areacodes
+from src.transformers.komazawa.curriculum_block_parser import normalize_string, parse_block_pdf
+from src.transformers.komazawa.curriculum_booklet_parser import parse_booklet_pdf
+from src.transformers.komazawa.curriculum_matrix_parser import parse_matrix_pdf
+from src.transformers.komazawa.curriculum_schema import (
     CurriculumSubjectItem,
     DepartmentParseReport,
     ParseReport,

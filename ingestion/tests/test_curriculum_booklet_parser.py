@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.curriculum_block_parser import normalize_string
-from src.parsers.komazawa.curriculum_booklet_parser import parse_booklet_pdf
+from src.transformers.komazawa.curriculum_block_parser import normalize_string
+from src.transformers.komazawa.curriculum_booklet_parser import parse_booklet_pdf
 
 PDF_PATH = (
     Path(__file__).resolve().parent.parent

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-from src.parsers.komazawa.areacode_parser import (
+from src.transformers.komazawa.areacode_parser import (
     parse_areacode_pdf,
     save_areacodes,
 )

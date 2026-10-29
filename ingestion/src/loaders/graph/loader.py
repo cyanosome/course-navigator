@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from neo4j import GraphDatabase, Driver, Session
 
-from src.graph.schema import CONSTRAINTS, BATCH_INGEST_QUERY
+from src.loaders.graph.schema import CONSTRAINTS, BATCH_INGEST_QUERY
 
 logging.basicConfig(
     level=logging.INFO,

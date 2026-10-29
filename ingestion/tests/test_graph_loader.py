@@ -5,12 +5,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, call
 import pytest
 
-from src.graph.loader import (
+from src.loaders.graph.loader import (
     ensure_constraints,
     load_courses_batch,
     load_from_file,
 )
-from src.graph.schema import CONSTRAINTS, BATCH_INGEST_QUERY
+from src.loaders.graph.schema import CONSTRAINTS, BATCH_INGEST_QUERY
 
 
 def test_ensure_constraints():
