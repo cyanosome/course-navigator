@@ -13,16 +13,16 @@
 - **Web API (`backend/`)**: Alpine Linux ベース。軽量・高速な同期 API サーバー（FastAPI + Agent）。
 - **Ingestion (`ingestion/`)**: Debian ベース。PDF 解析、スクレイピング、テキスト抽出、および Neo4j APOC を用いた大規模バッチ投入を担うデータ基盤。
 
-### 1.2 Phase 3 における注力方針: 駒澤大学 Ingestion へのピボット (ADR-0011)
+### 1.2 Phase 3 における注力方針: 関西大学 Ingestion へのピボット (ADR-0014)
 
 > [!WARNING]
-> **方針変更 (2026-10-08 / ADR-0011): 長崎大学 PDF 解析の一時停止と駒澤大学への切り替え**
+> **方針変更 (2026-10-08 / ADR-0011): 駒澤大学 Web 停止に伴う一時停止と関西大学へのピボット (ADR-0014)**
 > 長崎大学の専門科目シラバス PDF が学外非公開であることが判明したため、教養教育科目のみの PDF 解析は一時停止（凍結）としました。
 > 代替として、開発メンバーのアクセス性とドメイン知識を活かせる **駒澤大学のシラバス・カリキュラムデータ** を対象とした Ingestion パイプラインの構築へピボットしています（詳細は [ADR-0011](../docs/adr/0011-pivot-from-nagasaki-to-komazawa-ingestion.md) を参照）。
 
 - **目的**: 最速で実データに基づくエンドツーエンドのプロトタイプ検索アプリを成立させ、学生による実証インタビュー実験を行うこと。
 - **対象データ**:
-  - 駒澤大学 開講科目のシラバスおよびカリキュラム系統図
+  - 関西大学 開講科目のシラバス（静的 HTML）および環境都市工学部等の履修系統図（ベクター PDF）
 - **設計上の配慮**: Phase 3 の段階では CS2023 オントロジーへのマッピングは行わず、実シラバスと大学内カリキュラム構造のグラフ化に集中します（CS2023 / Web教材マッピングは Phase 4 にて実施）。
 
 ---
@@ -40,16 +40,19 @@ ingestion/
 │   ├── parsed/             # 構造化抽出済み JSON / CSV データ
 │   └── curriculum/         # カリキュラムマップ・履修系統図定義
 └── src/
-    ├── fetchers/           # シラバス等の生データ収集
-    │   ├── komazawa/       # 駒澤大学用フェッチャー (syllabus_information.js)
-    │   └── nagasaki/       # 長崎大学用フェッチャー (PDF)
-    ├── parsers/            # PDF / Web シラバス解析・テキストクレンジング
-    │   ├── komazawa/       # 駒澤大学用パーサー
-    │   └── nagasaki/       # 長崎大学用パーサー (一時停止)
-    ├── graph/              # Neo4j 投入ロジック（APOC バッチインポート・Cypher）
-    │   ├── schema.py       # ノード・リレーション定義
-    │   └── loader.py       # Course, Prerequisite 等の一括ロード処理
-    └── main.py             # Ingestion パイプライン実行エントリーポイント
+    ├── fetchers/           # 【Extract】シラバス等の生データ収集 (Fetcher)
+    │   ├── kansai/         # [NEW] 関西大学用フェッチャー (HTML, PDF)
+    │   ├── komazawa/       # 駒澤大学用フェッチャー (凍結保持)
+    │   └── nagasaki/       # 長崎大学用フェッチャー (凍結保持)
+    ├── transformers/       # 【Transform】PDF / Web シラバス解析・構造化 (Transformer)
+    │   ├── kansai/         # [NEW] 関西大学用パーサー（DOM ID抽出 / 履修系統図DAG解析）
+    │   ├── komazawa/       # 駒澤大学用パーサー群 (凍結保持)
+    │   └── nagasaki/       # 長崎大学用パーサー (凍結保持)
+    └── loaders/            # 【Load】データベース一括投入 (Loader)
+        ├── __init__.py     # Loader エクスポートインターフェース
+        └── graph/          # Neo4j 投入ロジック（UNWIND バッチ・Cypher制約）
+            ├── schema.py   # ノード・リレーション定義
+            └── loader.py   # Course, Professor, Department 等の一括ロード処理
 ```
 
 ---
@@ -65,12 +68,12 @@ ingestion/
   * `syllabus_information.js`（約35.2MB、全6,803科目）をストリーミングで安定ダウンロード。
   * べき等性（ダウンロード済みファイルのスキップ）および強制再取得フラグ（`--force`）を完備。
 * **[Transform] 構造化解析・クレンジング (Parser)**:
-  * [`src/parsers/komazawa/parser.py`](src/parsers/komazawa/parser.py)
+  * [`src/transformers/komazawa/parser.py`](src/transformers/komazawa/parser.py)
   * 文字列内の制御文字（生改行・タブ等）に対応した安全な JSON パース（`strict=False`）。
   * `subject` テキストから **カナ読み、開講期（通年/前期/後期）、単位数、開講曜日、時限、教員カナ** を動的に抽出。
   * 全角スペースや連続空行のサニタイズ（全6,803件パース成功、エラー0件）。
 * **[Load] ベース Graph の一括構築 (Graph Loader)**:
-  * [`src/graph/loader.py`](src/graph/loader.py), [`src/graph/schema.py`](src/graph/schema.py)
+  * [`src/loaders/graph/loader.py`](src/loaders/graph/loader.py), [`src/loaders/graph/schema.py`](src/loaders/graph/schema.py)
   * `Course.code`, `Professor.name`, `Department.name` の一意制約（`CREATE CONSTRAINT`）の自動適用。
   * `UNWIND $batch`（1,000件単位）による一括 MERGE により、**8.66秒で全6,803件の投入完了**。
   * ノード: `Course` (6,803件), `Professor` (1,026件), `Department` (190件)
@@ -111,14 +114,14 @@ flowchart TD
     end
 
     subgraph Transform["2. 抽出・クレンジング (Parser)"]
-        Parser["src/parsers/komazawa/parser.py"]
+        Parser["src/transformers/komazawa/parser.py"]
         RawJS --> Parser
         SummaryJSON["data/parsed/.../courses_summary.json<br/>(完了 / 6,803件)"]
         Parser --> SummaryJSON
     end
 
     subgraph LoadGraph["3. GraphDB 構築 (完了)"]
-        SummaryJSON --> Loader["src/graph/loader.py"]
+        SummaryJSON --> Loader["src/loaders/graph/loader.py"]
         Loader --> Neo4j[("Neo4j GraphDB<br/>・Course (6,803)<br/>・Professor (1,026)<br/>・Department (190)<br/>・TAUGHT_BY / BELONGS_TO")]
     end
 
