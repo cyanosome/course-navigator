@@ -45,7 +45,11 @@ ingestion/
     │   ├── komazawa/       # 駒澤大学用フェッチャー (凍結保持)
     │   └── nagasaki/       # 長崎大学用フェッチャー (凍結保持)
     ├── transformers/       # 【Transform】PDF / Web シラバス解析・構造化 (Transformer)
-    │   ├── kansai/         # [NEW] 関西大学用パーサー（DOM ID抽出 / 履修系統図DAG解析）
+    │   ├── kansai/         # [NEW] 関西大学用パーサー
+    │   │   ├── schema.py   # シラバス詳細データスキーマ
+    │   │   ├── syllabus_parser.py # 静的 HTML シラバスパーサー (全33 DOM ID 抽出)
+    │   │   ├── tree_schema.py # [NEW] 履修系統図グループ DAG スキーマ
+    │   │   └── curriculum_tree_parser.py # [NEW] 系統図 PDF ベクター解析・DAG 抽出パーサー
     │   ├── komazawa/       # 駒澤大学用パーサー群 (凍結保持)
     │   └── nagasaki/       # 長崎大学用パーサー (凍結保持)
     └── loaders/            # 【Load】データベース一括投入 (Loader)
@@ -245,6 +249,20 @@ python -m src.loaders.postgres.verify_data diff --json data/parsed/university/ka
 
 # 5. 任意の読み取り SQL の直接実行・表形式プレビュー
 python -m src.loaders.postgres.verify_data query "SELECT subject_name, credits, semester, term_schedule FROM courses WHERE subject_name LIKE '%化学%' LIMIT 5;"
+```
+
+---
+
+### 5.4 カリキュラム系統図 DAG トランスフォーマー (`curriculum_tree_parser.py`)
+
+履修系統図ベクター PDF（`tree_env.pdf`）から、**科目グループ枠（クラスター）**、**グループ所属科目**、および**グループ間の有向前提エッジ（DAG）**を幾何学的に抽出するスクリプトです。各科目は PostgreSQL の `courses` マスターデータと照合され、`syllabus_id` および `course_code` が自動付与されます（色解析は行わず、DB マスターデータを利用）。
+
+```bash
+# 1. Page 6（エネルギー環境・化学工学科）の DAG 抽出と Mermaid / JSON 出力
+python -m src.transformers.kansai.curriculum_tree_parser --page 6
+
+# 2. カスタムパスおよび出力先を指定して実行
+python -m src.transformers.kansai.curriculum_tree_parser --pdf data/raw/university/kansai/2026/curriculum/tree_env.pdf --output-json data/parsed/university/kansai/2026/curriculum_group_graph.json --output-md data/parsed/university/kansai/2026/curriculum_extracted.md
 ```
 
 ---
