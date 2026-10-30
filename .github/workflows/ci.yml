@@ -31,4 +31,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
-      - run: uv run python -c "import main"
+      - run: uv run python -c "import api.main"
+      - run: uv run pytest tests -q -m "not db and not llm"

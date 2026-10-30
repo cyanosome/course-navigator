@@ -10,7 +10,7 @@ services:
     volumes:
       - ./backend:/backend_app
       - /backend_app/.venv
-    command: ["uv", "run", "fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uv", "run", "fastapi", "dev", "src/api/main.py", "--host", "0.0.0.0", "--port", "8000"]
     labels:
       - "traefik.enable=true"
       # 環境変数 $DOMAIN を使用してルーティング
@@ -20,6 +20,21 @@ services:
       - "traefik.http.routers.backend.middlewares=backend-stripprefix"
       - "traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes=/api"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  ingestion:
+    build:
+      context: ./ingestion
+      dockerfile: Dockerfile
+    networks:
+      - gateway
+    env_file:
+      - .env
+    profiles:
+      - tools
+    volumes:
+      - ./ingestion:/ingestion_app
+      - /ingestion_app/.venv
+
 
   frontend:
     build:

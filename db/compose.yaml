@@ -15,6 +15,7 @@ services:
       TZ: ${TZ}
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d
     networks:
       - gateway
 

@@ -1,0 +1,48 @@
+"""環境変数から DB 接続設定を読み込むモジュール。
+
+秘密値（パスワード）にはフォールバック（デフォルト値）を設けない。
+未設定の場合は起動時（lifespan）に明示的なエラーを送出する。
+モジュール読み込みだけでは副作用を起こさない（`import main` を安全に保つ）。
+"""
+
+import os
+
+# PostgreSQL 接続設定
+DB_HOST = os.getenv("DB_HOST", "postgres")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "coursenavigator")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+# Neo4j 接続設定
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+
+# LLM Agent 設定 (Google ADK & Neo4j MCP)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+# gemini-2.5-flash は新規 API ユーザーには 404（提供終了）を返すため 3.8-flash を既定にする。
+# adk web の agent.py は gemini-3.5-flash を直書きしており、こちらとは揃っていない。
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini-3.8-flash")
+AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
+AGENT_ENABLE_MCP = os.getenv("AGENT_ENABLE_MCP", "true").lower() in ("true", "1", "yes")
+AGENT_INSTRUCTION_PATH = os.getenv(
+    "AGENT_INSTRUCTION_PATH", "src/agent/prompts/compose_answer.md"
+)
+
+# 未設定時に起動を止める必須（秘密）環境変数
+REQUIRED_SECRETS = ("DB_PASSWORD", "NEO4J_PASSWORD")
+
+
+def validate_required_env() -> None:
+    """必須の秘密環境変数が設定されているか検証する。
+
+    未設定のものがあれば RuntimeError を送出する。lifespan（起動時）から呼び出す。
+    """
+    missing = [name for name in REQUIRED_SECRETS if not os.getenv(name)]
+    if missing:
+        raise RuntimeError(
+            "必須の環境変数が設定されていません: "
+            + ", ".join(missing)
+            + "。compose 実行時は .env から供給してください。"
+        )

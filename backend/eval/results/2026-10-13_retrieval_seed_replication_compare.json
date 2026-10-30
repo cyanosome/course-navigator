@@ -1,0 +1,3973 @@
+{
+  "inputs": {
+    "original": "eval/results/2026-10-13_retrieval_seed.jsonl",
+    "R1": "eval/results/2026-10-13_retrieval_seed_rerun_original_embeddings.jsonl",
+    "R2": "eval/results/2026-10-13_retrieval_seed_replication.jsonl"
+  },
+  "databases": {
+    "original": "coursenavigator_eval",
+    "replication": "coursenavigator_eval_replication"
+  },
+  "ls_tree_commit": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+  "search_questions": 10,
+  "git_tree": {
+    "rule": "backend 配下のファイル。名前が '.' で始まる要素・__pycache__ を含むパス、logs/、eval/results/ を除く。blob SHA-1 は CRLF を LF にそろえて計算する",
+    "files": 77,
+    "sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7"
+  },
+  "original_git_shas": [
+    "38016bca7c5985d5786986bb94f94db41cced7d2"
+  ],
+  "provenance": {
+    "R1": [
+      {
+        "command": "retrieve",
+        "run_id": "20261013T103141Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval"
+        }
+      }
+    ],
+    "R2": [
+      {
+        "command": "setup-db",
+        "run_id": "20261013T103214Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval_replication"
+        }
+      },
+      {
+        "command": "embed-docs",
+        "run_id": "20261013T103237Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval_replication"
+        }
+      },
+      {
+        "command": "embed-queries",
+        "run_id": "20261013T103252Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval_replication"
+        }
+      },
+      {
+        "command": "retrieve",
+        "run_id": "20261013T103324Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval_replication"
+        }
+      },
+      {
+        "command": "generate",
+        "run_id": "20261013T103355Z",
+        "aborted": false,
+        "git_sha": "067fdc22b4f940d93760b5efd8a40531aa923f9e",
+        "sha_matches": true,
+        "clean": true,
+        "source_files": 77,
+        "source_sha256": "a3c25f785413a4a3f97e9b856916b6eccfc3055e7f493facad621f63f29585a7",
+        "source_matches": true,
+        "eval_db": {
+          "host": "cn-eval-pgvector",
+          "name": "coursenavigator_eval_replication"
+        }
+      }
+    ]
+  },
+  "snapshot": [
+    {
+      "field": "retrieve.corpus.postgres_rows_sha256",
+      "values": {
+        "original": "73f5e455e421511a142551c0752695a5db523be5f25deb31f0a3cb3d24f870ad",
+        "R1": "73f5e455e421511a142551c0752695a5db523be5f25deb31f0a3cb3d24f870ad",
+        "R2": "73f5e455e421511a142551c0752695a5db523be5f25deb31f0a3cb3d24f870ad"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.postgres_rows",
+      "values": {
+        "original": 20,
+        "R1": 20,
+        "R2": 20
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.seed_courses_json_sha256",
+      "values": {
+        "original": "842408505adffcfee45a4563af031093f7456b9f35c93a994449624370e95cac",
+        "R1": "842408505adffcfee45a4563af031093f7456b9f35c93a994449624370e95cac",
+        "R2": "842408505adffcfee45a4563af031093f7456b9f35c93a994449624370e95cac"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.neo4j_graph_sha256",
+      "values": {
+        "original": "f3859a79fb814d96ca37c9a22b608185237d9107b00d60cad3b94cd04d6ea059",
+        "R1": "f3859a79fb814d96ca37c9a22b608185237d9107b00d60cad3b94cd04d6ea059",
+        "R2": "f3859a79fb814d96ca37c9a22b608185237d9107b00d60cad3b94cd04d6ea059"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.neo4j_counts",
+      "values": {
+        "original": {
+          "nodes": 20,
+          "prereqs": 19,
+          "topics": 36
+        },
+        "R1": {
+          "nodes": 20,
+          "prereqs": 19,
+          "topics": 36
+        },
+        "R2": {
+          "nodes": 20,
+          "prereqs": 19,
+          "topics": 36
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.neo4j_version",
+      "values": {
+        "original": {
+          "v": "5.26.27",
+          "edition": "community"
+        },
+        "R1": {
+          "v": "5.26.27",
+          "edition": "community"
+        },
+        "R2": {
+          "v": "5.26.27",
+          "edition": "community"
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.postgres_version",
+      "values": {
+        "original": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "R1": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+        "R2": "PostgreSQL 18.6 (Debian 18.6-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.pgvector_version",
+      "values": {
+        "original": "0.8.7",
+        "R1": "0.8.7",
+        "R2": "0.8.7"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.document_embeddings_sha256",
+      "values": {
+        "original": "7a54e8c21dc0628582a8d55fbc88bd19252b1a43392f368bf5ffa37cc24f4118",
+        "R1": "7a54e8c21dc0628582a8d55fbc88bd19252b1a43392f368bf5ffa37cc24f4118",
+        "R2": "7a54e8c21dc0628582a8d55fbc88bd19252b1a43392f368bf5ffa37cc24f4118"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.corpus.query_embeddings_sha256",
+      "values": {
+        "original": "9da17baf66fd4d2dadb190b500e18aa9799ea26f841b3fa57496414c111ba513",
+        "R1": "9da17baf66fd4d2dadb190b500e18aa9799ea26f841b3fa57496414c111ba513",
+        "R2": "9da17baf66fd4d2dadb190b500e18aa9799ea26f841b3fa57496414c111ba513"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.specs_sha256",
+      "values": {
+        "original": "7a30d69f4d96b2ea26305600fc598c4d51e3fab6afdabe8cbd7a13eac8fe4032",
+        "R1": "7a30d69f4d96b2ea26305600fc598c4d51e3fab6afdabe8cbd7a13eac8fe4032",
+        "R2": "7a30d69f4d96b2ea26305600fc598c4d51e3fab6afdabe8cbd7a13eac8fe4032"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.golden_sha256",
+      "values": {
+        "original": "019dddbbd357ea24c2caa247f6b069a8f5a9f56f278ba5952ce745d83e7543d0",
+        "R1": "019dddbbd357ea24c2caa247f6b069a8f5a9f56f278ba5952ce745d83e7543d0",
+        "R2": "019dddbbd357ea24c2caa247f6b069a8f5a9f56f278ba5952ce745d83e7543d0"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.exact_search",
+      "values": {
+        "original": {
+          "enable_indexscan": [
+            "off",
+            "off"
+          ],
+          "uses_hnsw_index": false,
+          "plan_node_types": [
+            "Hash",
+            "Hash Join",
+            "Limit",
+            "Seq Scan",
+            "Sort"
+          ]
+        },
+        "R1": {
+          "enable_indexscan": [
+            "off",
+            "off"
+          ],
+          "uses_hnsw_index": false,
+          "plan_node_types": [
+            "Hash",
+            "Hash Join",
+            "Limit",
+            "Seq Scan",
+            "Sort"
+          ]
+        },
+        "R2": {
+          "enable_indexscan": [
+            "off",
+            "off"
+          ],
+          "uses_hnsw_index": false,
+          "plan_node_types": [
+            "Hash",
+            "Hash Join",
+            "Limit",
+            "Seq Scan",
+            "Sort"
+          ]
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.embedding",
+      "values": {
+        "original": {
+          "model": "gemini-embedding-2",
+          "dimensions": 1536,
+          "normalization": "API の自動正規化（文書どおり）＋保存前に L2 正規化",
+          "query_template": "task: search result | query: {content}",
+          "document_template": "title: {title} | text: {content}"
+        },
+        "R1": {
+          "model": "gemini-embedding-2",
+          "dimensions": 1536,
+          "normalization": "API の自動正規化（文書どおり）＋保存前に L2 正規化",
+          "query_template": "task: search result | query: {content}",
+          "document_template": "title: {title} | text: {content}"
+        },
+        "R2": {
+          "model": "gemini-embedding-2",
+          "dimensions": 1536,
+          "normalization": "API の自動正規化（文書どおり）＋保存前に L2 正規化",
+          "query_template": "task: search result | query: {content}",
+          "document_template": "title: {title} | text: {content}"
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.params",
+      "values": {
+        "original": {
+          "retrieve_depth": 11,
+          "k": [
+            5,
+            10
+          ],
+          "repeats": 5,
+          "hybrid_entry_count": 3,
+          "rrf_k": 60,
+          "fulltext_index": "eval_course_topic_fulltext",
+          "fulltext_analyzer": "cjk"
+        },
+        "R1": {
+          "retrieve_depth": 11,
+          "k": [
+            5,
+            10
+          ],
+          "repeats": 5,
+          "hybrid_entry_count": 3,
+          "rrf_k": 60,
+          "fulltext_index": "eval_course_topic_fulltext",
+          "fulltext_analyzer": "cjk"
+        },
+        "R2": {
+          "retrieve_depth": 11,
+          "k": [
+            5,
+            10
+          ],
+          "repeats": 5,
+          "hybrid_entry_count": 3,
+          "rrf_k": 60,
+          "fulltext_index": "eval_course_topic_fulltext",
+          "fulltext_analyzer": "cjk"
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.python",
+      "values": {
+        "original": "3.14.2",
+        "R1": "3.14.2",
+        "R2": "3.14.2"
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "retrieve.libraries",
+      "values": {
+        "original": {
+          "google-adk": "2.8.0",
+          "google-genai": "2.21.0",
+          "asyncpg": "0.30.0",
+          "neo4j": "5.28.5"
+        },
+        "R1": {
+          "google-adk": "2.8.0",
+          "google-genai": "2.21.0",
+          "asyncpg": "0.30.0",
+          "neo4j": "5.28.5"
+        },
+        "R2": {
+          "google-adk": "2.8.0",
+          "google-genai": "2.21.0",
+          "asyncpg": "0.30.0",
+          "neo4j": "5.28.5"
+        }
+      },
+      "equal": {
+        "R1": true,
+        "R2": true
+      }
+    },
+    {
+      "field": "generate.model",
+      "values": {
+        "original": "gemini-3.8-flash",
+        "R1": null,
+        "R2": "gemini-3.8-flash"
+      },
+      "equal": {
+        "R1": null,
+        "R2": true
+      }
+    },
+    {
+      "field": "generate.instruction_sha256",
+      "values": {
+        "original": "f0fd50a8385bd686809e690f2fb34fa615e6edd45c65d2b256354533e910bd0d",
+        "R1": null,
+        "R2": "f0fd50a8385bd686809e690f2fb34fa615e6edd45c65d2b256354533e910bd0d"
+      },
+      "equal": {
+        "R1": null,
+        "R2": true
+      }
+    },
+    {
+      "field": "generate.generation_top_k",
+      "values": {
+        "original": 5,
+        "R1": null,
+        "R2": 5
+      },
+      "equal": {
+        "R1": null,
+        "R2": true
+      }
+    },
+    {
+      "field": "generate.per_run_llm_cap",
+      "values": {
+        "original": 3,
+        "R1": null,
+        "R2": 3
+      },
+      "equal": {
+        "R1": null,
+        "R2": true
+      }
+    },
+    {
+      "field": "generate.timeout_seconds",
+      "values": {
+        "original": 120,
+        "R1": null,
+        "R2": 120
+      },
+      "equal": {
+        "R1": null,
+        "R2": true
+      }
+    }
+  ],
+  "embeddings": {
+    "documents": {
+      "compared": 20,
+      "missing": [],
+      "bitwise_equal": 20,
+      "max_abs_diff": 0.0,
+      "min_cosine": 1.0,
+      "per_key": {
+        "GMS-101": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-102": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-103": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-104": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-201": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-202": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-203": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-204": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-205": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-206": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-301": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-302": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-303": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-304": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-305": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-306": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-401": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-402": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "GMS-403": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "GMS-404": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        }
+      }
+    },
+    "queries": {
+      "compared": 14,
+      "missing": [],
+      "bitwise_equal": 14,
+      "max_abs_diff": 0.0,
+      "min_cosine": 1.0,
+      "per_key": {
+        "q01": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q02": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q03": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q04": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q05": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q06": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q07": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q08": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q09": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q10": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q11": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        },
+        "q12": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q13": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0000000000000002
+        },
+        "q14": {
+          "bitwise_equal": true,
+          "max_abs_diff": 0.0,
+          "cosine": 1.0
+        }
+      }
+    },
+    "db_hashes": {
+      "original_matches_manifest": true,
+      "replication_matches_manifest": true
+    },
+    "classification": "ビット一致"
+  },
+  "rankings": {
+    "R1": {
+      "summary": {
+        "pure_vector": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "vector_metadata": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "pure_graph": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "hybrid": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "all": {
+          "rows": 56,
+          "present": 56,
+          "codes_equal": 56,
+          "metrics_equal": 56,
+          "evidence_equal": 56,
+          "queries_equal": 56,
+          "max_score_diff": 0.0
+        }
+      },
+      "rows": [
+        {
+          "question_id": "q01",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-303",
+            "GMS-302",
+            "GMS-201",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-303",
+            "GMS-302",
+            "GMS-201",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-402",
+            "GMS-303",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-402",
+            "GMS-303",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-303",
+            "GMS-302",
+            "GMS-402",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-303",
+            "GMS-302",
+            "GMS-402",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-203",
+            "GMS-301",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-203",
+            "GMS-301",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-202",
+            "GMS-201",
+            "GMS-101",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-202",
+            "GMS-201",
+            "GMS-101",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-202"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-202"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-206",
+            "GMS-101",
+            "GMS-103",
+            "GMS-306",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-206",
+            "GMS-101",
+            "GMS-103",
+            "GMS-306",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-402",
+            "GMS-102",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-402",
+            "GMS-102",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-402",
+            "GMS-203",
+            "GMS-301",
+            "GMS-202"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-402",
+            "GMS-203",
+            "GMS-301",
+            "GMS-202"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-301",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-301",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-303",
+            "GMS-102",
+            "GMS-201",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-303",
+            "GMS-102",
+            "GMS-201",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-102",
+            "GMS-202",
+            "GMS-301",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-102",
+            "GMS-202",
+            "GMS-301",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-302",
+            "GMS-305",
+            "GMS-205",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-302",
+            "GMS-305",
+            "GMS-205",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q11",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q12",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-205"
+          ],
+          "other_top5": [
+            "GMS-205"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q13",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-302",
+            "GMS-203",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-302",
+            "GMS-203",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        }
+      ]
+    },
+    "R2": {
+      "summary": {
+        "pure_vector": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "vector_metadata": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "pure_graph": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "hybrid": {
+          "rows": 14,
+          "present": 14,
+          "codes_equal": 14,
+          "metrics_equal": 14,
+          "evidence_equal": 14,
+          "queries_equal": 14,
+          "max_score_diff": 0.0
+        },
+        "all": {
+          "rows": 56,
+          "present": 56,
+          "codes_equal": 56,
+          "metrics_equal": 56,
+          "evidence_equal": 56,
+          "queries_equal": 56,
+          "max_score_diff": 0.0
+        }
+      },
+      "rows": [
+        {
+          "question_id": "q01",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-303",
+            "GMS-302",
+            "GMS-201",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-303",
+            "GMS-302",
+            "GMS-201",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q01",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-401",
+            "GMS-201",
+            "GMS-203",
+            "GMS-102",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-402",
+            "GMS-303",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-402",
+            "GMS-303",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ]
+        },
+        {
+          "question_id": "q02",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-101",
+            "GMS-102",
+            "GMS-104",
+            "GMS-306"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-303",
+            "GMS-302",
+            "GMS-402",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-303",
+            "GMS-302",
+            "GMS-402",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ]
+        },
+        {
+          "question_id": "q03",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-302",
+            "GMS-102",
+            "GMS-205",
+            "GMS-403"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-203",
+            "GMS-301",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-203",
+            "GMS-301",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q04",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-302",
+            "GMS-203",
+            "GMS-301",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-202",
+            "GMS-201",
+            "GMS-101",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-202",
+            "GMS-201",
+            "GMS-101",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-202"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-202"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q05",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-206",
+            "GMS-101",
+            "GMS-103",
+            "GMS-306",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-206",
+            "GMS-101",
+            "GMS-103",
+            "GMS-306",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q06",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-306",
+            "GMS-102",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-402",
+            "GMS-102",
+            "GMS-203"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-402",
+            "GMS-102",
+            "GMS-203"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-101",
+            "GMS-203",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-402",
+            "GMS-203",
+            "GMS-301",
+            "GMS-202"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-402",
+            "GMS-203",
+            "GMS-301",
+            "GMS-202"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-301",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-301",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q08",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-402",
+            "GMS-102",
+            "GMS-201",
+            "GMS-101",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-202",
+            "GMS-303",
+            "GMS-102",
+            "GMS-201",
+            "GMS-301"
+          ],
+          "other_top5": [
+            "GMS-202",
+            "GMS-303",
+            "GMS-102",
+            "GMS-201",
+            "GMS-301"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-303",
+            "GMS-102",
+            "GMS-202",
+            "GMS-301",
+            "GMS-401"
+          ],
+          "other_top5": [
+            "GMS-303",
+            "GMS-102",
+            "GMS-202",
+            "GMS-301",
+            "GMS-401"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-101",
+            "GMS-401",
+            "GMS-301",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-201",
+            "GMS-302",
+            "GMS-305",
+            "GMS-205",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-201",
+            "GMS-302",
+            "GMS-305",
+            "GMS-205",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q10",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-104",
+            "GMS-201",
+            "GMS-206",
+            "GMS-302"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q11",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q11",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ],
+          "other_top5": [
+            "GMS-102",
+            "GMS-104",
+            "GMS-201",
+            "GMS-101",
+            "GMS-305"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q12",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other_top5": [
+            "GMS-101",
+            "GMS-201",
+            "GMS-205",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q12",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-205"
+          ],
+          "other_top5": [
+            "GMS-205"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": null,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [],
+          "other_top5": []
+        },
+        {
+          "question_id": "q13",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q13",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ],
+          "other_top5": [
+            "GMS-302",
+            "GMS-102",
+            "GMS-201",
+            "GMS-303",
+            "GMS-101"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "hybrid",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "pure_graph",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-302",
+            "GMS-203",
+            "GMS-303"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-302",
+            "GMS-203",
+            "GMS-303"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "pure_vector",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        },
+        {
+          "question_id": "q14",
+          "condition": "vector_metadata",
+          "present": true,
+          "codes_equal": true,
+          "max_score_diff": 0.0,
+          "metrics_equal": true,
+          "evidence_equal": true,
+          "queries_equal": true,
+          "identical_across_repeats": true,
+          "base_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ],
+          "other_top5": [
+            "GMS-301",
+            "GMS-401",
+            "GMS-303",
+            "GMS-202",
+            "GMS-102"
+          ]
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "original": {
+      "pure_vector": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 6.1175
+      },
+      "vector_metadata": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 5.923
+      },
+      "pure_graph": {
+        "questions": 10,
+        "recall@5": 0.9833333333333334,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0,
+        "forbidden@5": 0,
+        "violations@5": 10,
+        "returned@5": 3.4,
+        "latency_ms_median": 29.866999999999997
+      },
+      "hybrid": {
+        "questions": 10,
+        "recall@5": 0.9033333333333333,
+        "ndcg@5": 0.879752072946479,
+        "recall@10": 1.0,
+        "ndcg@10": 0.9250236022453008,
+        "forbidden@5": 4,
+        "violations@5": 13,
+        "returned@5": 5.0,
+        "latency_ms_median": 81.96000000000001
+      }
+    },
+    "R1": {
+      "pure_vector": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 5.3870000000000005
+      },
+      "vector_metadata": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 5.102499999999999
+      },
+      "pure_graph": {
+        "questions": 10,
+        "recall@5": 0.9833333333333334,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0,
+        "forbidden@5": 0,
+        "violations@5": 10,
+        "returned@5": 3.4,
+        "latency_ms_median": 15.445
+      },
+      "hybrid": {
+        "questions": 10,
+        "recall@5": 0.9033333333333333,
+        "ndcg@5": 0.879752072946479,
+        "recall@10": 1.0,
+        "ndcg@10": 0.9250236022453008,
+        "forbidden@5": 4,
+        "violations@5": 13,
+        "returned@5": 5.0,
+        "latency_ms_median": 59.674
+      }
+    },
+    "R2": {
+      "pure_vector": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 5.74
+      },
+      "vector_metadata": {
+        "questions": 10,
+        "recall@5": 0.7,
+        "ndcg@5": 0.5967671273721065,
+        "recall@10": 0.8800000000000001,
+        "ndcg@10": 0.6757616974932448,
+        "forbidden@5": 7,
+        "violations@5": 7,
+        "returned@5": 5.0,
+        "latency_ms_median": 6.162
+      },
+      "pure_graph": {
+        "questions": 10,
+        "recall@5": 0.9833333333333334,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0,
+        "forbidden@5": 0,
+        "violations@5": 10,
+        "returned@5": 3.4,
+        "latency_ms_median": 16.502
+      },
+      "hybrid": {
+        "questions": 10,
+        "recall@5": 0.9033333333333333,
+        "ndcg@5": 0.879752072946479,
+        "recall@10": 1.0,
+        "ndcg@10": 0.9250236022453008,
+        "forbidden@5": 4,
+        "violations@5": 13,
+        "returned@5": 5.0,
+        "latency_ms_median": 45.5175
+      }
+    }
+  },
+  "verdicts": {
+    "original": [
+      {
+        "hypothesis": "H0 妥当性（spec が golden と一致し、pure_graph の Recall@10 が1）",
+        "label": "支持",
+        "detail": "spec 不一致 なし、Recall@10<1 なし"
+      },
+      {
+        "hypothesis": "H1 向きのある問いで pure_graph > pure_vector",
+        "label": "支持",
+        "detail": "pure_graph − pure_vector: recall@5 差 +0.30・符号 +4（差あり）、ndcg@5 差 +0.40・符号 +6（差あり）"
+      },
+      {
+        "hypothesis": "H2 向きのある問いで hybrid > pure_vector",
+        "label": "一部支持",
+        "detail": "hybrid − pure_vector: recall@5 差 +0.21・符号 +2（差は小さい）、ndcg@5 差 +0.30・符号 +4（差あり）"
+      },
+      {
+        "hypothesis": "H3 トピックの問いで pure_vector も戦える（NDCG@5 が pure_graph − 0.10 以上）",
+        "label": "不支持",
+        "detail": "pure_vector 0.58、pure_graph 1.00（3問）"
+      },
+      {
+        "hypothesis": "H4 hybrid は pure_vector・pure_graph のどちらにも NDCG@5 で「差あり」で劣らない",
+        "label": "不支持",
+        "detail": "対 pure_vector 差 +0.28・符号 +7（差あり）、対 pure_graph 差 -0.12・符号 -4（差あり）"
+      },
+      {
+        "hypothesis": "H5 next_step の前提違反@5 の合計で pure_graph・hybrid が pure_vector より2件以上少ない",
+        "label": "不支持",
+        "detail": "違反の合計: pure_vector 7、pure_graph 10、hybrid 13（4問）"
+      },
+      {
+        "hypothesis": "H6 制約の無い検索系10問で vector_metadata の順位が pure_vector と同じ",
+        "label": "支持",
+        "detail": "順位が違う質問: なし"
+      },
+      {
+        "hypothesis": "H7 生成で DB に無いコードも候補外のコードも引用しない",
+        "label": "一部支持",
+        "detail": "未検証コードの合計 0、候補外の引用の合計 11（40 回）。同じ候補を渡した pure_vector と vector_metadata で引用集合が一致した質問 10/10"
+      }
+    ],
+    "R1": [
+      {
+        "hypothesis": "H0 妥当性（spec が golden と一致し、pure_graph の Recall@10 が1）",
+        "label": "支持",
+        "detail": "spec 不一致 なし、Recall@10<1 なし"
+      },
+      {
+        "hypothesis": "H1 向きのある問いで pure_graph > pure_vector",
+        "label": "支持",
+        "detail": "pure_graph − pure_vector: recall@5 差 +0.30・符号 +4（差あり）、ndcg@5 差 +0.40・符号 +6（差あり）"
+      },
+      {
+        "hypothesis": "H2 向きのある問いで hybrid > pure_vector",
+        "label": "一部支持",
+        "detail": "hybrid − pure_vector: recall@5 差 +0.21・符号 +2（差は小さい）、ndcg@5 差 +0.30・符号 +4（差あり）"
+      },
+      {
+        "hypothesis": "H3 トピックの問いで pure_vector も戦える（NDCG@5 が pure_graph − 0.10 以上）",
+        "label": "不支持",
+        "detail": "pure_vector 0.58、pure_graph 1.00（3問）"
+      },
+      {
+        "hypothesis": "H4 hybrid は pure_vector・pure_graph のどちらにも NDCG@5 で「差あり」で劣らない",
+        "label": "不支持",
+        "detail": "対 pure_vector 差 +0.28・符号 +7（差あり）、対 pure_graph 差 -0.12・符号 -4（差あり）"
+      },
+      {
+        "hypothesis": "H5 next_step の前提違反@5 の合計で pure_graph・hybrid が pure_vector より2件以上少ない",
+        "label": "不支持",
+        "detail": "違反の合計: pure_vector 7、pure_graph 10、hybrid 13（4問）"
+      },
+      {
+        "hypothesis": "H6 制約の無い検索系10問で vector_metadata の順位が pure_vector と同じ",
+        "label": "支持",
+        "detail": "順位が違う質問: なし"
+      },
+      {
+        "hypothesis": "H7 生成で DB に無いコードも候補外のコードも引用しない",
+        "label": "判定不能",
+        "detail": "成功した生成が 0/40 回"
+      }
+    ],
+    "R2": [
+      {
+        "hypothesis": "H0 妥当性（spec が golden と一致し、pure_graph の Recall@10 が1）",
+        "label": "支持",
+        "detail": "spec 不一致 なし、Recall@10<1 なし"
+      },
+      {
+        "hypothesis": "H1 向きのある問いで pure_graph > pure_vector",
+        "label": "支持",
+        "detail": "pure_graph − pure_vector: recall@5 差 +0.30・符号 +4（差あり）、ndcg@5 差 +0.40・符号 +6（差あり）"
+      },
+      {
+        "hypothesis": "H2 向きのある問いで hybrid > pure_vector",
+        "label": "一部支持",
+        "detail": "hybrid − pure_vector: recall@5 差 +0.21・符号 +2（差は小さい）、ndcg@5 差 +0.30・符号 +4（差あり）"
+      },
+      {
+        "hypothesis": "H3 トピックの問いで pure_vector も戦える（NDCG@5 が pure_graph − 0.10 以上）",
+        "label": "不支持",
+        "detail": "pure_vector 0.58、pure_graph 1.00（3問）"
+      },
+      {
+        "hypothesis": "H4 hybrid は pure_vector・pure_graph のどちらにも NDCG@5 で「差あり」で劣らない",
+        "label": "不支持",
+        "detail": "対 pure_vector 差 +0.28・符号 +7（差あり）、対 pure_graph 差 -0.12・符号 -4（差あり）"
+      },
+      {
+        "hypothesis": "H5 next_step の前提違反@5 の合計で pure_graph・hybrid が pure_vector より2件以上少ない",
+        "label": "不支持",
+        "detail": "違反の合計: pure_vector 7、pure_graph 10、hybrid 13（4問）"
+      },
+      {
+        "hypothesis": "H6 制約の無い検索系10問で vector_metadata の順位が pure_vector と同じ",
+        "label": "支持",
+        "detail": "順位が違う質問: なし"
+      },
+      {
+        "hypothesis": "H7 生成で DB に無いコードも候補外のコードも引用しない",
+        "label": "一部支持",
+        "detail": "未検証コードの合計 0、候補外の引用の合計 7（40 回）。同じ候補を渡した pure_vector と vector_metadata で引用集合が一致した質問 10/10"
+      }
+    ]
+  },
+  "generation": {
+    "original": {
+      "pure_vector": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 0,
+        "outside_in_evidence": 0,
+        "recall": 0.7,
+        "precision": 0.44000000000000006,
+        "forbidden": 7,
+        "llm_requests": 10,
+        "input_tokens": 538.3,
+        "output_tokens": 260.4,
+        "latency_s_median": 7.9879999999999995,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "vector_metadata": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 0,
+        "outside_in_evidence": 0,
+        "recall": 0.7,
+        "precision": 0.44000000000000006,
+        "forbidden": 7,
+        "llm_requests": 10,
+        "input_tokens": 538.3,
+        "output_tokens": 259.7,
+        "latency_s_median": 6.9765,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "pure_graph": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 1,
+        "outside_in_evidence": 1,
+        "recall": 1.0,
+        "precision": 1.0,
+        "forbidden": 0,
+        "llm_requests": 10,
+        "input_tokens": 535.0,
+        "output_tokens": 253.3,
+        "latency_s_median": 8.468,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "hybrid": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 10,
+        "outside_in_evidence": 10,
+        "recall": 0.9199999999999999,
+        "precision": 0.5231746031746032,
+        "forbidden": 8,
+        "llm_requests": 10,
+        "input_tokens": 772.5,
+        "output_tokens": 432.5,
+        "latency_s_median": 11.162500000000001,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      }
+    },
+    "R2": {
+      "pure_vector": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 0,
+        "outside_in_evidence": 0,
+        "recall": 0.7,
+        "precision": 0.44000000000000006,
+        "forbidden": 7,
+        "llm_requests": 10,
+        "input_tokens": 538.3,
+        "output_tokens": 258.2,
+        "latency_s_median": 7.1035,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "vector_metadata": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 0,
+        "outside_in_evidence": 0,
+        "recall": 0.7,
+        "precision": 0.44000000000000006,
+        "forbidden": 7,
+        "llm_requests": 10,
+        "input_tokens": 538.3,
+        "output_tokens": 263.2,
+        "latency_s_median": 8.6155,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "pure_graph": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 1,
+        "outside_in_evidence": 1,
+        "recall": 1.0,
+        "precision": 1.0,
+        "forbidden": 0,
+        "llm_requests": 10,
+        "input_tokens": 535.0,
+        "output_tokens": 264.0,
+        "latency_s_median": 7.648,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      },
+      "hybrid": {
+        "success": 10,
+        "runs": 10,
+        "unverified": 0,
+        "outside": 6,
+        "outside_in_evidence": 6,
+        "recall": 0.9199999999999999,
+        "precision": 0.6242857142857143,
+        "forbidden": 6,
+        "llm_requests": 10,
+        "input_tokens": 772.5,
+        "output_tokens": 391.3,
+        "latency_s_median": 10.088000000000001,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ]
+      }
+    },
+    "cited_agreement": {
+      "compared": 40,
+      "equal": 37,
+      "differ": [
+        {
+          "question_id": "q02",
+          "condition": "hybrid",
+          "base": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-202",
+            "GMS-203",
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ],
+          "other": [
+            "GMS-101",
+            "GMS-301",
+            "GMS-302",
+            "GMS-303",
+            "GMS-401",
+            "GMS-402"
+          ]
+        },
+        {
+          "question_id": "q07",
+          "condition": "hybrid",
+          "base": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-203",
+            "GMS-402"
+          ],
+          "other": [
+            "GMS-101",
+            "GMS-201"
+          ]
+        },
+        {
+          "question_id": "q09",
+          "condition": "hybrid",
+          "base": [
+            "GMS-101",
+            "GMS-102",
+            "GMS-201",
+            "GMS-202",
+            "GMS-301",
+            "GMS-303"
+          ],
+          "other": [
+            "GMS-102",
+            "GMS-201",
+            "GMS-202",
+            "GMS-301",
+            "GMS-303"
+          ]
+        }
+      ]
+    }
+  },
+  "predictions": [
+    {
+      "name": "P1 R1 の56行が元と完全一致",
+      "result": "成り立つ",
+      "detail": "順位一致 56/56、スコアの差の最大 0"
+    },
+    {
+      "name": "P2 R2 のコーパス・QuerySpec・golden のハッシュが元と一致",
+      "result": "成り立つ",
+      "detail": "retrieve.corpus.postgres_rows_sha256=一致, retrieve.corpus.seed_courses_json_sha256=一致, retrieve.corpus.neo4j_graph_sha256=一致, retrieve.specs_sha256=一致, retrieve.golden_sha256=一致"
+    },
+    {
+      "name": "P3 R2 の埋め込み（予測なし）",
+      "result": "ビット一致",
+      "detail": "文書 20/20・質問 14/14 がビット一致"
+    },
+    {
+      "name": "P4 R2 の検索（C3 は無条件、残りは埋め込みがビット一致かほぼ一致のとき）",
+      "result": "成り立つ",
+      "detail": "C3 一致 14/14、全体の順位一致 56/56、H0〜H6 の判定 一致"
+    },
+    {
+      "name": "P5 R2 の生成で未検証コード0・候補外の引用はすべて根拠文に現れる",
+      "result": "成り立つ",
+      "detail": "成功 40/40、未検証 0、候補外 7（うち根拠文 7）"
+    },
+    {
+      "name": "出所（R1・R2 の全セッションで HEAD・clean・指紋が git の木と一致）",
+      "result": "成り立つ",
+      "detail": "commit 067fdc22b4f940d93760b5efd8a40531aa923f9e"
+    }
+  ],
+  "conclusions": [
+    {
+      "name": "元の検索の結果はコミット済みのコードで成り立つ",
+      "holds": true,
+      "detail": "P1 と出所の照合"
+    },
+    {
+      "name": "元の結果は再現した",
+      "holds": true,
+      "detail": "上に加えて、R2 の56行の順位リストが一致・H0〜H6 の判定が一致・P5"
+    }
+  ]
+}

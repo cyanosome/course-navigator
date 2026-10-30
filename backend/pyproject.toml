@@ -1,7 +1,7 @@
 [project]
-name = "backend"
+name = "course-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Course Navigator Backend (FastAPI, Agent, Core)"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -9,4 +9,28 @@ dependencies = [
     "pydantic>=2.13.0,<3.0.0",
     "asyncpg>=0.30.0,<0.31.0",
     "neo4j>=5.28.0,<6.0.0",
+    "google-adk[mcp]>=2.6,<3.0",
+    "neo4j-mcp-server>=1.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "db: 実 Neo4j / PostgreSQL が要るテスト（CI では -m 'not db' で除外する）",
+    "llm: 実 LLM API が要るテスト（CI では -m 'not llm' で除外する）",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/api",
+    "src/agent",
+    "src/course_core",
 ]
