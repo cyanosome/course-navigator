@@ -60,8 +60,11 @@ ingestion/
         │   ├── loader.py   # [NEW] コース一括 Upsert & トランザクションローダー
         │   └── verify_data.py # データ検証・完全突合 CLI ツール
         └── graph/          # Neo4j 投入ロジック（UNWIND バッチ・Cypher制約）
-            ├── schema.py   # ノード・リレーション定義
-            └── loader.py   # Course, Professor, Department 等の一括ロード処理
+            ├── __init__.py # モジュールエクスポート
+            ├── schema.py   # ノード・リレーション定義・Cypher クエリ
+            ├── loader.py   # 駒澤大学用レガシーローダー
+            ├── curriculum_loader.py # [NEW] 関西大学 カリキュラムDAG & コース一括ローダー
+            └── verify_graph.py # [NEW] Neo4j & PostgreSQL クロスDB整合性検証 CLI
 ```
 
 ---
@@ -263,6 +266,54 @@ python -m src.transformers.kansai.curriculum_tree_parser --page 6
 
 # 2. カスタムパスおよび出力先を指定して実行
 python -m src.transformers.kansai.curriculum_tree_parser --pdf data/raw/university/kansai/2026/curriculum/tree_env.pdf --output-json data/parsed/university/kansai/2026/curriculum_group_graph.json --output-md data/parsed/university/kansai/2026/curriculum_extracted.md
+```
+
+---
+
+### 5.5 Neo4j カリキュラム系統図 & コースデータローダー (`curriculum_loader.py`)
+
+抽出された履修系統図グループ DAG（`curriculum_group_graph.json`）および詳細シラバスコースデータ（`courses_detail.json`）を Neo4j へ一括投入（Merge）するローダーです。APOC や GDS、ベクトル埋め込み等の推測的技術は使用せず、純粋な Cypher `UNWIND $batch` パランティア型オントロジーにより投入します。
+
+```bash
+# 1. デフォルト一括投入（Course, CourseGroup, DiplomaPolicy を Merge）
+python -m src.loaders.graph.curriculum_loader
+
+# 2. 該当学科の既存データをクリアしてから新規再ロード
+python -m src.loaders.graph.curriculum_loader --clear-first
+
+# 3. カスタムパスおよびバッチサイズを指定して投入
+python -m src.loaders.graph.curriculum_loader --tree data/parsed/university/kansai/2026/curriculum_group_graph.json --courses data/parsed/university/kansai/2026/courses_detail.json --batch-size 1000
+```
+
+#### Neo4j グラフモデル・オントロジー
+- **ノード**:
+  - `(:Course {syllabus_id, course_code, timetable_code, name, credits, semester, term_schedule, detail_url})`
+  - `(:CourseGroup {group_id, label, academic_year, semester, faculty, department})`
+  - `(:DiplomaPolicy {code, name, faculty, department})`
+  - `(:Professor {name, code})`, `(:Department {code})`, `(:Faculty {name})`
+- **リレーション**:
+  - `(:CourseGroup)-[:PREREQUISITE_FOR {edge_type, is_major}]->(:CourseGroup)`
+  - `(:CourseGroup)-[:CONTRIBUTES_TO {edge_type}]->(:DiplomaPolicy)`
+  - `(:Course)-[:BELONGS_TO_GROUP]->(:CourseGroup)`
+  - `(:Course)-[:TAUGHT_BY {is_primary}]->(:Professor)`
+  - `(:Course)-[:BELONGS_TO]->(:Department)`
+  - `(:Course)-[:OFFERED_BY]->(:Faculty)`
+
+---
+
+### 5.6 Neo4j & PostgreSQL クロスデータベース整合性検証 CLI (`verify_graph.py`)
+
+Neo4j GraphDB と PostgreSQL RDB の両方に接続し、データ件数、DAG トポロジー、および主キー（`syllabus_id`）の完全一致・相互結合性を検証する CLI ツールです。
+
+```bash
+# 1. 全体整合性・ノード数・エッジ数・クロスDB 100% 紐付け検証
+python -m src.loaders.graph.verify_graph check-all
+
+# 2. 特定科目のクロスDB結合インスペクション (Graph コンテキスト + RDB 詳細シラバス)
+python -m src.loaders.graph.verify_graph check-course 162242
+
+# 3. カリキュラム CourseGroup の DAG 前提・後続関係一覧表示
+python -m src.loaders.graph.verify_graph check-groups
 ```
 
 ---
