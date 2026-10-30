@@ -50,6 +50,11 @@ ingestion/
     │   └── nagasaki/       # 長崎大学用パーサー (凍結保持)
     └── loaders/            # 【Load】データベース一括投入 (Loader)
         ├── __init__.py     # Loader エクスポートインターフェース
+        ├── postgres/       # [NEW] PostgreSQL 用ローダー・検証基盤 (ADR-0015)
+        │   ├── db.py       # DB 接続マネージャー (psycopg v3)
+        │   ├── schema.py   # courses テーブル DDL 定義
+        │   ├── loader.py   # [NEW] コース一括 Upsert & トランザクションローダー
+        │   └── verify_data.py # データ検証・完全突合 CLI ツール
         └── graph/          # Neo4j 投入ロジック（UNWIND バッチ・Cypher制約）
             ├── schema.py   # ノード・リレーション定義
             └── loader.py   # Course, Professor, Department 等の一括ロード処理
@@ -189,6 +194,58 @@ uv run python -m src.parsers.komazawa.parser
 
 > [!NOTE]
 > ローカルホスト（Windows等）上で直接 `uv run` を実行する場合、Python 3.14 用の C コンパイラ環境（Visual Studio C++ Build Tools 等）が必要になる場合があります。チーム開発時は上記の Docker コンテナ経由での実行を推奨します。
+
+---
+
+### 5.2 PostgreSQL コースデータローダー (`loader.py`)
+
+構造化シラバス JSON（`courses_detail.json`）を PostgreSQL の `courses` テーブルへ高速・安全・かつべき等（再実行可能）に一括投入（Upsert）する CLI スクリプトです。単一トランザクション保証（All-or-Nothing）で動作し、投入完了後に自動で元データ突合検証（`diff`）を実行して差分ゼロを判定します。
+
+```bash
+# 1. 安全確認（ドライラン: コミットせず全件ロールバック）
+python -m src.loaders.postgres.loader --dry-run
+
+# 2. 本番一括投入（デフォルト設定: 500件バッチ + 自動 diff 検証）
+python -m src.loaders.postgres.loader
+
+# 3. カスタムパスおよびバッチサイズを指定して投入
+python -m src.loaders.postgres.loader --json data/parsed/university/kansai/2026/courses_detail.json --batch-size 1000
+
+# 4. 高速実行（ロード後の自動突合検証をスキップ）
+python -m src.loaders.postgres.loader --skip-verify
+```
+
+#### CLI 引数と実行オプション
+
+| オプション | 型 / デフォルト値 | 説明 |
+| :--- | :--- | :--- |
+| `--json PATH` | `Path` / `data/parsed/university/kansai/2026/courses_detail.json` | 投入元となる構造化シラバス JSON のパス指定 |
+| `--batch-size N` | `int` / `500` | 1回の `executemany` で一括送信するレコード件数 |
+| `--dry-run` | フラグ (`action="store_true"`) | 実際にはコミットせず、データのバインド・投入シミュレーションのみを行いロールバックする安全確認フラグ |
+| `--skip-verify` | フラグ (`action="store_true"`) | ロード完了後の自動 `diff` 検証ステップをスキップする高速化フラグ |
+
+---
+
+### 5.3 PostgreSQL データ検証・完全突合ツール (`verify_data.py`) (ADR-0015)
+
+PostgreSQL 内の `courses` テーブルのデータ整合性を開発者がホスト側から1コマンドで検証・確認するための CLI ツールです。
+
+```bash
+# 1. テーブルおよびインデックスの初期化 (初回のみ)
+python -m src.loaders.postgres.verify_data init-db
+
+# 2. テーブル総件数・カラム別 NOT NULL 充足率・分布の確認
+python -m src.loaders.postgres.verify_data stats
+
+# 3. 特定科目の詳細表示 (時間割コード 64214 または シラバスID 162242)
+python -m src.loaders.postgres.verify_data show 64214
+
+# 4. 元データ JSON との完全自動突合 (差分ゼロ・完全一致の検証)
+python -m src.loaders.postgres.verify_data diff --json data/parsed/university/kansai/2026/courses_detail.json
+
+# 5. 任意の読み取り SQL の直接実行・表形式プレビュー
+python -m src.loaders.postgres.verify_data query "SELECT subject_name, credits, semester, term_schedule FROM courses WHERE subject_name LIKE '%化学%' LIMIT 5;"
+```
 
 ---
 

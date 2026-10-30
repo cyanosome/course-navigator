@@ -68,5 +68,6 @@ docs/adr/XXXX-kebab-case-title.md
 | [0012](0012-disable-auto-seeding-for-ingestion-environments.md) | [Ingestion 運用環境における Backend 自動シード投入の停止とオプトイン化](0012-disable-auto-seeding-for-ingestion-environments.md) | Proposed | 2026-10-10 | 実シラバスデータへのダミー講義混入を防ぐため、AUTO_SEED_DATA 環境変数による起動時自動投入の停止（デフォルト無効）と手動 CLI の維持 |
 | [0013](0013-dual-pipeline-for-syllabus-summary-and-detail.md) | [シラバス情報パーサーにおけるサマリー版・詳細版の2系統アーキテクチャとスキーマ互換設計](0013-dual-pipeline-for-syllabus-summary-and-detail.md) | Proposed | 2026-10-10 | 生JS文字列の限界（見出し脱落・境界曖昧性）の克服と高速CI/日常開発の両立、Pydantic基底モデル・Cypher coalesceによる透過的DBロード |
 | [0014](0014-pivot-from-komazawa-to-kansai-ingestion.md) | [公式Web停止に伴う駒澤大学 Ingestion の一時停止と関西大学データへのピボット](0014-pivot-from-komazawa-to-kansai-ingestion.md) | Proposed | 2026-10-29 | 駒澤大Web停止（PHP2SHELL）とKONECO凍結リスクへの対策、完全公開静的HTML・履修系統図DAGを有する関西大学シラバスデータへのピボット |
+| [0015](0015-postgres-schema-and-verification-tool-for-course-ingestion.md) | [シラバス詳細データの PostgreSQL スキーマ設計とロード検証ツールの先行導入](0015-postgres-schema-and-verification-tool-for-course-ingestion.md) | Proposed | 2026-10-30 | 1,029件の無欠損永続化のためのハイブリッドスキーマ（TEXT[] + JSONB）設計と、投入品質・観測性を担保する専用CLI検証ツールの先行導入 |
 
 
