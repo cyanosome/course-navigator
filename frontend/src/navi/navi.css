@@ -484,13 +484,23 @@
   .pc-list .ask-acts { padding-left: 24px; padding-right: 24px; }
   .pc-list.is-tt .term { padding: 16px 16px 0; }
   .pc-list.is-tt .legend, .pc-list.is-tt .tt-wrap, .pc-list.is-tt .block, .pc-list.is-tt .tt-accs, .pc-list.is-tt .tt-empty, .pc-list.is-tt .foot { padding-left: 24px; padding-right: 24px; }
-  .pc-detail { padding: 24px 40px 48px; }
+  .pc-detail { padding: 24px 40px 48px; container: pc-detail / inline-size; }
   .pc-detail .detail { padding: 0; }
   .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 16px; font-size: 14px; color: var(--muted); }
   .crumbs a { text-decoration: underline; text-underline-offset: 3px; }
   .pc-detail .title { font-size: 24px; line-height: 1.3; }
-  .pc-detail .facts { grid-template-columns: repeat(3, max-content); justify-content: start; column-gap: 40px; }
+  /* 列は auto: 収まるときは値の幅のまま（max-content と同じ）、収まらないときは隠さずに折り返す */
+  .pc-detail .facts { grid-template-columns: repeat(3, auto); justify-content: start; column-gap: 40px; }
   .pc-detail .facts .wide { grid-column: auto; }
+  /*
+   * 項目の表の3列に要る幅は、見本データで最大 557px（情報リテラシー）。中央の列の中の幅（左右の余白を除く）が 576px 未満なら、
+   * 840〜1199px と同じ2列にする。Chrome はこの判定でスクロールバーの幅を引かないので、557px にスクロールバー（15px）の分を足した。
+   * 画面の幅でなく列の幅で決めるのは、時間割のタブでは中央の列が広くなるため
+   */
+  @container pc-detail (max-width: 575.98px) {
+    .pc-detail .facts { grid-template-columns: 1fr 1fr; column-gap: 16px; }
+    .pc-detail .facts .wide { grid-column: 1 / -1; }
+  }
   .pc-detail .primary { display: inline-flex; width: auto; height: 40px; padding: 0 24px; }
   .pc-detail .hint { font-size: 14px; color: var(--muted); }
   .pc-tt { border-left: 1px solid var(--rule); padding: 24px; }
