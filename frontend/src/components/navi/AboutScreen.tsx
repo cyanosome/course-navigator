@@ -1,43 +1,41 @@
 import { useNavi } from '../../navi/state'
-import BackButton from './BackButton'
+import PageFrame from './PageFrame'
 
-/** このAIについて（W8）。文言は UX 仕様 6.2 W8 のまま。取得日は仮 */
+/** このAIについて（W8。メニューから）。見出しは1つと短い見出し語だけ、本文は 16px と 14px（E1 の方針） */
 export default function AboutScreen() {
-  const { dept, isPc } = useNavi()
+  const { dept } = useNavi()
   return (
-    <main className={isPc ? 'p-page page' : 'm-main page'}>
-      <BackButton />
-      <h1>このAIについて</h1>
-      <section>
-        <h2>何をするか</h2>
-        <p className="body-s">
-          公開シラバスと履修系統図から、科目のつながり（どの枠からどの枠へ線があるか）を調べ、科目とその順番を提案します。
+    <PageFrame>
+      <h1 className="title">このAIについて</h1>
+      <section className="sec">
+        <h2 className="sec-label">何をするか</h2>
+        <p className="lead">
+          公開シラバスと履修系統図から、科目のつながりを調べ、科目とその順番を提案します。時間割に入れて、曜限の重なりと単位を確かめられます。
         </p>
       </section>
-      <section>
-        <h2>使っている情報</h2>
-        <ul className="body-s bullets">
-          <li>
-            {dept.university} {dept.syllabusYear}年度シラバス（取得日 ○/○）
-          </li>
-          <li>{dept.name} 履修系統図（PDF の線を自動で読み取ったもの）</li>
-        </ul>
-        <p className="note">この画面はモックです。科目・枠・授業計画は架空の見本で、本物のシラバスではありません。</p>
-      </section>
-      <section>
-        <h2>どこにAIを使っているか</h2>
-        <p className="body-s">
-          方向・取る順・前後の枠は、系統図から機械的に作っています（AIは使っていません）。「自分の言葉で探す」の回答と理由はAIが作ります。間違うことがあるので、シラバス原文で確かめてください。そこで入力した文は外部のAIサービスに送られます。
+      <section className="sec">
+        <h2 className="sec-label">使っている情報</h2>
+        <p className="text">
+          {dept.university} {dept.syllabusYear}年度シラバス、{dept.name}の履修系統図（PDF の線を自動で読み取ったもの）
+        </p>
+        <p className="src">
+          この画面はモックです。科目・担当・区分・曜限・単位・授業計画・卒業に要る単位は架空の見本で、本物のシラバスではありません。
         </p>
       </section>
-      <section>
-        <h2>できないこと</h2>
-        <p className="body-s">難しさ・単位の取りやすさ・評判、時間割の重なりの確認、履修登録</p>
+      <section className="sec">
+        <h2 className="sec-label">どこにAIを使っているか</h2>
+        <p className="text">
+          おすすめ、興味関心ごとの一覧、取る順、時間割の重なりと単位は、系統図とシラバスから決まった規則で作っています（AIは使っていません）。上の探す欄に書いた文への回答と理由はAIが作ります。間違うことがあるので、シラバスの原文で確かめてください。そこで入力した文は外部のAIサービスに送られます。
+        </p>
       </section>
-      <section>
-        <h2>最終確認</h2>
-        <p className="body-s">履修の手引きと大学のシステムで行ってください。</p>
+      <section className="sec">
+        <h2 className="sec-label">できないこと</h2>
+        <p className="text">難しさ、単位の取りやすさ、評判の比較。履修登録。</p>
       </section>
-    </main>
+      <section className="sec">
+        <h2 className="sec-label">最終確認</h2>
+        <p className="text">履修の手引きと大学のシステムで行ってください。</p>
+      </section>
+    </PageFrame>
   )
 }

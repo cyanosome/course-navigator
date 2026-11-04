@@ -1,6 +1,6 @@
 /**
- * コースナビ（/navi の下）の画面モック。UX 仕様（docs/frontend/ux-spec.md 確定版 v1）と
- * DESIGN.md（確定版 v1）に従う。データは架空の見本（src/navi/fixture*.ts）で、本物の API は呼ばない。
+ * コースナビ（/navi の下）の画面モック。UX 仕様（docs/frontend/ux-spec.md）の流れに、画面の改訂案 E1（2026-11-04）の
+ * 見た目と時間割を組む体験を合わせた。データは架空の見本（src/navi/fixture*.ts）で、本物の API は呼ばない。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
@@ -10,25 +10,28 @@ import { FIXTURE_DEPARTMENTS } from '../../navi/fixtureDepartment'
 import type { AskAdapter } from '../../navi/ask'
 import { composeQuestion, createFakeAskAdapter, isFakeWaitMode } from '../../navi/ask'
 import type { FakeWaitMode } from '../../navi/ask'
-import { PC_QUERY, useMediaQuery } from '../../navi/hooks'
+import { findCourse } from '../../navi/graph'
+import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
 import { ASK_TIMEOUT_MS, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
-import type { Department } from '../../navi/types'
 import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '../../navi/storage'
-import { findCourse } from '../../navi/graph'
+import type { TermKey } from '../../navi/timetable'
+import type { Department } from '../../navi/types'
+import { addedNotice } from '../../navi/views'
 import AboutScreen from './AboutScreen'
 import CourseScreen from './CourseScreen'
 import DepartmentScreen from './DepartmentScreen'
 import GroupScreen from './GroupScreen'
+import NaviLayout from './NaviLayout'
 import NaviShell from './NaviShell'
 import SearchScreen from './SearchScreen'
-import ShortlistScreen from './ShortlistScreen'
 import StudyEndScreen from './StudyEndScreen'
 import StudyStartScreen from './StudyStartScreen'
+import TimetableScreen from './TimetableScreen'
 
-const TOAST_MS = 5_000
 const SESSION_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const SESSION_ID_LENGTH = 6
+const MAX_ASSUMED_YEAR = 4
 
 interface InitialParams {
   deptId: string | null
@@ -43,7 +46,7 @@ function readInitialParams(search: string): InitialParams {
   const d = params.get('d')
   if (d !== null && FIXTURE_DEPARTMENTS.some((x) => x.id === d)) writeJson('local', KEYS.dept, d)
   const t = Number(params.get('t'))
-  if (Number.isInteger(t) && t >= 1 && t <= 4) writeJson('session', KEYS.assumedYear, t)
+  if (Number.isInteger(t) && t >= 1 && t <= MAX_ASSUMED_YEAR) writeJson('session', KEYS.assumedYear, t)
   const wait = params.get('wait')
   if (isFakeWaitMode(wait)) writeJson('session', KEYS.wait, wait)
   const storedWait = readJson('session', KEYS.wait, isString)
@@ -109,7 +112,12 @@ export default function NaviApp() {
     return (
       <div className="navi-app">
         <title>学科えらび | コースナビ</title>
-        <DepartmentScreen departments={FIXTURE_DEPARTMENTS} onChoose={chooseDept} />
+        <div className="sp">
+          <header className="bar">
+            <span className="brand">コースナビ</span>
+          </header>
+          <DepartmentScreen departments={FIXTURE_DEPARTMENTS} onChoose={chooseDept} />
+        </div>
       </div>
     )
   }
@@ -126,24 +134,21 @@ interface NaviRootProps {
 function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
   const location = useLocation()
   const isPc = useMediaQuery(PC_QUERY)
+  const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
   const adapter = useMemo<AskAdapter>(() => createFakeAskAdapter(initial.wait), [initial.wait])
+  const assumedTerm = useMemo<TermKey>(() => ({ year: initial.assumedYear, half: '春' }), [initial.assumedYear])
+
+  /* ---------- 時間割の学期・読み上げ・知らせ ---------- */
+  const [focusTerm, setFocusTerm] = useState<TermKey>(assumedTerm)
+  const [announcement, setAnnouncement] = useState('')
+  const announce = useCallback((text: string) => setAnnouncement(text), [])
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const toastSeq = useRef(0)
+  const clearToast = useCallback((id: number) => setToast((t) => (t?.id === id ? null : t)), [])
 
   /* ---------- 候補 ---------- */
   const [shortlist, setShortlist] = useState<string[]>(() => readJson('local', KEYS.shortlist, isStringArray) ?? [])
   useEffect(() => writeJson('local', KEYS.shortlist, shortlist), [shortlist])
-
-  /* ---------- 元に戻す ---------- */
-  const [toast, setToast] = useState<ToastState | null>(null)
-  const toastSeq = useRef(0)
-  const showToast = useCallback((text: string, undo: () => void) => {
-    toastSeq.current += 1
-    setToast({ id: toastSeq.current, text, undo })
-  }, [])
-  useEffect(() => {
-    if (toast === null) return
-    const timer = setTimeout(() => setToast((t) => (t?.id === toast.id ? null : t)), TOAST_MS)
-    return () => clearTimeout(timer)
-  }, [toast])
 
   /* ---------- 調査モード ---------- */
   const [study, setStudy] = useState<StudyRecord | null>(() => readJson('local', KEYS.study, isStudyRecord))
@@ -168,34 +173,61 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
 
   const isKept = useCallback((code: string) => shortlist.includes(code), [shortlist])
   const courseName = useCallback((code: string) => findCourse(dept, code)?.name ?? code, [dept])
-  const addKeep = useCallback((code: string) => {
-    setShortlist((list) => (list.includes(code) ? list : [...list, code]))
-    setStudy((s) =>
-      s !== null && s.detailOpened.includes(code) && !s.keptAfterReason.includes(code)
-        ? { ...s, keptAfterReason: [...s.keptAfterReason, code] }
-        : s,
-    )
-  }, [])
-  const dropKeep = useCallback((code: string) => {
-    setShortlist((list) => list.filter((c) => c !== code))
-  }, [])
-  const removeKeep = useCallback(
-    (code: string) => {
-      dropKeep(code)
-      showToast(`${courseName(code)}を外しました`, () => addKeep(code))
-    },
-    [addKeep, courseName, dropKeep, showToast],
-  )
+
   const toggleKeep = useCallback(
     (code: string) => {
       if (shortlist.includes(code)) {
-        removeKeep(code)
+        // 外すときは知らせを消し、読み上げだけで伝える（同じ＋がもう一度押せる。E1 5章）
+        setShortlist(shortlist.filter((c) => c !== code))
+        setToast(null)
+        announce(`${courseName(code)}を候補から外しました。`)
         return
       }
-      addKeep(code)
-      showToast(`${courseName(code)}を候補に入れました`, () => dropKeep(code))
+      const next = [...shortlist, code]
+      setShortlist(next)
+      setStudy((s) =>
+        s !== null && s.detailOpened.includes(code) && !s.keptAfterReason.includes(code)
+          ? { ...s, keptAfterReason: [...s.keptAfterReason, code] }
+          : s,
+      )
+      const course = findCourse(dept, code)
+      if (course === undefined) {
+        // 学科データに無い科目（自由記述の結果）は時間割に入らないので、読み上げだけ
+        announce(`${code}を候補に入れました。`)
+        return
+      }
+      toastSeq.current += 1
+      setToast({ id: toastSeq.current, kind: 'added', code })
+      announce(addedNotice(dept, next, course, focusTerm).speech)
     },
-    [addKeep, courseName, dropKeep, removeKeep, shortlist, showToast],
+    [announce, courseName, dept, focusTerm, shortlist],
+  )
+
+  const removeKeep = useCallback(
+    (code: string) => {
+      const index = shortlist.indexOf(code)
+      if (index < 0) return
+      setShortlist(shortlist.filter((c) => c !== code))
+      toastSeq.current += 1
+      setToast({ id: toastSeq.current, kind: 'removed', code, index })
+      announce(`${courseName(code)}を候補から外しました。`)
+    },
+    [announce, courseName, shortlist],
+  )
+
+  const undoRemove = useCallback(
+    (t: ToastState) => {
+      if (t.kind !== 'removed') return
+      setShortlist((list) => {
+        if (list.includes(t.code)) return list
+        const copy = [...list]
+        copy.splice(Math.min(t.index, copy.length), 0, t.code)
+        return copy
+      })
+      setToast((cur) => (cur?.id === t.id ? null : cur))
+      announce(`${courseName(t.code)}を元に戻しました。`)
+    },
+    [announce, courseName],
   )
 
   /* ---------- 自由記述 ---------- */
@@ -246,7 +278,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
             finish({ status: 'timeout' })
             return
           }
-          if (control.signal.aborted) return // [やめる] で止めた
+          if (control.signal.aborted) return // ［やめる］で止めた
           console.error('自由記述の回答を受け取れませんでした', err)
           finish({ status: 'error' })
         })
@@ -258,7 +290,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
     },
     [adapter, ask, dept, setAskDraft, track],
   )
-  /** [やめる] と [この結果を閉じる]。入力した文は askDraft に残る（UX 仕様 C11） */
+  /** ［やめる］と［この結果を閉じる］。入力した文は askDraft に残る（UX 仕様 C11） */
   const cancelAsk = useCallback(() => {
     askControl.current?.abort()
     askControl.current = null
@@ -292,13 +324,20 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
     () => ({
       dept,
       assumedYear: initial.assumedYear,
+      assumedTerm,
       isPc,
+      reducedMotion,
       shortlist,
       isKept,
       toggleKeep,
       removeKeep,
+      undoRemove,
+      focusTerm,
+      setFocusTerm,
       toast,
-      dismissToast: () => setToast(null),
+      clearToast,
+      announcement,
+      announce,
       ask,
       askDraft,
       setAskDraft,
@@ -316,12 +355,19 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
     [
       dept,
       initial.assumedYear,
+      assumedTerm,
       isPc,
+      reducedMotion,
       shortlist,
       isKept,
       toggleKeep,
       removeKeep,
+      undoRemove,
+      focusTerm,
       toast,
+      clearToast,
+      announcement,
+      announce,
       ask,
       askDraft,
       setAskDraft,
@@ -342,20 +388,24 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
       <NaviContext.Provider value={ctx}>
         <NaviShell>
           <Routes>
-            <Route
-              index
-              element={
-                initial.studySurveyId !== null && location.key === 'default' ? (
-                  <Navigate to={`/navi/study?s=${encodeURIComponent(initial.studySurveyId)}`} replace />
-                ) : (
-                  <SearchScreen />
-                )
-              }
-            />
-            <Route path="ask/:localId" element={<SearchScreen />} />
-            <Route path="course/:code" element={<CourseScreen />} />
-            <Route path="group/:frameId" element={<GroupScreen />} />
-            <Route path="shortlist" element={<ShortlistScreen />} />
+            <Route element={<NaviLayout />}>
+              <Route
+                index
+                element={
+                  initial.studySurveyId !== null && location.key === 'default' ? (
+                    <Navigate to={`/navi/study?s=${encodeURIComponent(initial.studySurveyId)}`} replace />
+                  ) : (
+                    <SearchScreen />
+                  )
+                }
+              />
+              <Route path="ask/:localId" element={<SearchScreen />} />
+              <Route path="course/:code" element={<CourseScreen />} />
+              <Route path="group/:frameId" element={<GroupScreen />} />
+              <Route path="timetable" element={<TimetableScreen />} />
+            </Route>
+            {/* 改訂前の候補の画面のリンク */}
+            <Route path="shortlist" element={<Navigate to="/navi/timetable" replace />} />
             <Route path="about" element={<AboutScreen />} />
             <Route path="departments" element={<DepartmentScreen departments={FIXTURE_DEPARTMENTS} onChoose={chooseDept} />} />
             <Route path="study" element={<StudyStartScreen />} />

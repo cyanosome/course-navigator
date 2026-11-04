@@ -3,6 +3,9 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 /** PC（幅 840px 以上）とスマホの切り替え（UX 仕様 5.3。Material 3 の expanded の幅） */
 export const PC_QUERY = '(min-width: 840px)'
 
+/** 動きを減らす設定（知らせを動かさずに4秒出す。E1 5章） */
+export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onChange) => {

@@ -1,187 +1,140 @@
-import { useId, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { directionStages, directionTargetsLabel, findDirection } from '../../navi/graph'
-import { groupHref, useNavi } from '../../navi/state'
+import { Fragment, useId, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { findInterest, interestGroups } from '../../navi/graph'
+import { TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { Origin } from '../../navi/state'
-import type { Course } from '../../navi/types'
-import { defaultShortWhy, defaultViews, stageViews } from '../../navi/views'
-import type { ProposalView } from '../../navi/views'
-import AskBlock from './AskBlock'
-import AskForm from './AskForm'
-import DirectionChips from './DirectionChips'
-import EvidenceLabel from './EvidenceLabel'
-import Glyph from './Glyph'
-import { ProposalCard, ProposalItem } from './ProposalCard'
+import { isRequired, placedInTerm, termLabel } from '../../navi/timetable'
+import type { Interest } from '../../navi/types'
+import { defaultList, rootEntry, rowView } from '../../navi/views'
+import type { ListContext } from '../../navi/views'
+import AskResults from './AskResults'
+import CourseRow from './CourseRow'
+import Icon from './Icon'
+import InterestChips from './InterestChips'
 
 interface SearchListProps {
   dirId: string
-  variant: 'mobile' | 'pc'
-  /** PC の右ペインに出している科目 */
+  /** PC の左の段（W11） */
+  pc: boolean
+  /** PC の中央に出している科目 */
   currentCode?: string
-  /** PC の右ペインの科目（W6-1 の科目ごとの案内） */
-  contextCourse?: Course
 }
-
-/** 方向のチップへ移る（[方向から探す]） */
-function focusDirections(id: string) {
-  const group = document.getElementById(id)
-  group?.scrollIntoView({ block: 'start' })
-  group?.querySelector('button')?.focus()
-}
-
-const FRAME_LINE_NOTE =
-  '線は枠どうしを結んでいます。枠の中のどの科目が直接の前提かまでは、系統図に書かれていません。'
 
 /**
- * さがす（W1 既定・W2 方向）の中身。スマホは画面の本体、PC は左ペイン（W11）。
- * 文言は UX 仕様 6.2 のワイヤーフレームのまま（W1 の前提の文は DESIGN.md S1 の直し）。
+ * さがす（W1 おすすめ・W2 興味関心・W5 自分の言葉で探した結果）の一覧。スマホは画面の本体、PC は左の段。
+ * 見出しと説明文は置かない。チップ、状況の1行、科目の行、「ほかに N 科目」だけ（E1 0章・4章）。
  */
-export default function SearchList({ dirId, variant, currentCode, contextCourse }: SearchListProps) {
-  const { dept, assumedYear, ask } = useNavi()
-  const navigate = useNavigate()
-  const [panelOpen, setPanelOpen] = useState(false)
-  const dirsId = useId()
-  const propsId = useId()
-  const direction = findDirection(dept, dirId) ?? findDirection(dept, 'default')
-  const isDefault = direction === undefined || direction.targets.length === 0
-  const mobile = variant === 'mobile'
-
-  const toDirections = () => {
-    setPanelOpen(false)
-    focusDirections(dirsId)
-  }
-  const onSent = (localId: string) => {
-    setPanelOpen(false)
-    if (mobile || currentCode === undefined) navigate(`/navi/ask/${encodeURIComponent(localId)}`)
-  }
-  const openPanel = () => {
-    setPanelOpen(true)
-    window.scrollTo({ top: 0 })
-  }
-
-  const list = (items: ProposalView[]) =>
-    mobile ? (
-      <ol className="cards">
-        {items.map((v) => (
-          <li key={v.code}>
-            <ProposalCard item={v} />
-          </li>
-        ))}
-      </ol>
-    ) : (
-      <ol className="items">
-        {items.map((v) => (
-          <ProposalItem key={v.code} item={v} current={v.code === currentCode} />
-        ))}
-      </ol>
-    )
-
-  const defaults = defaultViews(dept, assumedYear).map((v) =>
-    mobile ? v : { ...v, why: defaultShortWhy(dept, findCourseOrThrow(dept.courses, v.code)) },
-  )
+export default function SearchList({ dirId, pc, currentCode }: SearchListProps) {
+  const { dept, shortlist, focusTerm, assumedTerm, ask } = useNavi()
+  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm }
+  const interest = findInterest(dept, dirId)
+  const isDefault = interest === undefined || interest.targets.length === 0
+  const required = placedInTerm(dept, shortlist, focusTerm).filter(isRequired)
 
   return (
     <>
-      {mobile && panelOpen && (
-        <AskForm variant="mobile" onSent={onSent} onClose={() => setPanelOpen(false)} onDirections={toDirections} />
+      {!pc && <h1 className="vh">さがす</h1>}
+      <InterestChips selected={isDefault ? 'default' : interest.id} />
+      {required.length > 0 && (
+        <Link className="status" to={TIMETABLE_HREF}>
+          {termLabel(focusTerm)}の必修 {required.length}科目は、時間割に入れてあります
+          <Icon name="next" small />
+        </Link>
       )}
-      {!mobile && <AskForm variant="pc" onSent={onSent} onDirections={toDirections} course={contextCourse} />}
-
-      {mobile && isDefault && (
-        <section className="intro" aria-label="この画面の前提">
-          <p className="note">想定: {assumedYear === 1 ? '1年の入学直後' : `${assumedYear}年の春`}</p>
-          <p className="lead">
-            方向が決まっていなくても使えます。まず、系統図で多くの方向につながる科目を出しています。好みはまだ使っていません。
-          </p>
-        </section>
-      )}
-
-      <section className={mobile ? 'dirs' : undefined} id={dirsId} aria-label="方向">
-        <DirectionChips selected={direction?.id ?? 'default'} />
-        {mobile && !panelOpen && (
-          <button className="btn btn--ask" type="button" onClick={openPanel}>
-            <span className="ev ev--ai" aria-hidden="true">
-              <Glyph name="ai" />
-              AI
-            </span>
-            自分の言葉で探す
-          </button>
-        )}
-      </section>
-
-      {ask !== null && (
-        <AskBlock
-          session={ask}
-          variant={variant}
-          currentCode={currentCode}
-          onRephrase={() => (mobile ? setPanelOpen(true) : document.querySelector<HTMLInputElement>('.pane-list .input')?.focus())}
-          onDirections={toDirections}
-        />
-      )}
-
-      {isDefault || direction === undefined ? (
-        <section className="props" aria-labelledby={propsId}>
-          <h2 className="h-sec" id={propsId}>
-            まず見ておきたい{defaults.length}科目
-          </h2>
-          <p className="note">（学科の誰にでも同じものを出しています）</p>
-          {defaults.length === 0 ? (
-            <p className="body-s">この想定の学年には、まず見ておきたい科目がありません。上の方向から選んでください。</p>
-          ) : (
-            list(defaults)
-          )}
-          <p className="note after">並び: 線がつながる方向の数が多い順</p>
-          <p className="note">必修・選択の区分はまだ出せません（詳細のシラバス原文で確かめてください）</p>
-        </section>
+      {ask !== null && <AskResults session={ask} currentCode={currentCode} />}
+      {isDefault ? (
+        <DefaultRows ctx={ctx} currentCode={currentCode} />
       ) : (
-        <>
-          <section className="dir-about" aria-labelledby={propsId}>
-            <h2 className="h-sec" id={propsId}>
-              {direction.label}
-            </h2>
-            <p className="body-s">{direction.description}</p>
-            <p className="body-s">{directionTargetsLabel(dept, direction)}</p>
-            <p className="note">使った情報: 学科、選んだ方向</p>
-            <p className="note">
-              取る順に、系統図の線をさかのぼって並べています。枠の中の並びは学期→系統図の記載順で、関係の強さの順ではありません。同じ枠の科目は、系統図の上では同じ関係です。
-            </p>
-          </section>
-          <div className="stages">
-            {directionStages(dept, direction).map((stage, si, all) => {
-              const origin: Origin = { kind: 'dir', dirId: direction.id }
-              return (
-                <section key={stage.year} className="stage" aria-label={`${stage.year}年`}>
-                  <div className="stage__head">
-                    <h3 className="stage__year">{stage.year}年</h3>
-                    <div className="stage__why">
-                      <p>なぜ: {stage.why}</p>
-                      <EvidenceLabel kind="route" />
-                    </div>
-                  </div>
-                  {stage.frames.map((sf) => (
-                    <div key={sf.frame.id} className="fgroup">
-                      <h4 className="fgroup__name">枠: {sf.frame.name}</h4>
-                      {sf.shown.length > 0 && list(stageViews(direction, sf))}
-                      <Link className="all" to={groupHref(sf.frame.id, origin)}>
-                        この枠の科目をすべて見る（{sf.total}科目）
-                      </Link>
-                    </div>
-                  ))}
-                  {si < all.length - 1 && <div className="stage__link" aria-hidden="true" />}
-                </section>
-              )
-            })}
-          </div>
-          <p className="note route-note">{FRAME_LINE_NOTE}</p>
-          <p className="note">必修・選択の区分はまだ出せません（詳細のシラバス原文で確かめてください）</p>
-        </>
+        <InterestRows ctx={ctx} interest={interest} currentCode={currentCode} />
       )}
     </>
   )
 }
 
-function findCourseOrThrow(courses: Course[], code: string): Course {
-  const c = courses.find((x) => x.code === code)
-  if (c === undefined) throw new Error(`学科データに無い科目です: ${code}`)
-  return c
+interface DefaultRowsProps {
+  ctx: ListContext
+  currentCode?: string
+}
+
+/** おすすめ（W1）。3科目と「ほかに N 科目」。並びの説明は開いた先に1文で書く（E1 2章） */
+function DefaultRows({ ctx, currentCode }: DefaultRowsProps) {
+  const [open, setOpen] = useState(false)
+  const moreId = useId()
+  const list = defaultList(ctx)
+  const origin: Origin = { kind: 'default' }
+  const root = rootEntry(ctx.dept, origin)
+  const row = (p: (typeof list.rows)[number]) => {
+    const r = rowView(ctx, p.course, origin, p.why, p.source)
+    return (
+      <CourseRow
+        key={r.code}
+        row={r}
+        current={r.code === currentCode}
+        linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
+      />
+    )
+  }
+
+  if (list.rows.length === 0) {
+    return <p className="foot">この学期には、おすすめできる科目がありません。上の興味関心から選んでください。</p>
+  }
+  return (
+    <>
+      <ul className="list">{list.rows.map(row)}</ul>
+      {list.more.length === 0 ? (
+        <p className="foot">{list.foot}</p>
+      ) : (
+        <div className={open ? 'more is-open' : 'more'}>
+          <button className="more-btn" type="button" aria-expanded={open} aria-controls={moreId} onClick={() => setOpen((o) => !o)}>
+            <span>{open ? '閉じる' : `ほかに${list.more.length}科目`}</span>
+            <Icon name="down" />
+          </button>
+          <div className="acc-body" id={moreId}>
+            {open && (
+              <>
+                <ul className="list">{list.more.map(row)}</ul>
+                <p className="foot">{list.foot}</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+interface InterestRowsProps {
+  ctx: ListContext
+  interest: Interest
+  currentCode?: string
+}
+
+/** 興味関心を選んだあと（W2）。取る順に、学年ごとに並べる。並びの説明は一覧の最後に1文（E1 7章） */
+function InterestRows({ ctx, interest, currentCode }: InterestRowsProps) {
+  const origin: Origin = { kind: 'dir', dirId: interest.id }
+  const root = rootEntry(ctx.dept, origin)
+  const groups = interestGroups(ctx.dept, interest)
+  return (
+    <>
+      {groups.map((g) => (
+        <Fragment key={g.year}>
+          <h2 className="group-label">{g.year}年</h2>
+          <ul className="list">
+            {g.rows.map((p) => {
+              const r = rowView(ctx, p.course, origin, p.why, p.source)
+              return (
+                <CourseRow
+                  key={r.code}
+                  row={r}
+                  current={r.code === currentCode}
+                  linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
+                />
+              )
+            })}
+          </ul>
+        </Fragment>
+      ))}
+      <p className="foot">取る順に、1年から並べています（履修系統図）。系統図の線はまとまりどうしを結ぶもので、直接の前提とは限りません。</p>
+    </>
+  )
 }

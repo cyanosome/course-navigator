@@ -1,25 +1,20 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FIXTURE_STUDY_CONFIG } from '../../navi/fixtureDepartment'
-import { findCourse, findDirection } from '../../navi/graph'
+import { findCourse, findInterest } from '../../navi/graph'
 import { formatDuration } from '../../navi/hooks'
 import { useNavi } from '../../navi/state'
 import type { StudyRecord } from '../../navi/state'
 import type { Course, Department } from '../../navi/types'
+import PageFrame from './PageFrame'
 
 interface RecordRow {
   label: string
   value: string
 }
 
-function recordRows(
-  dept: Department,
-  study: StudyRecord,
-  kept: Course[],
-  device: string,
-  usedMs: number,
-): RecordRow[] {
-  const dirs = ['まず見ておきたい', ...study.dirs.map((id) => findDirection(dept, id)?.label ?? id)]
+function recordRows(dept: Department, study: StudyRecord, kept: Course[], device: string, usedMs: number): RecordRow[] {
+  const dirs = ['おすすめ', ...study.dirs.map((id) => findInterest(dept, id)?.label ?? id)]
   const onlyDefault = study.dirs.length === 0 && study.asked === 0
   return [
     { label: '調査', value: study.surveyId },
@@ -31,10 +26,10 @@ function recordRows(
     { label: '理由を見てから候補に入れた科目', value: String(study.keptAfterReason.filter((c) => kept.some((k) => k.code === c)).length) },
     { label: '詳細を開いた科目', value: String(study.detailOpened.length) },
     { label: '原文を開いた', value: `${study.originalOpened}回` },
-    { label: '前後の枠をたどった', value: `${study.traversed}回` },
-    { label: '方向', value: dirs.join(' > ') },
+    { label: '前後の科目をたどった', value: `${study.traversed}回` },
+    { label: '興味関心', value: dirs.join('、') },
     { label: '自分の言葉で探した', value: `${study.asked}回` },
-    { label: '既定の提案だけで終えた', value: onlyDefault ? 'はい' : 'いいえ' },
+    { label: 'おすすめだけで終えた', value: onlyDefault ? 'はい' : 'いいえ' },
   ]
 }
 
@@ -60,12 +55,12 @@ export default function StudyEndScreen() {
 
   if (study === null) {
     return (
-      <main className={isPc ? 'p-page page' : 'm-main page'}>
-        <h1>調査モードではありません</h1>
-        <p className="body-s">
+      <PageFrame>
+        <h1 className="title">調査モードではありません</h1>
+        <p className="text">
           調査用のリンクから開いたときだけ、記録が出ます。<Link to="/navi">使う画面に戻る</Link>
         </p>
-      </main>
+      </PageFrame>
     )
   }
 
@@ -85,40 +80,38 @@ export default function StudyEndScreen() {
   }
 
   return (
-    <main className={isPc ? 'p-page page' : 'm-main page'}>
-      <h1>使い終わりました</h1>
-      <p className="body-s">
+    <PageFrame>
+      <h1 className="title">使い終わりました</h1>
+      <p className="lead">
         セッション番号 <span className="sid">{study.sessionId}</span>
       </p>
-      <p className="body-s">アンケートは、この番号が入った状態で開きます。個人を特定する情報は入っていません。</p>
+      <p className="text">アンケートは、この番号が入った状態で開きます。個人を特定する情報は入っていません。</p>
+      <div className="page-acts">
+        <a className="primary" href={surveyHref(study, kept)} target="_blank" rel="noopener noreferrer">
+          アンケートを開く
+        </a>
+        <button className="text-btn" type="button" onClick={copy}>
+          記録をコピー
+        </button>
+      </div>
+      <p className="src" role="status">
+        {copyState === 'idle' && 'アンケートに番号が入らないときは、記録をコピーして貼ってください。'}
+        {copyState === 'done' && 'コピーしました。アンケートの欄に貼ってください。'}
+        {copyState === 'failed' && 'コピーできませんでした。この画面の記録を書き写してください。'}
+      </p>
       <div className="record">
-        <dl>
+        <dl className="kv">
           {rows.map((r) => (
-            <div key={r.label}>
+            <div key={r.label} className="kv-row">
               <dt>{r.label}</dt>
               <dd>{r.value}</dd>
             </div>
           ))}
         </dl>
       </div>
-      <div className="page__acts">
-        <a className="btn btn--ink" href={surveyHref(study, kept)} target="_blank" rel="noopener noreferrer">
-          アンケートを開く
-        </a>
-        <p className="note">
-          <button className="btn" type="button" onClick={copy}>
-            記録をコピー
-          </button>{' '}
-          （アンケートに番号が入らないとき）
-        </p>
-        <p className="note" role="status">
-          {copyState === 'done' && 'コピーしました。アンケートの欄に貼ってください。'}
-          {copyState === 'failed' && 'コピーできませんでした。この画面の記録を書き写してください。'}
-        </p>
-        <Link className="btn" to="/navi">
-          使う画面に戻る
-        </Link>
-      </div>
-    </main>
+      <p className="foot">
+        <Link to="/navi">使う画面に戻る</Link>
+      </p>
+    </PageFrame>
   )
 }

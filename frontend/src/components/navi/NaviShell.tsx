@@ -1,164 +1,236 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
-import { readPaneState, useNavi } from '../../navi/state'
+import { listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
-import Glyph from './Glyph'
+import { termCredits } from '../../navi/timetable'
+import { rootEntry } from '../../navi/views'
+import Icon from './Icon'
+import Menu from './Menu'
+import SearchField from './SearchField'
+import Toast from './Toast'
 import WaitLine from './WaitLine'
 
 interface NaviShellProps {
   children: ReactNode
 }
 
-type Place = 'search' | 'shortlist' | 'detail' | 'page' | 'study'
+type Place = 'search' | 'tt' | 'detail' | 'page' | 'study'
+type Pop = 'menu' | 'search'
+
+const MENU_ID = 'navi-menu'
+const SEARCH_ID = 'navi-search'
 
 function placeOf(pathname: string): Place {
   if (pathname === '/navi' || pathname === '/navi/' || pathname.startsWith('/navi/ask/')) return 'search'
-  if (pathname.startsWith('/navi/shortlist')) return 'shortlist'
+  if (pathname.startsWith('/navi/timetable')) return 'tt'
   if (pathname.startsWith('/navi/course/') || pathname.startsWith('/navi/group/')) return 'detail'
   if (pathname.startsWith('/navi/study')) return 'study'
   return 'page'
 }
 
-/** 見出し・調査モードの帯・待ちの1行・下部ナビ（スマホ）・元に戻すを、どの画面にも同じ場所に出す */
+/**
+ * 上の帯・メニュー・探す欄・下のタブ（スマホ）・調査モードの帯・待ちの1行・知らせ・読み上げ用の領域を、
+ * どの画面にも同じ場所に出す（E1 4章・6章）。
+ */
 export default function NaviShell({ children }: NaviShellProps) {
-  const { dept, isPc, shortlist, study, ask, toast, dismissToast, lastDir, endStudy } = useNavi()
+  const { dept, isPc, shortlist, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
   const location = useLocation()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
   const place = placeOf(location.pathname)
+  const minimal = place === 'study'
+
+  /** 開いているメニューか探す欄。開いた画面から移ったら閉じたことにする */
+  const [pop, setPop] = useState<{ kind: Pop; key: string } | null>(null)
+  const openPop = pop !== null && pop.key === location.key ? pop.kind : null
+  const popRef = useRef<HTMLDivElement>(null)
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
+  const searchBtnRef = useRef<HTMLButtonElement>(null)
+
+  const toggle = (kind: Pop) => setPop(openPop === kind ? null : { kind, key: location.key })
+
+  // Esc で閉じて押したボタンへ戻る。外を押しても閉じる
+  useEffect(() => {
+    if (openPop === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setPop(null)
+      ;(openPop === 'menu' ? menuBtnRef : searchBtnRef).current?.focus()
+    }
+    const onDown = (e: PointerEvent) => {
+      const target = e.target
+      if (!(target instanceof Element)) return
+      if (popRef.current?.contains(target) || target.closest('[data-pop-toggle]') !== null) return
+      setPop(null)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown)
+    }
+  }, [openPop])
 
   // 別の画面へ進んだら上から見せる。ブラウザの戻る（POP）はブラウザの位置の復元に任せる
   useEffect(() => {
     if (navigationType !== 'POP') window.scrollTo(0, 0)
   }, [location.pathname, location.search, navigationType])
+
   const pane = readPaneState(location.state)
-  const fromShortlist = new URLSearchParams(location.search).get('from') === 'shortlist'
+  const origin = parseOrigin(new URLSearchParams(location.search).get('from'))
   const tab: PcTab | null =
-    place === 'search'
-      ? 'search'
-      : place === 'shortlist'
-        ? 'shortlist'
-        : place === 'detail'
-          ? (pane?.tab ?? (fromShortlist ? 'shortlist' : 'search'))
-          : null
-  const searchHref = lastDir === 'default' ? '/navi' : `/navi?dir=${encodeURIComponent(lastDir)}`
-  const inStudy = study !== null
-  const minimal = place === 'study'
+    place === 'search' ? 'search' : place === 'tt' ? 'tt' : place === 'detail' ? (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search')) : null
+  const searchHref = listHref(lastDir)
+  const credits = termCredits(dept, shortlist, focusTerm)
 
   // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない
   const askPending = ask !== null && (ask.status === 'waiting' || !ask.seen)
-  const showWait = askPending && !minimal && (isPc || place !== 'search')
+  const showWait = askPending && !minimal && (isPc ? tab !== 'search' : place !== 'search')
+
+  const onSent = (localId: string) => {
+    setPop(null)
+    navigate(`/navi/ask/${encodeURIComponent(localId)}`)
+  }
 
   const finish = () => {
     endStudy()
     navigate('/navi/study/end')
   }
 
-  const band = inStudy && !minimal && (
+  const band = study !== null && !minimal && (
     <div className="band" role="region" aria-label="調査モード">
-      <p>
-        <strong>研究のための試用版です</strong>
-        {isPc && `（調査 ${study.surveyId}）使いにくいところを見つけるのが目的です。`}
-      </p>
-      <button className="btn" type="button" onClick={finish}>
+      <p>研究のための試用版です{isPc && `（調査 ${study.surveyId}）。使いにくいところを見つけるのが目的です`}</p>
+      <button className="band-btn" type="button" onClick={finish}>
         使い終わった
       </button>
     </div>
   )
 
-  const deptName = inStudy || minimal ? (
-    <span className="dept dept--fixed">
-      <span className="dept__name">{dept.name}</span>
-    </span>
-  ) : (
-    <Link className="dept" to="/navi/departments" aria-label={`学科を変える（いまは${dept.name}）`}>
-      <span className="dept__name">{dept.name}</span>
-      <Glyph name="down" />
-    </Link>
+  const menuButton = (
+    <button
+      ref={menuBtnRef}
+      className="icon-btn"
+      type="button"
+      data-pop-toggle=""
+      aria-label="メニュー"
+      aria-expanded={openPop === 'menu'}
+      aria-controls={MENU_ID}
+      onClick={() => toggle('menu')}
+    >
+      <Icon name="menu" />
+    </button>
   )
 
-  const toastView = (
-    <div
-      className={`toast${toast !== null ? ' is-shown' : ''}${!isPc && showWait ? ' toast--above-wait' : ''}`}
-      role="status"
-      aria-live="polite"
-    >
-      <span>{toast?.text ?? ''}</span>
-      {toast !== null && (
-        <button
-          className="btn btn--on-ink"
-          type="button"
-          onClick={() => {
-            toast.undo()
-            dismissToast()
-          }}
-        >
-          元に戻す
-        </button>
-      )}
-    </div>
+  const menu = openPop === 'menu' && <Menu id={MENU_ID} ref={popRef} />
+
+  const live = (
+    <p className="vh" aria-live="polite">
+      {announcement}
+    </p>
   )
 
   if (isPc) {
     return (
-      <div className="p-shell">
-        <header>
-          {band}
-          <div className="p-head">
-            <p className="brand">コースナビ</p>
-            {deptName}
-            {!minimal && (
-              <nav className="tabs" aria-label="行き先">
-                <Link to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
-                  さがす
-                </Link>
-                <Link to="/navi/shortlist" aria-current={tab === 'shortlist' ? 'page' : undefined}>
-                  候補 <span className="count">{shortlist.length}</span>
-                </Link>
-              </nav>
-            )}
-            <Link className="btn btn--quiet p-head__end" to="/navi/about">
-              このAIについて
-            </Link>
-          </div>
+      <div className="pc">
+        {band}
+        <header className="pc-bar">
+          <span className="brand">コースナビ</span>
+          {!minimal && (
+            <nav className="pc-tabs" aria-label="行き先">
+              <Link to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
+                さがす
+              </Link>
+              <Link to={TIMETABLE_HREF} aria-current={tab === 'tt' ? 'page' : undefined}>
+                時間割 {credits}単位
+              </Link>
+            </nav>
+          )}
+          <div className="spacer" />
+          {!minimal && <SearchField variant="pc" onSent={onSent} />}
+          <span className="dept">{dept.name}</span>
+          {!minimal && menuButton}
+          {menu}
         </header>
         {showWait && <WaitLine />}
         {children}
-        {toastView}
+        <Toast />
+        {live}
       </div>
     )
   }
 
+  const back = place === 'detail' || place === 'page' ? backEntry() : null
+
   return (
-    <div className={showWait ? 'm-shell m-shell--waiting' : 'm-shell'}>
+    <div className={showWait ? 'sp has-wait' : 'sp'}>
       {band}
-      <header className="m-head">
-        <div>
-          <p className="brand">コースナビ</p>
-          {deptName}
-        </div>
-        <Link className="btn btn--quiet" to="/navi/about">
-          このAIについて
-        </Link>
+      <header className="bar">
+        {back === null ? (
+          <span className="brand">コースナビ</span>
+        ) : (
+          <button className="back" type="button" onClick={goBack}>
+            <Icon name="back" />
+            <span>{back.label}</span>
+          </button>
+        )}
+        {!minimal && (
+          <div className="bar-actions">
+            <button
+              ref={searchBtnRef}
+              className="icon-btn"
+              type="button"
+              data-pop-toggle=""
+              aria-label="科目名や興味のあることで探す"
+              aria-expanded={openPop === 'search'}
+              aria-controls={SEARCH_ID}
+              onClick={() => toggle('search')}
+            >
+              <Icon name="search" />
+            </button>
+            {menuButton}
+          </div>
+        )}
+        {menu}
+        {openPop === 'search' && (
+          <div ref={popRef} className="search-sheet" id={SEARCH_ID}>
+            <SearchField variant="sheet" onSent={onSent} />
+          </div>
+        )}
       </header>
       {children}
-      {showWait && (
-        <div className="m-wait">
-          <WaitLine />
-        </div>
-      )}
+      {showWait && <WaitLine />}
       {!minimal && (
-        <nav className="m-nav" aria-label="行き先">
-          <Link to={searchHref} aria-current={place === 'search' ? 'page' : undefined}>
-            さがす
+        <nav className="tabs" aria-label="行き先">
+          <Link className="tab" to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
+            <Icon name="list" />
+            <span>さがす</span>
           </Link>
-          <Link to="/navi/shortlist" aria-current={place === 'shortlist' ? 'page' : undefined}>
-            候補 <span className="count">{shortlist.length}</span>
+          <Link className="tab" to={TIMETABLE_HREF} aria-current={tab === 'tt' ? 'page' : undefined}>
+            <Icon name="grid" />
+            <span>時間割 {credits}単位</span>
           </Link>
         </nav>
       )}
-      {toastView}
+      <Toast />
+      {live}
     </div>
   )
+
+  /** スマホの戻る（来た場所の名前で戻る。E1 6章） */
+  function backEntry() {
+    if (place === 'page') return { label: '戻る', href: '/navi' }
+    const trail = pane?.trail
+    const prev = trail !== undefined && trail.length >= 2 ? trail[trail.length - 2] : undefined
+    return prev ?? rootEntry(dept, origin)
+  }
+
+  function goBack() {
+    // このアプリの中で来た画面なら1つ前へ。リンクから直接開いたときは来た一覧へ
+    if (location.key !== 'default') {
+      navigate(-1)
+      return
+    }
+    navigate(back?.href ?? '/navi')
+  }
 }

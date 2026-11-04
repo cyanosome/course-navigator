@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { formatClock, useElapsedSeconds } from '../../navi/hooks'
 import { useNavi } from '../../navi/state'
-import Glyph from './Glyph'
+import Icon from './Icon'
 
 /**
- * 自由記述の状態の1行（UX 仕様 C08、DESIGN.md 3.3）。スマホは下部ナビのすぐ上、PC は見出しの下。
- * 読み上げは状態の文だけで、経過の数字は読み上げない（requirements.md R6-2）。
+ * 自由記述の状態の1行（UX 仕様 C08）。スマホは下のタブのすぐ上、PC は上の帯の下。
+ * 読み上げは状態の文だけで、経過の数字は読み上げない（requirements.md R6-2）。点滅などの動きは付けない（E1 0章）。
  */
 export default function WaitLine() {
   const { ask, cancelAsk } = useNavi()
@@ -19,50 +19,36 @@ export default function WaitLine() {
   if (waiting) {
     return (
       <div className="wait">
-        <span className="pulse" aria-hidden="true">
-          <i />
-          <i />
-          <i />
+        <p role="status">回答を作っています</p>
+        <span className="clock" aria-hidden="true">
+          {formatClock(seconds)}
         </span>
-        <p className="wait__text">
-          <span role="status">回答を作っています</span>{' '}
-          <span className="wait__time" aria-hidden="true">
-            {formatClock(seconds)}
-          </span>
-        </p>
-        <button className="btn" type="button" onClick={cancelAsk}>
+        <span className="spacer" />
+        <button className="text-btn" type="button" onClick={cancelAsk}>
           やめる
         </button>
       </div>
     )
   }
 
-  if (ask.status === 'done') {
-    return (
-      <div className="wait wait--done">
-        <p className="wait__text" role="status">
-          回答が届きました
-        </p>
-        <button className="btn btn--ink" type="button" onClick={view}>
-          見る
-        </button>
-      </div>
-    )
-  }
-
   const text =
-    ask.status === 'empty'
-      ? '合う科目が見つかりませんでした'
-      : ask.status === 'timeout'
-        ? '回答が届かないため、待つのをやめました'
-        : '回答を作れませんでした'
+    ask.status === 'done'
+      ? '回答が届きました'
+      : ask.status === 'empty'
+        ? '合う科目が見つかりませんでした'
+        : ask.status === 'timeout'
+          ? '回答が届かないため、待つのをやめました'
+          : '回答を作れませんでした'
   return (
-    <div className="wait wait--error">
-      <Glyph name="warn" />
-      <p className="wait__text" role="status">
-        {text}
-      </p>
-      <button className="btn" type="button" onClick={view}>
+    <div className="wait">
+      {ask.status !== 'done' && (
+        <span className="err">
+          <Icon name="warn" small />
+        </span>
+      )}
+      <p role="status">{text}</p>
+      <span className="spacer" />
+      <button className="text-btn" type="button" onClick={view}>
         見る
       </button>
     </div>

@@ -1,36 +1,32 @@
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import type { PcTab, TrailEntry } from '../../navi/state'
-import Glyph from './Glyph'
+import Icon from './Icon'
 
 interface CrumbsProps {
+  /** 今の画面より前にたどった道筋（trail[0] は来た一覧） */
   trail: TrailEntry[]
+  /** 今の画面の名前 */
+  current: string
   tab: PcTab
 }
 
 /**
- * PC の右ペインでたどった道筋（UX 仕様 C03。例: 無機化学 > 2年 物理化学系の枠 > 物理化学I）。
- * どの段も1クリックで戻れる。前後の枠や別の科目へ移ったときだけ出す。
+ * PC の中央の段の上のパンくず（E1 6章。例 おすすめ ＞ 無機化学）。前後の科目をたどると段が増え、
+ * どの段にも1クリックで戻れる（UX 仕様 C03）。スマホでは使わない（戻るの文字を来た場所の名前にする）。
  */
-export default function Crumbs({ trail, tab }: CrumbsProps) {
-  if (trail.length < 2) return null
+export default function Crumbs({ trail, current, tab }: CrumbsProps) {
   return (
-    <nav className="crumbs" aria-label="たどった道筋">
-      {trail.map((entry, i) => {
-        const last = i === trail.length - 1
-        return (
-          <Fragment key={`${entry.href}-${i}`}>
-            {i > 0 && <Glyph name="next" />}
-            {last ? (
-              <span aria-current="page">{entry.label}</span>
-            ) : (
-              <Link to={entry.href} state={{ trail: trail.slice(0, i + 1), tab }}>
-                {entry.label}
-              </Link>
-            )}
-          </Fragment>
-        )
-      })}
+    <nav className="crumbs" aria-label="現在地">
+      {trail.map((entry, i) => (
+        <Fragment key={`${entry.href}-${i}`}>
+          <Link to={entry.href} state={i === 0 ? undefined : { trail: trail.slice(0, i + 1), tab }}>
+            {entry.label}
+          </Link>
+          <Icon name="next" small />
+        </Fragment>
+      ))}
+      <span aria-current="page">{current}</span>
     </nav>
   )
 }

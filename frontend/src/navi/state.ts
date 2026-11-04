@@ -3,6 +3,7 @@
  * 状態そのものは components/navi/NaviApp.tsx が持つ。
  */
 import { createContext, useContext } from 'react'
+import type { TermKey } from './timetable'
 import type { Department, McpAgentRunResult } from './types'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
 
@@ -59,7 +60,7 @@ export interface StudyRecord {
   originalOpened: number
   traversed: number
   asked: number
-  /** 選んだ方向の順（id） */
+  /** 選んだ興味関心の順（id） */
   dirs: string[]
 }
 
@@ -86,24 +87,27 @@ export type StudyEvent =
   | { type: 'ask' }
   | { type: 'dir'; dirId: string }
 
-/* ---------- どこから来た提案か（「なぜ」の書き分け。UX 仕様 7.2） ---------- */
+/* ---------- どこから来た科目か（「なぜ」と戻り先の書き分け） ---------- */
 
 export type Origin =
   | { kind: 'default' }
   | { kind: 'dir'; dirId: string }
   | { kind: 'course'; code: string }
+  | { kind: 'group'; frameId: string }
   | { kind: 'ask'; localId: string }
-  | { kind: 'shortlist' }
+  | { kind: 'tt' }
   | { kind: 'none' }
 
 export function parseOrigin(value: string | null): Origin {
   if (value === null) return { kind: 'none' }
   if (value === 'default') return { kind: 'default' }
-  if (value === 'shortlist') return { kind: 'shortlist' }
+  // 'shortlist' は改訂前の候補の画面のリンク（時間割に置き換えた）
+  if (value === 'tt' || value === 'shortlist') return { kind: 'tt' }
   const [kind, id] = value.split(':')
   if (id === undefined || id === '') return { kind: 'none' }
   if (kind === 'dir') return { kind: 'dir', dirId: id }
   if (kind === 'course') return { kind: 'course', code: id }
+  if (kind === 'group') return { kind: 'group', frameId: id }
   if (kind === 'ask') return { kind: 'ask', localId: id }
   return { kind: 'none' }
 }
@@ -112,12 +116,14 @@ function originParam(origin: Origin): string | null {
   switch (origin.kind) {
     case 'default':
       return 'default'
-    case 'shortlist':
-      return 'shortlist'
+    case 'tt':
+      return 'tt'
     case 'dir':
       return `dir:${origin.dirId}`
     case 'course':
       return `course:${origin.code}`
+    case 'group':
+      return `group:${origin.frameId}`
     case 'ask':
       return `ask:${origin.localId}`
     case 'none':
@@ -138,16 +144,22 @@ export function groupHref(frameId: string, origin: Origin): string {
   return withFrom(`/navi/group/${encodeURIComponent(frameId)}`, origin)
 }
 
-/* ---------- PC の右ペインの道筋（UX 仕様 C03） ---------- */
+export function listHref(dirId: string): string {
+  return dirId === 'default' ? '/navi' : `/navi?dir=${encodeURIComponent(dirId)}`
+}
 
-export type PcTab = 'search' | 'shortlist'
+export const TIMETABLE_HREF = '/navi/timetable'
+
+/* ---------- たどった道筋（PC のパンくず、スマホの戻る。UX 仕様 C03、E1 6章） ---------- */
+
+export type PcTab = 'search' | 'tt'
 
 export interface TrailEntry {
   label: string
   href: string
 }
 
-/** 履歴の state に積む。ブラウザの戻るで右ペインが1段戻る */
+/** 履歴の state に積む。trail[0] は来た一覧、最後が今の画面 */
 export interface PaneState {
   trail: TrailEntry[]
   tab: PcTab
@@ -156,35 +168,49 @@ export interface PaneState {
 export function readPaneState(state: unknown): PaneState | null {
   if (!isRecord(state)) return null
   const { trail, tab } = state
-  if (tab !== 'search' && tab !== 'shortlist') return null
+  if (tab !== 'search' && tab !== 'tt') return null
   if (!Array.isArray(trail)) return null
-  const entries = trail.filter(
-    (e): e is TrailEntry => isRecord(e) && isString(e.label) && isString(e.href),
-  )
+  const entries = trail.filter((e): e is TrailEntry => isRecord(e) && isString(e.label) && isString(e.href))
   return { trail: entries, tab }
 }
 
-/* ---------- 共有する状態 ---------- */
+/* ---------- 知らせ ---------- */
 
-export interface ToastState {
-  id: number
-  text: string
-  undo: () => void
-}
+export type ToastState =
+  /** 候補に入れた（2.4 秒。ボタンは置かない。E1 5章） */
+  | { id: number; kind: 'added'; code: string }
+  /** 時間割の［外す］で外した（5 秒、［元に戻す］つき。E1 10章） */
+  | { id: number; kind: 'removed'; code: string; index: number }
+
+/* ---------- 共有する状態 ---------- */
 
 export interface NaviContextValue {
   dept: Department
   /** 想定の学年（リンクの t=。既定は1年。UX 仕様 1.4） */
   assumedYear: number
+  /** 想定の時点の学期（入学直後なので春） */
+  assumedTerm: TermKey
   isPc: boolean
+  reducedMotion: boolean
 
   shortlist: string[]
   isKept: (code: string) => boolean
+  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す */
   toggleKeep: (code: string) => void
+  /** 時間割の［外す］。［元に戻す］つきの知らせを出す */
   removeKeep: (code: string) => void
+  undoRemove: (toast: ToastState) => void
+
+  /** いま見ている時間割の学期（タブの単位、W4、PC の右の段。E1 の「この学期」） */
+  focusTerm: TermKey
+  setFocusTerm: (t: TermKey) => void
 
   toast: ToastState | null
-  dismissToast: () => void
+  clearToast: (id: number) => void
+
+  /** 読み上げ用の領域に1回だけ言う */
+  announcement: string
+  announce: (text: string) => void
 
   ask: AskSession | null
   askDraft: string
@@ -200,7 +226,7 @@ export interface NaviContextValue {
   startStudy: (surveyId: string, mode: 'fresh' | 'continue') => void
   endStudy: () => void
 
-  /** 最後に選んだ方向（PC の左ペインと、詳細から戻ったときの一覧に使う） */
+  /** 最後に選んだ興味関心（PC の左の段と、詳細から戻ったときの一覧に使う） */
   lastDir: string
   setLastDir: (dirId: string) => void
 }
