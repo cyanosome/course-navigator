@@ -233,8 +233,12 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
   /* ---------- 自由記述 ---------- */
   const [ask, setAsk] = useState<AskSession | null>(restoreAsk)
   const [askDraft, setAskDraftState] = useState<string>(() => readJson('session', KEYS.askDraft, isString) ?? '')
+  /** 最後に送った文。送ったあと欄に残っていても、送っていない文には数えない */
+  const [askSent, setAskSent] = useState<string>(() => readJson('session', KEYS.askSent, isString) ?? '')
+  const askDraftUnsent = askDraft.trim() !== '' && askDraft.trim() !== askSent
   const askControl = useRef<AbortController | null>(null)
   useEffect(() => writeJson('session', KEYS.ask, ask), [ask])
+  useEffect(() => writeJson('session', KEYS.askSent, askSent), [askSent])
   const setAskDraft = useCallback((text: string) => {
     setAskDraftState(text)
     writeJson('session', KEYS.askDraft, text)
@@ -258,6 +262,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
       }
       setAsk(session)
       setAskDraft(interest)
+      setAskSent(interest)
       track({ type: 'ask' })
 
       const control = new AbortController()
@@ -309,6 +314,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
       }
       cancelAsk()
       setAskDraft('')
+      setAskSent('')
       setShortlist([])
       setStudy(newStudyRecord(surveyId))
     },
@@ -341,6 +347,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
       ask,
       askDraft,
       setAskDraft,
+      askDraftUnsent,
       sendAsk,
       cancelAsk,
       closeAsk: cancelAsk,
@@ -371,6 +378,7 @@ function NaviRoot({ dept, initial, chooseDept }: NaviRootProps) {
       ask,
       askDraft,
       setAskDraft,
+      askDraftUnsent,
       sendAsk,
       cancelAsk,
       markAskSeen,

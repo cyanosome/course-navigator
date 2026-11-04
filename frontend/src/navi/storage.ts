@@ -65,5 +65,6 @@ export const KEYS = {
   ask: 'navi.ask',
   askSeq: 'navi.askSeq',
   askDraft: 'navi.askDraft',
+  askSent: 'navi.askSent',
   wait: 'navi.wait',
 } as const

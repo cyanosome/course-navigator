@@ -27,26 +27,28 @@ interface SearchListProps {
  * 欄にカーソルがあるか、送っていない文が入っているあいだは、興味関心のチップを隠す（オーナーの指示 2026-11-04）。
  */
 export default function SearchList({ dirId, pc, currentCode }: SearchListProps) {
-  const { dept, shortlist, focusTerm, assumedTerm, ask } = useNavi()
+  const { dept, shortlist, focusTerm, assumedTerm, ask, askDraftUnsent } = useNavi()
   const navigate = useNavigate()
-  const [askOpen, setAskOpen] = useState(false)
-  /** 一度隠したチップは、戻すときに開閉の中身と同じフェードで出す（最初の表示では動かさない） */
-  const [chipsWereHidden, setChipsWereHidden] = useState(false)
+  const [askFocused, setAskFocused] = useState(false)
+  /** 注意と［探す］を出し、チップを隠すあいだ。送っていない文は共有の状態から決まるので、詳細から戻って作り直されても隠れたまま */
+  const askOpen = askFocused || askDraftUnsent
+  /** 一度隠したチップは、戻すときに開閉の中身と同じフェードで出す（最初から出ているときは動かさない） */
+  const [chipsWereHidden, setChipsWereHidden] = useState(askDraftUnsent)
   const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm }
   const interest = findInterest(dept, dirId)
   const isDefault = interest === undefined || interest.targets.length === 0
   const required = placedInTerm(dept, shortlist, focusTerm).filter(isRequired)
 
-  const onAskOpenChange = (open: boolean) => {
-    setAskOpen(open)
-    if (open) setChipsWereHidden(true)
+  const onAskFocusChange = (focused: boolean) => {
+    setAskFocused(focused)
+    if (focused) setChipsWereHidden(true)
   }
   const onSent = (localId: string) => navigate(`/navi/ask/${encodeURIComponent(localId)}`)
 
   return (
     <>
       {!pc && <h1 className="vh">さがす</h1>}
-      <SearchField open={askOpen} onOpenChange={onAskOpenChange} onSent={onSent} />
+      <SearchField open={askOpen} onFocusChange={onAskFocusChange} onSent={onSent} />
       {!askOpen && <InterestChips selected={isDefault ? 'default' : interest.id} reveal={chipsWereHidden} />}
       {required.length > 0 && (
         <Link className="status" to={TIMETABLE_HREF}>

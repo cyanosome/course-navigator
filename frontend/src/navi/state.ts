@@ -215,6 +215,8 @@ export interface NaviContextValue {
   ask: AskSession | null
   askDraft: string
   setAskDraft: (text: string) => void
+  /** 欄に送っていない文が入っているか（空でなく、最後に送った文とも違う）。入っているあいだは興味関心のチップを隠す */
+  askDraftUnsent: boolean
   /** 送れたら端末内の番号、前の質問を待っているときは null */
   sendAsk: (interest: string, withGuardrail: boolean) => string | null
   cancelAsk: () => void

@@ -7,7 +7,8 @@ import Icon from './Icon'
 interface SearchFieldProps {
   /** 注意と［探す］を出しているか（欄にカーソルがあるか、送っていない文が入っているあいだ） */
   open: boolean
-  onOpenChange: (open: boolean) => void
+  /** 欄（［探す］や案内のボタンを含む）にカーソルが入った・外へ出た */
+  onFocusChange: (focused: boolean) => void
   /** 送れたとき（端末内の番号） */
   onSent: (localId: string) => void
 }
@@ -22,11 +23,11 @@ type Problem = 'outOfScope' | 'busy' | 'empty' | null
 /**
  * 自分の言葉で探す（W5-1）と、範囲外の言葉の案内（W6-1、UX 仕様 C09〜C11）。さがすの一覧のいちばん上に、いつも出す（入口の案 a）。
  * 外部の AI に送る注意と［探す］は、欄にカーソルが入った時点で欄のすぐ下に出す。［探す］は注意と一緒にしか出ないので、
- * Enter で送るときも注意は送る前に必ず見える（E1 7章 C12）。空のまま欄の外へ出たら畳む。
+ * Enter で送るときも注意は送る前に必ず見える（E1 7章 C12）。送っていない文が無いまま欄の外へ出たら畳む。
  * 日本語の変換を確定する Enter では送らない（requirements.md R1-12）。入力した文は消さない（C11）。
  */
-export default function SearchField({ open, onOpenChange, onSent }: SearchFieldProps) {
-  const { askDraft, setAskDraft, sendAsk } = useNavi()
+export default function SearchField({ open, onFocusChange, onSent }: SearchFieldProps) {
+  const { askDraft, setAskDraft, askDraftUnsent, sendAsk } = useNavi()
   const [problem, setProblem] = useState<Problem>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const noteId = useId()
@@ -49,7 +50,7 @@ export default function SearchField({ open, onOpenChange, onSent }: SearchFieldP
     }
     setProblem(null)
     inputRef.current?.blur()
-    onOpenChange(false)
+    onFocusChange(false)
     onSent(localId)
   }
 
@@ -63,13 +64,12 @@ export default function SearchField({ open, onOpenChange, onSent }: SearchFieldP
     submit(false)
   }
 
-  // 欄の中（［探す］や案内のボタン）へ移ったときは畳まない。空のまま外へ出たら畳む
+  // 欄の中（［探す］や案内のボタン）へ移ったときは畳まない。外へ出たとき、送っていない文があれば畳まない（案内も残す）
   const onBlur = (e: FocusEvent<HTMLFormElement>) => {
     const next = e.relatedTarget
     if (next instanceof Node && e.currentTarget.contains(next)) return
-    if (askDraft.trim() !== '') return
-    setProblem(null)
-    onOpenChange(false)
+    onFocusChange(false)
+    if (!askDraftUnsent) setProblem(null)
   }
 
   // ［探す］を押してもカーソルを欄に残す（押した瞬間に欄が空として畳まれ、押せなくなるのを防ぐ）
@@ -108,7 +108,7 @@ export default function SearchField({ open, onOpenChange, onSent }: SearchFieldP
   )
 
   return (
-    <form className="ask-top" onSubmit={onSubmit} onFocus={() => onOpenChange(true)} onBlur={onBlur} role="search">
+    <form className="ask-top" onSubmit={onSubmit} onFocus={() => onFocusChange(true)} onBlur={onBlur} role="search">
       <label className={problem === 'outOfScope' ? 'field is-error' : 'field'}>
         <Icon name="search" />
         <span className="vh">自分の言葉で探す（興味のあることや科目名）</span>
