@@ -1,12 +1,13 @@
 import { useId, useRef, useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
+import type { FocusEvent, FormEvent, KeyboardEvent, MouseEvent } from 'react'
 import { findOutOfScopeWords } from '../../navi/ask'
 import { useNavi } from '../../navi/state'
 import Icon from './Icon'
 
 interface SearchFieldProps {
-  /** スマホは上の帯の下に開く欄、PC は上の帯の中の欄（E1 4章・7章） */
-  variant: 'sheet' | 'pc'
+  /** 注意と［探す］を出しているか（欄にカーソルがあるか、送っていない文が入っているあいだ） */
+  open: boolean
+  onOpenChange: (open: boolean) => void
   /** 送れたとき（端末内の番号） */
   onSent: (localId: string) => void
 }
@@ -14,19 +15,21 @@ interface SearchFieldProps {
 const NOTE =
   'AIが探して答えます（1分ほど）。入力した文は外部のAIサービスに送られます。名前や学籍番号は書かないでください。'
 
+const PLACEHOLDER = '例：環境に関わる仕事がしたい'
+
 type Problem = 'outOfScope' | 'busy' | 'empty' | null
 
 /**
- * 自分の言葉で探す（W5-1）と、範囲外の言葉の案内（W6-1、UX 仕様 C09〜C11）。
- * 外部の AI に送る注意は、欄に入力を始めた時点で欄のすぐ下に出し、送る前に必ず見える（E1 7章 C12）。
+ * 自分の言葉で探す（W5-1）と、範囲外の言葉の案内（W6-1、UX 仕様 C09〜C11）。さがすの一覧のいちばん上に、いつも出す（入口の案 a）。
+ * 外部の AI に送る注意と［探す］は、欄にカーソルが入った時点で欄のすぐ下に出す。［探す］は注意と一緒にしか出ないので、
+ * Enter で送るときも注意は送る前に必ず見える（E1 7章 C12）。空のまま欄の外へ出たら畳む。
  * 日本語の変換を確定する Enter では送らない（requirements.md R1-12）。入力した文は消さない（C11）。
  */
-export default function SearchField({ variant, onSent }: SearchFieldProps) {
+export default function SearchField({ open, onOpenChange, onSent }: SearchFieldProps) {
   const { askDraft, setAskDraft, sendAsk } = useNavi()
   const [problem, setProblem] = useState<Problem>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const noteId = useId()
-  const pc = variant === 'pc'
 
   const submit = (withGuardrail: boolean) => {
     const text = askDraft.trim()
@@ -46,6 +49,7 @@ export default function SearchField({ variant, onSent }: SearchFieldProps) {
     }
     setProblem(null)
     inputRef.current?.blur()
+    onOpenChange(false)
     onSent(localId)
   }
 
@@ -58,6 +62,18 @@ export default function SearchField({ variant, onSent }: SearchFieldProps) {
     e.preventDefault()
     submit(false)
   }
+
+  // 欄の中（［探す］や案内のボタン）へ移ったときは畳まない。空のまま外へ出たら畳む
+  const onBlur = (e: FocusEvent<HTMLFormElement>) => {
+    const next = e.relatedTarget
+    if (next instanceof Node && e.currentTarget.contains(next)) return
+    if (askDraft.trim() !== '') return
+    setProblem(null)
+    onOpenChange(false)
+  }
+
+  // ［探す］を押してもカーソルを欄に残す（押した瞬間に欄が空として畳まれ、押せなくなるのを防ぐ）
+  const keepFocus = (e: MouseEvent<HTMLButtonElement>) => e.preventDefault()
 
   const message = problem !== null && (
     <div className="msg" role="status">
@@ -92,18 +108,17 @@ export default function SearchField({ variant, onSent }: SearchFieldProps) {
   )
 
   return (
-    <form className={pc ? 'pc-search' : undefined} onSubmit={onSubmit} role="search">
+    <form className="ask-top" onSubmit={onSubmit} onFocus={() => onOpenChange(true)} onBlur={onBlur} role="search">
       <label className={problem === 'outOfScope' ? 'field is-error' : 'field'}>
         <Icon name="search" />
-        <span className="vh">科目名や、興味のあること</span>
+        <span className="vh">自分の言葉で探す（興味のあることや科目名）</span>
         <input
           ref={inputRef}
           type="text"
           value={askDraft}
-          placeholder={pc ? '科目名や、興味のあることで探す' : '科目名や、興味のあること'}
+          placeholder={PLACEHOLDER}
           autoComplete="off"
           enterKeyHint="search"
-          autoFocus={!pc}
           aria-describedby={noteId}
           aria-invalid={problem === 'outOfScope'}
           onChange={(e) => {
@@ -113,10 +128,16 @@ export default function SearchField({ variant, onSent }: SearchFieldProps) {
           onKeyDown={onKeyDown}
         />
       </label>
-      <div className={pc ? `pop${problem !== null ? ' is-shown' : ''}` : undefined}>
+      {/* 畳んでいるあいだも注意は読み上げの説明として残す（hidden でも aria-describedby からは読める） */}
+      <div hidden={!open}>
         <p className="sheet-note" id={noteId}>
           {NOTE}
         </p>
+        <div className="send-row">
+          <button className="send" type="submit" onMouseDown={keepFocus}>
+            探す
+          </button>
+        </div>
         {message}
       </div>
     </form>

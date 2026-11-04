@@ -117,10 +117,9 @@
     font-size: 14px; text-align: left; color: var(--ink);
   }
   .menu-item .sub { color: var(--muted); }
-  .search-sheet {
-    position: absolute; top: 56px; left: 0; right: 0; z-index: 3;
-    padding: 16px; background: var(--paper); border-bottom: 1px solid var(--rule);
-  }
+  /* 自分の言葉で探す欄（さがすの一覧のいちばん上にいつも出す。入口の案 a の見本 2026-11-04）。
+     カーソルが入ると、欄のすぐ下に注意と［探す］（line の枠）を出す */
+  .ask-top { padding: 16px 16px 0; }
   .field {
     display: flex; align-items: center; gap: 8px;
     height: 48px; padding: 0 16px;
@@ -128,10 +127,17 @@
     color: var(--muted);
   }
   .field input { flex: 1; min-width: 0; height: 100%; font-size: 16px; color: var(--ink); outline: none; }
-  .field input::placeholder { color: var(--muted); }
+  .field input::placeholder { font-size: 14px; color: var(--muted); }
   .field:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
   .field.is-error { border-color: var(--error); }
   .sheet-note { padding-top: 8px; font-size: 14px; color: var(--muted); }
+  .send-row { display: flex; padding-top: 16px; }
+  .send {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 40px; padding: 0 24px; border-radius: 8px;
+    box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 16px; color: var(--ink);
+  }
 
   /* 入力欄の下の知らせ（範囲外の言葉、前の質問を待っている、空のまま送った） */
   .msg { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; font-size: 14px; }
@@ -149,6 +155,8 @@
   }
   .chip svg { color: var(--accent); }
   .chip[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+  /* 入力中に隠したチップを戻すときは、開閉の中身と同じフェード（隠すときは開閉を閉じるときと同じく動かさない） */
+  .chips.is-back { animation: navi-reveal 200ms var(--ease); }
 
   .status {
     display: flex; align-items: center; gap: 8px;
@@ -458,21 +466,12 @@
   .pc-tabs a { display: flex; align-items: center; font-size: 14px; color: var(--muted); white-space: nowrap; }
   .pc-tabs a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
   .spacer { flex: 1; }
-  .pc-search { position: relative; flex: 0 1 360px; }
-  .pc-search .pop {
-    position: absolute; top: 48px; left: 0; right: 0; z-index: 3;
-    display: none; padding: 8px 16px 16px;
-    background: var(--paper); border: 1px solid var(--rule); border-radius: 8px;
-  }
-  .pc-search:focus-within .pop, .pc-search .pop.is-shown { display: block; }
-  .pc-search .pop .sheet-note { padding-top: 0; }
-  .pc-search .field { height: 40px; }
-  .pc-search .field input { font-size: 14px; }
   .dept { font-size: 14px; color: var(--muted); white-space: nowrap; }
   .pc-body { flex: 1; display: grid; grid-template-columns: 392px 1fr 384px; min-height: 0; }
   .pc-body.is-tt { grid-template-columns: 448px 1fr; }
   .pc-list, .pc-detail, .pc-tt, .pc-page { overflow-y: auto; min-height: 0; }
   .pc-list { border-right: 1px solid var(--rule); padding-bottom: 32px; }
+  .pc-list .ask-top { padding: 16px 24px 0; }
   .pc-list .chips { padding: 16px 24px 0; }
   .pc-list .status { padding: 16px 24px 8px; }
   .pc-list .group-label { padding: 24px 24px 8px; }
@@ -516,7 +515,7 @@
     .toast { animation: none; }
     .toast.is-leaving { transition: none; }
     .m.new { animation: none; }
-    .acc[open] > .acc-body, .more.is-open > .acc-body { animation: none; }
+    .acc[open] > .acc-body, .more.is-open > .acc-body, .chips.is-back { animation: none; }
     .acc > summary svg, .more-btn svg, .add, .primary { transition: none; }
   }
 }

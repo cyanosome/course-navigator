@@ -1,5 +1,5 @@
 import { Fragment, useId, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { findInterest, interestGroups } from '../../navi/graph'
 import { TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { Origin } from '../../navi/state'
@@ -11,6 +11,7 @@ import AskResults from './AskResults'
 import CourseRow from './CourseRow'
 import Icon from './Icon'
 import InterestChips from './InterestChips'
+import SearchField from './SearchField'
 
 interface SearchListProps {
   dirId: string
@@ -22,19 +23,31 @@ interface SearchListProps {
 
 /**
  * さがす（W1 おすすめ・W2 興味関心・W5 自分の言葉で探した結果）の一覧。スマホは画面の本体、PC は左の段。
- * 見出しと説明文は置かない。チップ、状況の1行、科目の行、「ほかに N 科目」だけ（E1 0章・4章）。
+ * 見出しと説明文は置かない。自分の言葉で探す欄、チップ、状況の1行、科目の行、「ほかに N 科目」だけ（E1 0章・4章、入口の案 a）。
+ * 欄にカーソルがあるか、送っていない文が入っているあいだは、興味関心のチップを隠す（オーナーの指示 2026-11-04）。
  */
 export default function SearchList({ dirId, pc, currentCode }: SearchListProps) {
   const { dept, shortlist, focusTerm, assumedTerm, ask } = useNavi()
+  const navigate = useNavigate()
+  const [askOpen, setAskOpen] = useState(false)
+  /** 一度隠したチップは、戻すときに開閉の中身と同じフェードで出す（最初の表示では動かさない） */
+  const [chipsWereHidden, setChipsWereHidden] = useState(false)
   const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm }
   const interest = findInterest(dept, dirId)
   const isDefault = interest === undefined || interest.targets.length === 0
   const required = placedInTerm(dept, shortlist, focusTerm).filter(isRequired)
 
+  const onAskOpenChange = (open: boolean) => {
+    setAskOpen(open)
+    if (open) setChipsWereHidden(true)
+  }
+  const onSent = (localId: string) => navigate(`/navi/ask/${encodeURIComponent(localId)}`)
+
   return (
     <>
       {!pc && <h1 className="vh">さがす</h1>}
-      <InterestChips selected={isDefault ? 'default' : interest.id} />
+      <SearchField open={askOpen} onOpenChange={onAskOpenChange} onSent={onSent} />
+      {!askOpen && <InterestChips selected={isDefault ? 'default' : interest.id} reveal={chipsWereHidden} />}
       {required.length > 0 && (
         <Link className="status" to={TIMETABLE_HREF}>
           {termLabel(focusTerm)}の必修 {required.length}科目は、時間割に入れてあります

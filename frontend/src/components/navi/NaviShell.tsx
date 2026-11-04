@@ -7,7 +7,6 @@ import { termCredits } from '../../navi/timetable'
 import { rootEntry } from '../../navi/views'
 import Icon from './Icon'
 import Menu from './Menu'
-import SearchField from './SearchField'
 import Toast from './Toast'
 import WaitLine from './WaitLine'
 
@@ -16,10 +15,9 @@ interface NaviShellProps {
 }
 
 type Place = 'search' | 'tt' | 'detail' | 'page' | 'study'
-type Pop = 'menu' | 'search'
+type Pop = 'menu'
 
 const MENU_ID = 'navi-menu'
-const SEARCH_ID = 'navi-search'
 
 function placeOf(pathname: string): Place {
   if (pathname === '/navi' || pathname === '/navi/' || pathname.startsWith('/navi/ask/')) return 'search'
@@ -30,8 +28,8 @@ function placeOf(pathname: string): Place {
 }
 
 /**
- * 上の帯・メニュー・探す欄・下のタブ（スマホ）・調査モードの帯・待ちの1行・知らせ・読み上げ用の領域を、
- * どの画面にも同じ場所に出す（E1 4章・6章）。
+ * 上の帯・メニュー・下のタブ（スマホ）・調査モードの帯・待ちの1行・知らせ・読み上げ用の領域を、
+ * どの画面にも同じ場所に出す（E1 4章・6章）。自分の言葉で探す欄は、さがすの一覧のいちばん上に置く（SearchList。入口の案 a）。
  */
 export default function NaviShell({ children }: NaviShellProps) {
   const { dept, isPc, shortlist, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
@@ -41,12 +39,11 @@ export default function NaviShell({ children }: NaviShellProps) {
   const place = placeOf(location.pathname)
   const minimal = place === 'study'
 
-  /** 開いているメニューか探す欄。開いた画面から移ったら閉じたことにする */
+  /** 開いているメニュー。開いた画面から移ったら閉じたことにする */
   const [pop, setPop] = useState<{ kind: Pop; key: string } | null>(null)
   const openPop = pop !== null && pop.key === location.key ? pop.kind : null
   const popRef = useRef<HTMLDivElement>(null)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
-  const searchBtnRef = useRef<HTMLButtonElement>(null)
 
   const toggle = (kind: Pop) => setPop(openPop === kind ? null : { kind, key: location.key })
 
@@ -56,7 +53,7 @@ export default function NaviShell({ children }: NaviShellProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       setPop(null)
-      ;(openPop === 'menu' ? menuBtnRef : searchBtnRef).current?.focus()
+      menuBtnRef.current?.focus()
     }
     const onDown = (e: PointerEvent) => {
       const target = e.target
@@ -87,11 +84,6 @@ export default function NaviShell({ children }: NaviShellProps) {
   // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない
   const askPending = ask !== null && (ask.status === 'waiting' || !ask.seen)
   const showWait = askPending && !minimal && (isPc ? tab !== 'search' : place !== 'search')
-
-  const onSent = (localId: string) => {
-    setPop(null)
-    navigate(`/navi/ask/${encodeURIComponent(localId)}`)
-  }
 
   const finish = () => {
     endStudy()
@@ -147,7 +139,6 @@ export default function NaviShell({ children }: NaviShellProps) {
             </nav>
           )}
           <div className="spacer" />
-          {!minimal && <SearchField variant="pc" onSent={onSent} />}
           <span className="dept">{dept.name}</span>
           {!minimal && menuButton}
           {menu}
@@ -176,27 +167,10 @@ export default function NaviShell({ children }: NaviShellProps) {
         )}
         {!minimal && (
           <div className="bar-actions">
-            <button
-              ref={searchBtnRef}
-              className="icon-btn"
-              type="button"
-              data-pop-toggle=""
-              aria-label="科目名や興味のあることで探す"
-              aria-expanded={openPop === 'search'}
-              aria-controls={SEARCH_ID}
-              onClick={() => toggle('search')}
-            >
-              <Icon name="search" />
-            </button>
             {menuButton}
           </div>
         )}
         {menu}
-        {openPop === 'search' && (
-          <div ref={popRef} className="search-sheet" id={SEARCH_ID}>
-            <SearchField variant="sheet" onSent={onSent} />
-          </div>
-        )}
       </header>
       {children}
       {showWait && <WaitLine />}
