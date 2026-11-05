@@ -1,7 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import type { FocusEvent, FormEvent, KeyboardEvent, MouseEvent } from 'react'
-import { composeQuestion, findOutOfScopeWords } from '../../navi/ask'
-import { useResearchLog } from '../../navi/research'
+import { findOutOfScopeWords } from '../../navi/ask'
 import { useNavi } from '../../navi/state'
 import { useFlags } from '../../navi/variant'
 import Icon from './Icon'
@@ -38,9 +37,8 @@ type Problem = 'outOfScope' | 'busy' | 'empty' | null
  * 入力した文は消さない（C11）。
  */
 export default function SearchField({ open, onFocusChange, onSearch, onSent }: SearchFieldProps) {
-  const { dept, askDraft, setAskDraft, askDraftUnsent, sendAsk } = useNavi()
+  const { askDraft, setAskDraft, askDraftUnsent, sendAsk } = useNavi()
   const flags = useFlags()
-  const { log } = useResearchLog()
   const [problem, setProblem] = useState<Problem>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const noteId = useId()
@@ -65,12 +63,12 @@ export default function SearchField({ open, onFocusChange, onSearch, onSent }: S
       setProblem('outOfScope')
       return
     }
+    // chat_send は sendAsk が記録する（event_id を A1 の client_event_id に渡すため）
     const localId = sendAsk(text, withGuardrail)
     if (localId === null) {
       setProblem('busy')
       return
     }
-    log('chat_send', { input: text, question: composeQuestion(dept, text, withGuardrail), guardrail: withGuardrail, ask_local_id: localId })
     close()
     onSent(localId)
   }

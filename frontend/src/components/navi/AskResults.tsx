@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import type { EventPayload } from '../../navi/apiTypes'
-import { composeQuestion, extractReasons } from '../../navi/ask'
+import { extractReasons } from '../../navi/ask'
 import { findCourse } from '../../navi/graph'
 import { formatClock, useElapsedSeconds } from '../../navi/hooks'
 import { useResearchLog } from '../../navi/research'
@@ -44,16 +44,9 @@ export default function AskResults({ session, currentCode }: AskResultsProps) {
     const requestId = result !== null && 'request_id' in result ? result.request_id : null
     return { ask_local_id: session.localId, request_id: typeof requestId === 'string' ? requestId : null }
   }
+  // chat_send（retry: true）は sendAsk が記録する
   const resend = () => {
-    const localId = sendAsk(session.interest, session.guardrail)
-    if (localId === null) return
-    log('chat_send', {
-      input: session.interest,
-      question: composeQuestion(dept, session.interest, session.guardrail),
-      guardrail: session.guardrail,
-      ask_local_id: localId,
-      retry: true,
-    })
+    sendAsk(session.interest, session.guardrail, { retry: true })
   }
 
   if (waiting) {

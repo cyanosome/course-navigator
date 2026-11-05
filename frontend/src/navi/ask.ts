@@ -6,9 +6,19 @@
  */
 import type { Department, McpAgentRunResult } from './types'
 
+/** AI に送るもの（A1 の AssistIn の画面側の形） */
+export interface AskRequest {
+  /** 送る文（composeQuestion で作ったもの） */
+  question: string
+  /** 利用者が打った文（記録用） */
+  rawInput: string
+  /** 対応する chat_send の event_id（調査のセッションが無ければ null）。サーバーの chat_response と結ぶ */
+  clientEventId: string | null
+}
+
 export interface AskAdapter {
-  /** 送る文（composeQuestion で作ったもの）を受けて、回答を返す。signal で中断できる */
-  ask(question: string, signal: AbortSignal): Promise<McpAgentRunResult>
+  /** 送るものを受けて、回答を返す。signal で中断できる */
+  ask(request: AskRequest, signal: AbortSignal): Promise<McpAgentRunResult>
 }
 
 /** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long） */
@@ -45,7 +55,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
   return {
-    async ask(_question, signal) {
+    async ask(_request, signal) {
       const started = Date.now()
       if (mode === 'timeout') {
         // 返らない。呼び出し側の上限（3分）で W6-3 になる

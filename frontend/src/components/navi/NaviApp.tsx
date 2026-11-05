@@ -408,11 +408,20 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   }, [])
 
   const sendAsk = useCallback(
-    (interest: string, withGuardrail: boolean): string | null => {
+    (interest: string, withGuardrail: boolean, opts?: { retry?: boolean }): string | null => {
       if (ask !== null && ask.status === 'waiting') return null
       const seq = (readJson('session', KEYS.askSeq, isNumber) ?? 0) + 1
       writeJson('session', KEYS.askSeq, seq)
       const localId = String(seq)
+      const question = composeQuestion(dept, interest, withGuardrail)
+      // chat_send を先に記録し、その event_id を A1 の client_event_id に渡す（サーバーが書く chat_response と結ぶ）
+      const clientEventId = log('chat_send', {
+        input: interest,
+        question,
+        guardrail: withGuardrail,
+        ask_local_id: localId,
+        ...(opts?.retry === true ? { retry: true } : {}),
+      })
       const session: AskSession = {
         localId,
         interest,
@@ -439,7 +448,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
         setAsk((cur) => (cur !== null && cur.localId === localId ? { ...cur, ...patch, finishedAt: Date.now() } : cur))
 
       adapter
-        .ask(composeQuestion(dept, interest, withGuardrail), control.signal)
+        .ask({ question, rawInput: interest, clientEventId }, control.signal)
         .then((result) => finish({ status: result.sources.length === 0 ? 'empty' : 'done', result }))
         .catch((err: unknown) => {
           if (timedOut) {
@@ -456,7 +465,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
         })
       return localId
     },
-    [adapter, ask, dept, setAskDraft, track],
+    [adapter, ask, dept, log, setAskDraft, track],
   )
   /** ［やめる］と［この結果を閉じる］。入力した文は askDraft に残る（UX 仕様 C11） */
   const cancelAsk = useCallback(() => {

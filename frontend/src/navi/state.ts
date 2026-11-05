@@ -218,8 +218,11 @@ export interface NaviContextValue {
   setAskDraft: (text: string) => void
   /** 欄に送っていない文が入っているか（空でなく、最後に送った文とも違う）。入っているあいだは興味関心のチップを隠す */
   askDraftUnsent: boolean
-  /** 送れたら端末内の番号、前の質問を待っているときは null */
-  sendAsk: (interest: string, withGuardrail: boolean) => string | null
+  /**
+   * 送れたら端末内の番号、前の質問を待っているときは null。送るときに chat_send を記録し、その event_id を
+   * A1 の client_event_id に渡す（retry は結果の画面の［もう一度］から送り直したとき）
+   */
+  sendAsk: (interest: string, withGuardrail: boolean, opts?: { retry?: boolean }) => string | null
   cancelAsk: () => void
   closeAsk: () => void
   markAskSeen: () => void
