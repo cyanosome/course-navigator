@@ -256,7 +256,35 @@ python -m src.loaders.postgres.verify_data query "SELECT subject_name, credits, 
 
 ---
 
-### 5.4 カリキュラム系統図 DAG トランスフォーマー (`curriculum_tree_parser.py`)
+### 5.4 PostgreSQL Web 管理画面 (`NocoDB`)
+
+PostgreSQL の `courses` テーブルに格納された長文シラバス（`description`, `objective`）や週別講義計画・成績評価基準などの JSONB カラム（`schedule_raw`, `grading_criteria`）を Web ブラウザ上で直感的に閲覧・全文検索・カード展開するための Web 管理 UI です。
+
+FastAPI バックエンドを経由せず、`db/compose.yaml` 単体で独立起動します。外部へのポート直接公開は行わず、Traefik リバースプロキシ経由のサブパスでセキュアにアクセス可能です。
+
+```bash
+# DB レイヤー（PostgreSQL, Neo4j, NocoDB）の起動
+docker compose -f db/compose.yaml up -d
+```
+
+- **アクセス URL**: `http://course-navigator.localhost/nocodb`
+- **セキュリティ・アーキテクチャ**:
+  - ホストポート直接公開なし（Traefik 経由のサブパス運用）
+  - メタデータはコンテナ内 SQLite（`nocodb_data` Docker ボリューム）に完全分離され、PostgreSQL のスキーマを汚しません
+- **データソース接続手順**:
+  1. 初回アクセス時にローカル管理者アカウントを作成（メールアドレス・パスワード）
+  2. プロジェクト作成時に「Connect to External Database」を選択し、`PostgreSQL` を指定
+  3. 接続情報:
+     - **Host**: `postgres` (Docker 内部ネットワーク)
+     - **Port**: `5432`
+     - **Database**: `coursenavigator`
+     - **User**: `admin`
+     - **Password**: `${POSTGRES_PASSWORD}`
+  4. 登録後、`courses` テーブルの 1,029 件がグリッド表示され、カード展開で長文や JSONB を快適にブラウジングできます。
+
+---
+
+### 5.5 カリキュラム系統図 DAG トランスフォーマー (`curriculum_tree_parser.py`)
 
 履修系統図ベクター PDF（`tree_env.pdf`）から、**科目グループ枠（クラスター）**、**グループ所属科目**、および**グループ間の有向前提エッジ（DAG）**を幾何学的に抽出するスクリプトです。各科目は PostgreSQL の `courses` マスターデータと照合され、`syllabus_id` および `course_code` が自動付与されます（色解析は行わず、DB マスターデータを利用）。
 
@@ -270,7 +298,7 @@ python -m src.transformers.kansai.curriculum_tree_parser --pdf data/raw/universi
 
 ---
 
-### 5.5 Neo4j カリキュラム系統図 & コースデータローダー (`curriculum_loader.py`)
+### 5.6 Neo4j カリキュラム系統図 & コースデータローダー (`curriculum_loader.py`)
 
 抽出された履修系統図グループ DAG（`curriculum_group_graph.json`）および詳細シラバスコースデータ（`courses_detail.json`）を Neo4j へ一括投入（Merge）するローダーです。APOC や GDS、ベクトル埋め込み等の推測的技術は使用せず、純粋な Cypher `UNWIND $batch` パランティア型オントロジーにより投入します。
 
@@ -301,7 +329,7 @@ python -m src.loaders.graph.curriculum_loader --tree data/parsed/university/kans
 
 ---
 
-### 5.6 Neo4j & PostgreSQL クロスデータベース整合性検証 CLI (`verify_graph.py`)
+### 5.7 Neo4j & PostgreSQL クロスデータベース整合性検証 CLI (`verify_graph.py`)
 
 Neo4j GraphDB と PostgreSQL RDB の両方に接続し、データ件数、DAG トポロジー、および主キー（`syllabus_id`）の完全一致・相互結合性を検証する CLI ツールです。
 

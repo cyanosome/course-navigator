@@ -54,6 +54,36 @@ services:
       - "traefik.http.middlewares.neo4j-redirect-url.redirectregex.regex=^http://([^/]+)/neo4j(.*)$$"
       - "traefik.http.middlewares.neo4j-redirect-url.redirectregex.replacement=http://$$1/browser/"
 
+  nocodb:
+    image: nocodb/nocodb:latest
+    container_name: nocodb
+    restart: always
+    environment:
+      # NC_DB 未指定時はデフォルトで SQLite (/usr/app/data/noco.db) が使われ、PostgreSQL を汚さずメタデータが分離・永続化される
+      TZ: ${TZ}
+    volumes:
+      - nocodb_data:/usr/app/data
+    networks:
+      - gateway
+    depends_on:
+      - postgres
+    labels:
+      - "traefik.enable=true"
+      # サービス定義（8080番ポートに負荷分散転送）
+      - "traefik.http.services.nocodb.loadbalancer.server.port=8080"
+      
+      # /nocodb へのアクセスをプレフィックス除去してコンテナのルート / に転送
+      - "traefik.http.routers.nocodb.rule=Host(`${DOMAIN}`) && PathPrefix(`/nocodb`)"
+      - "traefik.http.routers.nocodb.entrypoints=web"
+      - "traefik.http.routers.nocodb.service=nocodb"
+      - "traefik.http.routers.nocodb.middlewares=nocodb-stripprefix"
+      - "traefik.http.middlewares.nocodb-stripprefix.stripprefix.prefixes=/nocodb"
+      
+      # Nuxt.js の静的アセット (/_nuxt) へのリクエストを NocoDB コンテナに転送
+      - "traefik.http.routers.nocodb-nuxt.rule=Host(`${DOMAIN}`) && PathPrefix(`/_nuxt`)"
+      - "traefik.http.routers.nocodb-nuxt.entrypoints=web"
+      - "traefik.http.routers.nocodb-nuxt.service=nocodb"
+
 volumes:
   postgres_data:
     name: postgres_data
@@ -65,6 +95,8 @@ volumes:
     name: neo4j_import
   neo4j_plugins:
     name: neo4j_plugins
+  nocodb_data:
+    name: nocodb_data
 
 networks:
   gateway:
