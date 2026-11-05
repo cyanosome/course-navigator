@@ -7,3 +7,4 @@ ingestion/data/raw/*
 !ingestion/data/raw/.gitkeep
 ingestion/data/parsed/*
 !ingestion/data/parsed/.gitkeep
+compose.override.yaml
