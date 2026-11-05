@@ -59,7 +59,8 @@ ingestion/
     │   │   ├── curriculum_tree_parser.py # 系統図 PDF ベクター解析・DAG 抽出パーサー
     │   │   ├── bulletin_schema.py # 大学要覧・履修要件 Pydantic スキーマ
     │   │   ├── bulletin_splitter.py # 要覧 PDF 学部別スプリッター
-    │   │   └── bulletin_parser.py # 大学要覧 PDF からの卒業要件・必修区分抽出パーサー
+    │   │   ├── bulletin_parser.py # 大学要覧 PDF からの卒業要件・必修区分抽出パーサー
+    │   │   └── embedding_generator.py # シラバス Embedding 生成モジュール (Phase 3.6A)
     │   ├── komazawa/       # 駒澤大学用パーサー群 (凍結保持)
     │   └── nagasaki/       # 長崎大学用パーサー (凍結保持)
     └── loaders/            # 【Load】データベース一括投入 (Loader)
@@ -75,6 +76,10 @@ ingestion/
             ├── schema.py   # ノード・リレーション定義・Cypher クエリ
             ├── curriculum_loader.py # 関西大学 カリキュラムDAG & コース一括ローダー
             ├── requirements_loader.py # 卒業要件オントロジー & 前提科目エッジローダー
+            ├── vector_index_loader.py # Neo4j Embedding 格納 & Vector Index 作成 (Phase 3.6A)
+            ├── similarity_edge_loader.py # コサイン類似度マトリクス計算 & [:SIMILAR_TO] ローダー (Phase 3.6A)
+            ├── verify/     # Neo4j 検証ツール群 (CLI)
+            │   └── similarity.py # Embedding・Vector Index・類似エッジ検証 CLI
             ├── verify_graph.py # Neo4j & PostgreSQL クロスDB整合性検証 CLI
             └── loader.py   # 駒澤大学用レガシーローダー (凍結保持)
 ```
@@ -127,6 +132,23 @@ ingestion/
   * [`src/loaders/graph/requirements_loader.py`](src/loaders/graph/requirements_loader.py)
   * ノード: `GraduationRequirement`（学科卒業要件）, `RequirementCategory`（必修/選択必修/選択カテゴリ）
   * エッジ: `[:HAS_CATEGORY]`, `[:CLASSIFIED_AS]`（Course とカテゴリの接続、136件）, `[:REQUIRES_PREREQUISITE]`（要覧公式規程に基づく特別研究着手要件前提エッジ: 特別研究Ⅱ → 特別研究Ⅰ、化学工学実験・有機化学実験など）
+* **[Transform] シラバス Embedding 生成 & キャッシュ管理 (Embedding Generator / Phase 3.6A)**:
+  * [`src/transformers/kansai/embedding_generator.py`](src/transformers/kansai/embedding_generator.py)
+  * シラバスの科目名、副題、講義概要、到達目標、15週講義計画を統合した構造化テキストを構築。
+  * Google Gemini（`text-embedding-004` / 768次元）および決定論的モックフォールバック（SHA-256ベース）により全1,029科目の正規化埋め込みベクトルを生成・キャッシュ（`course_embeddings.json`）。
+* **[Load] Neo4j Vector Index 構築 & Embedding 格納 (Vector Index Loader / Phase 3.6A)**:
+  * [`src/loaders/graph/vector_index_loader.py`](src/loaders/graph/vector_index_loader.py)
+  * 全1,029件の `(:Course)` ノードに `c.embedding`（768次元 float リスト）をバッチ付与。
+  * Neo4j 5.x ネイティブ Vector Index `course_embedding_index`（コサイン距離、768次元）を作成・ONLINE 化完了。
+  * Cypher 動的ベクトル検索 `CALL db.index.vector.queryNodes` の通電を確認。
+* **[Load] コサイン類似度マトリクス計算 & セマンティック類似度エッジ投入 (Similarity Edge Loader / Phase 3.6A)**:
+  * [`src/loaders/graph/similarity_edge_loader.py`](src/loaders/graph/similarity_edge_loader.py)
+  * NumPy を用いた $1,029 \times 1,029$ コサイン類似度マトリクスの高速計算（約0.03秒）。
+  * 自己ループ除外、スコア閾値（$\ge 0.70$）、Top-K（最大5件）フィルタにより、1,419 件の `(:Course)-[:SIMILAR_TO {score, model}]->(:Course)` エッジを一括バッチロード。
+* **[Verify] Neo4j Embedding & 類似度エッジ検証 CLI (Similarity Verifier / Phase 3.6A)**:
+  * [`src/loaders/graph/verify/similarity.py`](src/loaders/graph/verify/similarity.py)
+  * ソースコードとテストコードを分離し、検証専用 CLI として配置。
+  * `stats`（Embedding 充足率 100%、エッジ件数 1,419本、Index 稼働状況）、`show-similar <syllabus_id>`（類似科目照会）、`test-query <query_text>`（動的ベクトル探索テスト）を提供。
 * **[Management] PostgreSQL Web 管理画面 (Adminer)**:
   * ブラウザから `courses` テーブルの全項目・JSONB を閲覧・検索可能な Adminer を Docker Compose / Traefik 配下に整備（`http://course-navigator.localhost/adminer`）。
 * **[Archive] 駒澤大学・長崎大学パイプライン（凍結保持）**:
@@ -134,13 +156,12 @@ ingestion/
 
 ### 3.2 今後の課題・拡張 (Pending / To-Do)
 
+* **3つの探索モード評価ハーネスの構築 (Phase 3.7)**:
+  * 論文精査LLMの仕様に基づくゴールデン質問セットによる探索ベンチマーク測定（適合度・前提制約充足率・レイテンシ）。
+* **実験用ブランチでの pgvector 比較実験**:
+  * メインブランチでは採用しない PostgreSQL (pgvector) による Pure Vector 方式を別ブランチにて構築・比較検証。
 * **履修系統図の他学部・他学科への適用拡大**:
   * 現在検証済みのエネルギー環境・化学工学科（Page 6）に加え、環境都市工学部の他学科（都市システム工学科、建築学科等）および他学部のベクター PDF 解析の展開。
-* **前提科目エッジ (`[:REQUIRES_PREREQUISITE]`) の個別科目単位の抽出**:
-  * シラバス本文の「履修上の注意」「前提知識」等から科目単位の個別前提関係を抽出し、グループ単位 DAG と多重化。
-* **GDS / ベクトル検索によるセマンティック類似度エッジ (`[:SIMILAR_TO]`) の生成 (Phase 4)**:
-  * 科目テキスト埋め込み（Embedding）の生成および Neo4j Vector Index の作成。
-  * ノード類似度計算に基づく関連科目の導出。
 * **CS2023 オントロジー統合 (Phase 4)**:
   * ACM/IEEE CS2023 基準オントロジーノード群の投入と、学内科目との自動推論マッピング (`[:MAPS_TO]`)。
 
@@ -161,6 +182,7 @@ flowchart TD
         TreeParser["curriculum_tree_parser.py<br/>(幾何学的ベクター解析)"]
         BulletinSplitter["bulletin_splitter.py<br/>(学部別PDF分割)"]
         BulletinParser["bulletin_parser.py<br/>(卒業要件・必修区分抽出)"]
+        EmbedGen["embedding_generator.py<br/>(Gemini text-embedding-004: 768次元)"]
         
         RawHTML --> SyllabusParser
         RawTreePDF --> TreeParser
@@ -170,10 +192,12 @@ flowchart TD
         CoursesJSON["courses_detail.json<br/>(1,029件 詳細シラバス)"]
         CurriculumJSON["curriculum_group_graph.json<br/>(DAG: 21グループ, 25エッジ)"]
         BulletinJSON["bulletin_cee_requirements.json<br/>(要件・必修区分・前提科目)"]
+        EmbedJSON["course_embeddings.json<br/>(1,029件 768次元ベクトル)"]
         
         SyllabusParser --> CoursesJSON
         TreeParser --> CurriculumJSON
         BulletinParser --> BulletinJSON
+        CoursesJSON --> EmbedGen --> EmbedJSON
     end
 
     subgraph LoadPG["3. RDB 永続化 (Postgres Loaders)"]
@@ -189,18 +213,23 @@ flowchart TD
         Postgres -.-> Adminer
     end
 
-    subgraph LoadGraph["4. GraphDB 構築 (Neo4j Loaders)"]
+    subgraph LoadGraph["4. GraphDB & Vector Index 構築 (Neo4j Loaders)"]
         CurriculumJSON --> GraphLoader["src/loaders/graph/curriculum_loader.py"]
         CoursesJSON --> GraphLoader
         BulletinJSON --> GraphReqLoader["src/loaders/graph/requirements_loader.py"]
+        EmbedJSON --> VectorLoader["src/loaders/graph/vector_index_loader.py"]
+        EmbedJSON --> SimEdgeLoader["src/loaders/graph/similarity_edge_loader.py"]
         
-        GraphLoader --> Neo4j[("Neo4j GraphDB<br/>・Course (1,029)<br/>・CourseGroup (21)<br/>・GraduationRequirement<br/>・RequirementCategory<br/>・PREREQUISITE_FOR / REQUIRES_PREREQUISITE<br/>・CLASSIFIED_AS / BELONGS_TO_GROUP")]
+        GraphLoader --> Neo4j[("Neo4j GraphDB (5.26)<br/>・Course (1,029: c.embedding付与)<br/>・Vector Index: course_embedding_index (768d)<br/>・CourseGroup (21)<br/>・GraduationRequirement<br/>・SIMILAR_TO (1,419件)<br/>・PREREQUISITE_FOR / REQUIRES_PREREQUISITE")]
         GraphReqLoader --> Neo4j
+        VectorLoader --> Neo4j
+        SimEdgeLoader --> Neo4j
     end
 
-    subgraph Verify["5. クロスDB整合性検証"]
+    subgraph Verify["5. 整合性・検索検証"]
         Neo4j --> CrossVerify["verify_graph.py<br/>(check-all / check-course)"]
         Postgres --> CrossVerify
+        Neo4j --> SimVerify["verify/similarity.py<br/>(stats / show-similar / test-query)"]
     end
 ```
 
@@ -266,6 +295,22 @@ docker compose --profile tools run --rm ingestion uv run python -m src.loaders.p
 
 # 13. Neo4j への卒業要件オントロジー & 前提科目エッジ一括投入 (Requirements Neo4j Loader)
 docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.requirements_loader
+
+# --- Phase 3.6A: Neo4j Embedding & セマンティック類似度エッジパイプライン ---
+
+# 14. シラバス Embedding 生成（Gemini text-embedding-004 / 決定論的モック対応）
+docker compose --profile tools run --rm ingestion uv run python -m src.transformers.kansai.embedding_generator
+
+# 15. Neo4j Course ノードへの Embedding 投入 & Vector Index 作成
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.vector_index_loader
+
+# 16. コサイン類似度マトリクス計算 & [:SIMILAR_TO] エッジ一括投入
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.similarity_edge_loader --threshold 0.70 --top-k 5
+
+# 17. Neo4j Embedding・Vector Index・類似エッジ検証 CLI
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity stats
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity show-similar 011878
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity test-query "物理化学"
 ```
 
 #### コンテナ内でインタラクティブに作業・デバッグする場合
@@ -470,6 +515,63 @@ docker compose --profile tools run --rm ingestion uv run python -m src.loaders.g
   - `(:Course)-[:CLASSIFIED_AS {requirement_type, department_code}]->(:RequirementCategory)`
   - `(:Course)-[:REQUIRES_PREREQUISITE {reason, condition_type}]->(:Course)`
     - 例: `(:Course {name: '特別研究２'})-[:REQUIRES_PREREQUISITE]->(:Course {name: '特別研究１'})`
+
+---
+
+### 5.3.8 Neo4j Embedding 生成・Vector Index & 類似度エッジローダー (Phase 3.6A)
+
+シラバス詳細データから Embedding を生成し、Neo4j 5.x 内蔵 Vector Index `course_embedding_index` の作成、および NumPy コサイン類似度計算による `[:SIMILAR_TO]` エッジのバッチ投入・検証を行うツール群です。
+
+#### 1. シラバス Embedding 生成モジュール (`embedding_generator.py`)
+
+```bash
+# 1. デフォルト実行（Gemini text-embedding-004、未設定時は自動モックフォールバック）
+docker compose --profile tools run --rm ingestion uv run python -m src.transformers.kansai.embedding_generator
+
+# 2. 強制モック生成（テスト・CI用、決定論的SHA-256生成）
+docker compose --profile tools run --rm ingestion uv run python -m src.transformers.kansai.embedding_generator --mock
+
+# 3. キャッシュ無視・強制再計算
+docker compose --profile tools run --rm ingestion uv run python -m src.transformers.kansai.embedding_generator --force
+```
+
+#### 2. Neo4j Course ノードへの Embedding 投入 & Vector Index 構築 (`vector_index_loader.py`)
+
+```bash
+# 1. Embedding を Course ノードへセットし、course_embedding_index を作成
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.vector_index_loader
+```
+
+- **Vector Index 定義**:
+  - `course_embedding_index` FOR `(c:Course)` ON `(c.embedding)`
+  - Options: `vector.dimensions: 768`, `vector.similarity_function: 'cosine'`
+
+#### 3. コサイン類似度マトリクス計算 & `[:SIMILAR_TO]` エッジローダー (`similarity_edge_loader.py`)
+
+```bash
+# 1. 類似度スコア >= 0.70、各科目上位5件の類似エッジを投入
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.similarity_edge_loader --threshold 0.70 --top-k 5
+
+# 2. 既存の [:SIMILAR_TO] エッジをクリアしてから新規投入
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.similarity_edge_loader --clear-first
+```
+
+- **エッジプロパティ**:
+  - `(:Course)-[:SIMILAR_TO {score: float, model: str, updated_at: datetime}]->(:Course)`
+
+#### 4. Neo4j Embedding・類似度エッジ検証 CLI (`verify/similarity.py`)
+
+```bash
+# 1. ノード充足率・Vector Index 稼働状況・エッジ件数・スコア統計
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity stats
+
+# 2. 特定科目の接続先類似科目一覧（スコア降順）
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity show-similar 011878
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity show-similar 64224
+
+# 3. 動的ベクトルクエリ（CALL db.index.vector.queryNodes）の実行テスト
+docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.verify.similarity test-query "物理化学と熱力学"
+```
 
 ---
 
