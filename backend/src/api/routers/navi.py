@@ -51,7 +51,7 @@ _QUERY_COURSES = """
 MATCH (c:Course)
 OPTIONAL MATCH (c)-[:BELONGS_TO_GROUP]->(cg:CourseGroup)
 OPTIONAL MATCH (c)-[:TAUGHT_BY]->(p:Professor)
-OPTIONAL MATCH (c)-[:CLASSIFIED_AS|FULFILLS_REQUIREMENT]->(req:RequirementCategory)
+OPTIONAL MATCH (c)-[:CLASSIFIED_AS]->(req:RequirementCategory)
 OPTIONAL MATCH (c)-[:OFFERED_BY]->(f:Faculty)
 WITH c, cg, head(collect(DISTINCT p.name)) AS prof_name,
      head(collect(DISTINCT req.requirement_type)) AS req_type,
@@ -164,8 +164,8 @@ async def get_department(department_id: str, request: Request) -> Department:
             )
 
             req_type = cr.get("req_type")
-            kind_val = "必修" if req_type == "required" else ("選択" if req_type == "elective" else None)
-            grad_val = "必修" if req_type == "required" else ("選択" if req_type == "elective" else None)
+            kind_val = "必修" if req_type == "required" else ("選択" if req_type in ("elective", "elective_required") else None)
+            grad_val = "必修" if req_type == "required" else ("選択" if req_type in ("elective", "elective_required") else None)
 
             courses.append(
                 NaviCourse(

@@ -185,27 +185,43 @@ async def test_real_db_search_modes():
     )
 
     async with driver.session() as session:
-        # Mode A: Hybrid search
+        # Mode A: Hybrid search & Deduplication check
         vec = await get_embedding("教育")
         hybrid_results = await cypher_search_repo.search_hybrid(
-            session=session, query_embedding=vec, top_k=3
+            session=session, query_embedding=vec, top_k=5
         )
         assert len(hybrid_results) > 0
         assert hybrid_results[0].code != ""
         assert hybrid_results[0].score > 0.0
+        # Verify deduplication: no duplicate course codes
+        hybrid_codes = [r.code for r in hybrid_results if r.code]
+        assert len(hybrid_codes) == len(set(hybrid_codes)), f"Duplicates found in hybrid results: {hybrid_codes}"
+
+        # Mode B: Precomputed similarity search
+        sim_results = await cypher_search_repo.search_by_similarity_edge(
+            session=session, identifier="テニス", top_k=3, min_score=0.5
+        )
+        assert len(sim_results) > 0
+        assert sim_results[0].code != ""
+        assert sim_results[0].score >= 0.5
+        sim_codes = [r.code for r in sim_results if r.code]
+        assert len(sim_codes) == len(set(sim_codes))
 
         # Mode C: Pure graph keyword search
         graph_results = await cypher_search_repo.search_pure_graph(
-            session=session, identifier="特別研究", top_k=3
+            session=session, identifier="特別研究", top_k=5
         )
         assert len(graph_results) > 0
+        graph_codes = [r.code for r in graph_results if r.code]
+        assert len(graph_codes) == len(set(graph_codes)), f"Duplicates found in pure_graph: {graph_codes}"
 
-        # Graph extraction for course
+        # Graph extraction for course (no self-loops)
         course_graph = await cypher_search_repo.get_course_graph(
             session=session, course_code="062620"
         )
         assert course_graph.course_code == "062620"
         assert len(course_graph.nodes) > 0
+        assert not any(e.source == e.target for e in course_graph.edges), "Self-loop edge found in graph response"
 
     await driver.close()
 
@@ -231,6 +247,11 @@ async def test_real_db_agent_tools():
         res_prereq = await cypher_tools.get_course_prerequisites("062620")
         assert res_prereq.get("course_code") == "062620"
         assert len(res_prereq.get("prerequisites", [])) > 0
+
+        res_sim = await cypher_tools.get_similar_courses("102878")
+        assert res_sim.get("course_code") == "102878"
+        assert "similar_courses" in res_sim
+        assert len(res_sim["similar_courses"]) > 0
     finally:
         deps.set_backends(None, None)
         await driver.close()
@@ -238,7 +259,7 @@ async def test_real_db_agent_tools():
 
 @pytest.mark.db
 def test_real_db_api_endpoints():
-    """Verify FastAPI search and navi endpoints through TestClient."""
+    """Verify FastAPI search and navi endpoints through TestClient (both stripped and /api prefixed)."""
     with TestClient(app) as client:
         # 1. POST /search/courses (Hybrid)
         r1 = client.post(
@@ -250,7 +271,17 @@ def test_real_db_api_endpoints():
         assert data1["mode"] == "hybrid"
         assert len(data1["results"]) > 0
 
-        # 2. POST /search/courses (Pure Graph)
+        # 2. POST /search/courses (Similarity)
+        r2_sim = client.post(
+            "/search/courses",
+            json={"query": "テニス", "mode": "similarity", "top_k": 3},
+        )
+        assert r2_sim.status_code == 200
+        data2_sim = r2_sim.json()
+        assert data2_sim["mode"] == "similarity"
+        assert len(data2_sim["results"]) > 0
+
+        # 3. POST /search/courses (Pure Graph)
         r2 = client.post(
             "/search/courses",
             json={"query": "特別研究", "mode": "pure_graph", "top_k": 3},
@@ -259,16 +290,30 @@ def test_real_db_api_endpoints():
         data2 = r2.json()
         assert data2["mode"] == "pure_graph"
 
-        # 3. GET /courses/{code}/graph
+        # 4. GET /courses/{code}/graph
         r3 = client.get("/courses/062620/graph")
         assert r3.status_code == 200
         data3 = r3.json()
         assert data3["course_code"] == "062620"
         assert len(data3["nodes"]) > 0
 
-        # 4. GET /navi/departments/kansai-system-eng
+        # 5. GET /navi/departments/kansai-system-eng
         r4 = client.get("/navi/departments/kansai-system-eng")
         assert r4.status_code == 200
         data4 = r4.json()
         assert data4["university"] == "関西大学"
         assert len(data4["courses"]) > 0
+        # Verify elective_required courses have kind == "選択"
+        assert any(c["kind"] == "選択" for c in data4["courses"])
+
+        # 6. Direct /api/ prefix verification
+        r5 = client.post(
+            "/api/search/courses",
+            json={"query": "物理", "mode": "hybrid", "top_k": 2},
+        )
+        assert r5.status_code == 200
+        assert r5.json()["total_hits"] > 0
+
+        r6 = client.get("/api/navi/departments/kansai-system-eng")
+        assert r6.status_code == 200
+        assert len(r6.json()["courses"]) > 0

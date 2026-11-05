@@ -53,11 +53,12 @@ interface CourseGraphResponse {
   edges: GraphEdge[]
 }
 
-const SAMPLE_QUERIES = [
-  { label: '自然言語 (推薦)', text: 'データサイエンスと統計分析' },
-  { label: '機械学習', text: '機械学習' },
-  { label: '前提チェーン', text: '特別研究' },
-  { label: '化学工学', text: '化学工学' },
+const SAMPLE_QUERIES: Array<{ label: string; text: string; mode: 'hybrid' | 'similarity' | 'pure_graph' }> = [
+  { label: '自然言語 (推薦)', text: 'データサイエンスと統計分析', mode: 'hybrid' },
+  { label: '機械学習', text: '機械学習', mode: 'hybrid' },
+  { label: '類似度 (実習)', text: '健康・スポーツ科学実習', mode: 'similarity' },
+  { label: '前提チェーン', text: '特別研究', mode: 'pure_graph' },
+  { label: '化学工学', text: '化学工学', mode: 'pure_graph' },
 ]
 
 export default function CypherSearchTest() {
@@ -191,6 +192,7 @@ export default function CypherSearchTest() {
               type="button"
               onClick={() => {
                 setQuery(sq.text)
+                setMode(sq.mode)
               }}
               style={styles.sampleChip}
             >
@@ -222,6 +224,13 @@ export default function CypherSearchTest() {
             <strong>クエリレイテンシ:</strong>{' '}
             <span style={styles.metricLatency}>{result.execution_time_ms} ms</span>
           </div>
+        </div>
+      )}
+
+      {/* 0件時の空表示 */}
+      {result && result.results.length === 0 && (
+        <div style={styles.emptyCard}>
+          <p>該当する科目が一致しませんでした。別のキーワードや探索モードをお試しください。</p>
         </div>
       )}
 
@@ -660,5 +669,15 @@ const styles: Record<string, CSSProperties> = {
   },
   edgeScore: {
     color: '#3b82f6',
+  },
+  emptyCard: {
+    padding: '2.5rem',
+    textAlign: 'center',
+    background: 'var(--social-bg)',
+    borderRadius: '12px',
+    border: '1px dashed var(--border)',
+    color: 'var(--text)',
+    marginTop: '1.5rem',
+    fontSize: '0.95rem',
   },
 }

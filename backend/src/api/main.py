@@ -67,5 +67,7 @@ app.include_router(neo4j.router)
 app.include_router(integrated.router)
 app.include_router(agent.router)
 app.include_router(search.router)
+app.include_router(search.router, prefix="/api")
 app.include_router(navi.router)
+app.include_router(navi.router, prefix="/api")
 
