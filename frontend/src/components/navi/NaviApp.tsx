@@ -14,7 +14,7 @@ import type { AskAdapter } from '../../navi/ask'
 import { composeQuestion, createFakeAskAdapter, isFakeWaitMode } from '../../navi/ask'
 import type { FakeWaitMode } from '../../navi/ask'
 import { createHttpAskAdapter } from '../../navi/askAdapter'
-import { createCourseLoader, createNaviDataSource, NaviDataContext } from '../../navi/dataSource'
+import { createCourseStore, createNaviDataSource, NaviDataContext } from '../../navi/dataSource'
 import type { NaviData, NaviDataSource } from '../../navi/dataSource'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
@@ -292,7 +292,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     [initial.wait],
   )
   const naviData = useMemo<NaviData>(
-    () => ({ source, loadCourse: createCourseLoader(source, { ownFaculty: dept.faculty }) }),
+    () => ({ source, ...createCourseStore(source, { ownFaculty: dept.faculty }) }),
     [source, dept.faculty],
   )
   const assumedTerm = useMemo<TermKey>(() => ({ year: initial.assumedYear, half: '春' }), [initial.assumedYear])

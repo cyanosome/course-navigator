@@ -77,7 +77,6 @@ export const KEYS = {
   askSent: 'navi.askSent',
   wait: 'navi.wait',
   keyword: 'navi.keyword',
-  courseNames: 'navi.courseNames',
 } as const
 
 /** 研究のログの欄（画面の状態とは別に持ち、clearAppState では消さない） */

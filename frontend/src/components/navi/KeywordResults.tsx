@@ -4,7 +4,6 @@ import { useNaviData } from '../../navi/dataSource'
 import { findCourse } from '../../navi/graph'
 import {
   PAGE_SIZE,
-  rememberCourseNames,
   searchErrorText,
   setKeywordQuery,
   takeKeywordSubmission,
@@ -67,7 +66,6 @@ export default function KeywordResults({ ctx, query, currentCode }: KeywordResul
       .then((page) => {
         // 見本のデータ源は signal を見ないので、捨てた読み込みの結果はここで捨てる
         if (control.signal.aborted) return
-        rememberCourseNames(page.items)
         setLoad((cur) => {
           const before = offset > 0 && cur.status === 'done' ? cur.items : []
           const items = [...before, ...page.items]

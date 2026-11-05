@@ -66,18 +66,29 @@ export interface NaviData {
    * 学科の科目（dept.courses）には混ぜない（おすすめの候補が閲覧で変わらないように。api-contract.md 5.3）
    */
   loadCourse: (syllabusId: string, signal: AbortSignal) => Promise<CourseMapping>
+  /** 入れ物にある科目（まだ取っていなければ undefined。問い合わせない） */
+  peekCourse: (syllabusId: string) => CourseMapping | undefined
 }
 
 /** 学科ごとに作る（他学部の科目かどうかが学科の学部で決まるため） */
-export function createCourseLoader(source: NaviDataSource, ctx: MappingContext): NaviData['loadCourse'] {
+export function createCourseStore(source: NaviDataSource, ctx: MappingContext): Pick<NaviData, 'loadCourse' | 'peekCourse'> {
   const cache = new Map<string, CourseMapping>()
-  return async (syllabusId, signal) => {
-    const hit = cache.get(syllabusId)
-    if (hit !== undefined) return hit
-    const result = await source.getCourse(syllabusId, ctx, signal)
-    cache.set(syllabusId, result)
-    return result
+  return {
+    async loadCourse(syllabusId, signal) {
+      const hit = cache.get(syllabusId)
+      if (hit !== undefined) return hit
+      const result = await source.getCourse(syllabusId, ctx, signal)
+      cache.set(syllabusId, result)
+      return result
+    },
+    peekCourse: (syllabusId) => cache.get(syllabusId),
   }
+}
+
+/** 入れ物の科目の名前（Course にできなかった科目も名前は持つ） */
+export function mappedCourseName(mapping: CourseMapping | undefined): string | undefined {
+  if (mapping === undefined) return undefined
+  return mapping.ok ? mapping.course.name : mapping.name
 }
 
 export const NaviDataContext = createContext<NaviData | null>(null)

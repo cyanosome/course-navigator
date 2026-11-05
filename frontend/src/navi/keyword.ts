@@ -5,8 +5,7 @@
  */
 import { useSyncExternalStore } from 'react'
 import { ApiError, apiErrorMessage } from './api'
-import type { CourseSummary } from './apiTypes'
-import { isRecord, isString, KEYS, readJson, writeJson } from './storage'
+import { isString, KEYS, readJson, writeJson } from './storage'
 
 /** 1回に読む件数（D4 の既定と同じ） */
 export const PAGE_SIZE = 20
@@ -57,22 +56,6 @@ export function takeKeywordSubmission(): boolean {
   const was = pendingSubmission
   pendingSubmission = false
   return was
-}
-
-/* ---------- 科目名の控え（候補の一覧で、学科の系統図に無い科目の名前を出すため） ---------- */
-
-function isNameMap(v: unknown): v is Record<string, string> {
-  return isRecord(v) && Object.values(v).every(isString)
-}
-
-export function rememberCourseNames(items: CourseSummary[]): void {
-  const names = readJson('session', KEYS.courseNames, isNameMap) ?? {}
-  for (const item of items) names[item.syllabus_id] = item.name
-  writeJson('session', KEYS.courseNames, names)
-}
-
-export function rememberedCourseName(syllabusId: string): string | undefined {
-  return readJson('session', KEYS.courseNames, isNameMap)?.[syllabusId]
 }
 
 /* ---------- 検索の失敗 ---------- */

@@ -1,8 +1,9 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../../navi/study.css'
+import { isAbortError } from '../../navi/api'
+import { mappedCourseName, useNaviData } from '../../navi/dataSource'
 import { findCourse } from '../../navi/graph'
-import { rememberedCourseName } from '../../navi/keyword'
 import { currentTaskId, useStudy } from '../../navi/research'
 import { useNavi } from '../../navi/state'
 import { blockLabel, DRAFT_MARK, TASKS } from '../../navi/studyConfig'
@@ -38,13 +39,31 @@ export function TaskBrief({ taskId, task }: TaskBriefProps) {
  */
 export default function TaskCard() {
   const study = useStudy()
-  const { dept, shortlist, ask } = useNavi()
+  const { dept, shortlist } = useNavi()
+  const { loadCourse, peekCourse } = useNaviData()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [text, setText] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
+  const [, setNamesLoaded] = useState(0)
   const formId = useId()
+
+  // 学科の系統図に無い候補（検索・AI の結果から入れた科目）の名前は、科目の入れ物（D5 の詳細）から引く。
+  // まだ取っていなければ取る。取れなければ科目コードのまま出す
+  useEffect(() => {
+    const missing = shortlist.filter((code) => findCourse(dept, code) === undefined && peekCourse(code) === undefined)
+    if (missing.length === 0) return
+    const control = new AbortController()
+    void Promise.allSettled(missing.map((code) => loadCourse(code, control.signal))).then((results) => {
+      if (control.signal.aborted) return
+      results.forEach((r, i) => {
+        if (r.status === 'rejected' && !isAbortError(r.reason)) console.error(`候補の科目名を取れませんでした（${missing[i]}）`, r.reason)
+      })
+      setNamesLoaded((n) => n + 1)
+    })
+    return () => control.abort()
+  }, [dept, shortlist, loadCourse, peekCourse])
 
   if (study === null || study.phase.kind !== 'task' || study.plan === null) return null
   const { block, taskIndex } = study.phase
@@ -55,8 +74,7 @@ export default function TaskCard() {
   const gatePath = study.gatePath
   const chosen = selected.filter((code) => shortlist.includes(code))
 
-  const nameOf = (code: string) =>
-    findCourse(dept, code)?.name ?? rememberedCourseName(code) ?? ask?.result?.sources.find((s) => s.code === code)?.title ?? code
+  const nameOf = (code: string) => findCourse(dept, code)?.name ?? mappedCourseName(peekCourse(code)) ?? code
 
   const toggle = (code: string) => {
     setProblem(null)
