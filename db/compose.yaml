@@ -67,8 +67,15 @@ services:
       - postgres
     labels:
       - "traefik.enable=true"
-      # /adminer へのアクセスをプレフィックス除去してコンテナのルート / に転送
-      - "traefik.http.routers.adminer.rule=Host(`${DOMAIN}`) && PathPrefix(`/adminer`)"
+      # /adminer (末尾スラッシュなし) へのアクセスを /adminer/ にリダイレクトして Cookie path=/adminer/ と整合性を保つ
+      - "traefik.http.routers.adminer-redirect.rule=Host(`${DOMAIN}`) && Path(`/adminer`)"
+      - "traefik.http.routers.adminer-redirect.entrypoints=web"
+      - "traefik.http.routers.adminer-redirect.middlewares=adminer-redirect-url"
+      - "traefik.http.middlewares.adminer-redirect-url.redirectregex.regex=^http://([^/]+)/adminer$$"
+      - "traefik.http.middlewares.adminer-redirect-url.redirectregex.replacement=http://$$1/adminer/"
+
+      # /adminer/ 配下のアクセスをプレフィックス除去してコンテナのルート / に転送
+      - "traefik.http.routers.adminer.rule=Host(`${DOMAIN}`) && PathPrefix(`/adminer/`)"
       - "traefik.http.routers.adminer.entrypoints=web"
       - "traefik.http.routers.adminer.middlewares=adminer-stripprefix"
       - "traefik.http.middlewares.adminer-stripprefix.stripprefix.prefixes=/adminer"
