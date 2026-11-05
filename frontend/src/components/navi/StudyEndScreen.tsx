@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FIXTURE_STUDY_CONFIG } from '../../navi/fixtureDepartment'
+import { FIXTURE_STUDY_CONFIG } from '../../navi/fixtureStudyConfig'
 import { findCourse, findInterest } from '../../navi/graph'
 import { formatDuration } from '../../navi/hooks'
 import { useNavi } from '../../navi/state'
