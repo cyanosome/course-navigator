@@ -25,7 +25,7 @@ from course_core import config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
+DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
 DEFAULT_DIMENSION = 768
 
 
@@ -36,11 +36,9 @@ def sanitize_key(key: Optional[str]) -> str:
     return key.strip().strip("'\"").strip()
 
 
-def _normalize_model_name(model: str) -> str:
-    """Ensure model name has models/ prefix for Gemini API URL."""
-    if not model.startswith("models/"):
-        return f"models/{model}"
-    return model
+def _clean_model_name(model: str) -> str:
+    """Strip models/ prefix if present."""
+    return model.removeprefix("models/")
 
 
 def generate_deterministic_mock_embedding(text: str, dimension: int = DEFAULT_DIMENSION) -> List[float]:
@@ -114,10 +112,10 @@ class EmbeddingService:
                 logger.warning("Official GenAI SDK embed failed (%s), falling back to REST.", e)
 
         # 2. Try REST with x-goog-api-key header
-        normalized_model = _normalize_model_name(self.model)
-        url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:embedContent"
+        clean_model = _clean_model_name(self.model)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{clean_model}:embedContent"
         payload = {
-            "model": normalized_model,
+            "model": clean_model,
             "content": {"parts": [{"text": text}]},
             "taskType": "RETRIEVAL_QUERY",
         }
@@ -170,11 +168,11 @@ class EmbeddingService:
                 logger.warning("Official GenAI SDK batch embed failed (%s), falling back to REST.", e)
 
         # 2. Try REST with x-goog-api-key header
-        normalized_model = _normalize_model_name(self.model)
-        url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:batchEmbedContents"
+        clean_model = _clean_model_name(self.model)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{clean_model}:batchEmbedContents"
         requests = [
             {
-                "model": normalized_model,
+                "model": clean_model,
                 "content": {"parts": [{"text": t}]},
                 "taskType": "RETRIEVAL_DOCUMENT",
             }

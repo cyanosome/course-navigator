@@ -41,7 +41,7 @@ if deps.neo4j_driver() is None and config.NEO4J_URI:
     except Exception:
         pass
 # 使用するモデルの指定はここか､.envで行うことができます｡
-ACTIVE_MODEL = "gemini-3.5-flash"
+ACTIVE_MODEL = os.getenv("AGENT_MODEL", "gemini-3.5-flash-lite")
 
 # adk web 用のエントリポイント (MCP 先行型ワークフロー: ルート完全分離・フォールバック対応)
 root_agent = build_mcp_first_workflow(model=ACTIVE_MODEL)

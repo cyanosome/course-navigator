@@ -1,7 +1,7 @@
 """Gemini API Authentication & Diagnostic CLI Tool.
 
 Enables a rapid feedback loop for validating Gemini API keys (including new AQ. prefix keys),
-testing Google GenAI SDK vs REST headers, verifying text-embedding-004 and text generation,
+testing Google GenAI SDK vs REST headers, verifying gemini-embedding-001 and text generation,
 and providing actionable suggestions on failure without restarting containers.
 """
 
@@ -89,10 +89,10 @@ def analyze_error_reason(status_code: int, error_text: str) -> list[str]:
     return suggestions
 
 
-async def test_rest_embedding(key: str, model: str = "models/text-embedding-004") -> Dict[str, Any]:
+async def test_rest_embedding(key: str, model: str = "gemini-embedding-001") -> Dict[str, Any]:
     """Test embedding via direct REST with x-goog-api-key header."""
     normalized_model = model if model.startswith("models/") else f"models/{model}"
-    url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:embedContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model}:embedContent"
     payload = {
         "model": normalized_model,
         "content": {"parts": [{"text": "健康・スポーツ科学実習"}]},
@@ -114,10 +114,10 @@ async def test_rest_embedding(key: str, model: str = "models/text-embedding-004"
         return {"ok": False, "status": -1, "error": str(e)}
 
 
-async def test_rest_generate(key: str, model: str = "models/gemini-2.5-flash") -> Dict[str, Any]:
+async def test_rest_generate(key: str, model: str = "gemini-3.5-flash-lite") -> Dict[str, Any]:
     """Test text generation via direct REST with x-goog-api-key header."""
     normalized_model = model if model.startswith("models/") else f"models/{model}"
-    url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent"
     payload = {
         "contents": [{"parts": [{"text": "ping"}]}],
     }
@@ -142,7 +142,7 @@ async def test_rest_generate(key: str, model: str = "models/gemini-2.5-flash") -
         return {"ok": False, "status": -1, "error": str(e)}
 
 
-def test_sdk_embedding(key: str, model: str = "text-embedding-004") -> Dict[str, Any]:
+def test_sdk_embedding(key: str, model: str = "gemini-embedding-001") -> Dict[str, Any]:
     """Test embedding via official google-genai SDK."""
     if not GENAI_AVAILABLE:
         return {"ok": False, "error": "google-genai SDK is not installed"}
@@ -155,7 +155,7 @@ def test_sdk_embedding(key: str, model: str = "text-embedding-004") -> Dict[str,
         return {"ok": False, "error": str(e)[:300]}
 
 
-def test_sdk_generate(key: str, model: str = "gemini-2.5-flash") -> Dict[str, Any]:
+def test_sdk_generate(key: str, model: str = "gemini-3.5-flash-lite") -> Dict[str, Any]:
     """Test text generation via official google-genai SDK."""
     if not GENAI_AVAILABLE:
         return {"ok": False, "error": "google-genai SDK is not installed"}
@@ -203,13 +203,13 @@ async def run_diagnostics(raw_key: Optional[str]) -> int:
     rest_gen = await test_rest_generate(sanitized_key)
 
     print("\n[*] 診断結果一覧:")
-    print(f"    1. 公式 SDK - Embedding (text-embedding-004):")
+    print(f"    1. 公式 SDK - Embedding (gemini-embedding-001):")
     if sdk_embed["ok"]:
         print(f"       [SUCCESS] 成功 (取得次元: {sdk_embed['dimension']}次元)")
     else:
         print(f"       [FAILED] 失敗: {sdk_embed.get('error', '')}")
 
-    print(f"    2. 公式 SDK - Chat/Text (gemini-2.5-flash):")
+    print(f"    2. 公式 SDK - Chat/Text (gemini-3.5-flash-lite):")
     if sdk_gen["ok"]:
         print(f"       [SUCCESS] 成功 (応答: {sdk_gen['reply']})")
     else:

@@ -86,12 +86,12 @@ def analyze_error_reason(status_code: int, error_text: str) -> list[str]:
     return suggestions
 
 
-async def test_rest_embedding(key: str, model: str = "models/text-embedding-004") -> Dict[str, Any]:
+async def test_rest_embedding(key: str, model: str = "gemini-embedding-001") -> Dict[str, Any]:
     """Test embedding via direct REST with x-goog-api-key header."""
-    normalized_model = model if model.startswith("models/") else f"models/{model}"
-    url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:embedContent"
+    clean_model = model.removeprefix("models/")
+    url = f"https://generativelanguage.googleapis.com/v1beta/{clean_model}:embedContent"
     payload = {
-        "model": normalized_model,
+        "model": clean_model,
         "content": {"parts": [{"text": "健康・スポーツ科学実習"}]},
         "taskType": "RETRIEVAL_QUERY",
     }
@@ -111,7 +111,7 @@ async def test_rest_embedding(key: str, model: str = "models/text-embedding-004"
         return {"ok": False, "status": -1, "error": str(e)}
 
 
-def test_sdk_embedding(key: str, model: str = "text-embedding-004") -> Dict[str, Any]:
+def test_sdk_embedding(key: str, model: str = "gemini-embedding-001") -> Dict[str, Any]:
     """Test embedding via official google-genai SDK."""
     if not GENAI_AVAILABLE:
         return {"ok": False, "error": "google-genai SDK is not installed in this environment"}
@@ -156,7 +156,7 @@ async def run_diagnostics(raw_key: Optional[str]) -> int:
     rest_embed = await test_rest_embedding(sanitized_key)
 
     print("\n[*] 診断結果一覧:")
-    print(f"    1. 公式 SDK - Embedding (text-embedding-004):")
+    print(f"    1. 公式 SDK - Embedding (gemini-embedding-001):")
     if sdk_embed["ok"]:
         print(f"       [SUCCESS] 成功 (取得次元: {sdk_embed['dimension']}次元)")
     else:

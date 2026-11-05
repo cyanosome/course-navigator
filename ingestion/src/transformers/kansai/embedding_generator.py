@@ -30,7 +30,7 @@ DEFAULT_EMBEDDINGS_OUTPUT = (
     PROJECT_ROOT / "data" / "parsed" / "university" / "kansai" / "2026" / "course_embeddings.json"
 )
 
-GEMINI_EMBEDDING_MODEL = "text-embedding-004"
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 DEFAULT_DIMENSION = 768
 
 def sanitize_key(key: Optional[str]) -> str:
@@ -115,7 +115,7 @@ class EmbeddingGenerator:
 
     def embed_texts_batch_gemini(self, texts: List[str]) -> List[List[float]]:
         """Call Google Gemini batchEmbedContents API."""
-        model_name = self.model if self.model.startswith("models/") else f"models/{self.model}"
+        model_name = self.model.removeprefix("models/")
         url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:batchEmbedContents"
         requests = [
             {

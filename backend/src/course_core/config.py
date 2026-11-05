@@ -23,7 +23,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 # gemini-2.5-flash は新規 API ユーザーには 404（提供終了）を返すため 3.8-flash を既定にする。
 # adk web の agent.py は gemini-3.5-flash を直書きしており、こちらとは揃っていない。
-AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini-3.8-flash")
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini-3.5-flash-lite")
 AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
 AGENT_ENABLE_MCP = os.getenv("AGENT_ENABLE_MCP", "true").lower() in ("true", "1", "yes")
 AGENT_INSTRUCTION_PATH = os.getenv(
