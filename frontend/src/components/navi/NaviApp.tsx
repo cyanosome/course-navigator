@@ -3,7 +3,8 @@
  * 見た目と時間割を組む体験を合わせた。データは架空の見本（src/navi/fixture*.ts）で、本物の API は呼ばない。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation, useMatch } from 'react-router-dom'
 import '../../navi/fonts.css'
 import '../../navi/navi.css'
 import { FIXTURE_DEPARTMENTS } from '../../navi/fixtureDepartment'
@@ -12,11 +13,13 @@ import { composeQuestion, createFakeAskAdapter, isFakeWaitMode } from '../../nav
 import type { FakeWaitMode } from '../../navi/ask'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
+import { NOOP_RESEARCH_LOG, ResearchLogContext } from '../../navi/research'
 import { ASK_TIMEOUT_MS, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
 import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '../../navi/storage'
 import type { TermKey } from '../../navi/timetable'
 import type { Department } from '../../navi/types'
+import { DEFAULT_VARIANT, VariantContext } from '../../navi/variant'
 import { addedNotice } from '../../navi/views'
 import AboutScreen from './AboutScreen'
 import CourseScreen from './CourseScreen'
@@ -26,6 +29,7 @@ import NaviLayout from './NaviLayout'
 import NaviShell from './NaviShell'
 import SearchScreen from './SearchScreen'
 import StudyEndScreen from './StudyEndScreen'
+import StudyGate from './StudyGate'
 import StudyStartScreen from './StudyStartScreen'
 import TimetableScreen from './TimetableScreen'
 
@@ -87,8 +91,18 @@ function newStudyRecord(surveyId: string): StudyRecord {
   }
 }
 
+/** 旗と研究のログの文脈。いまは既定の旗（V00 相当）と、何も記録しない口 */
+function NaviProviders({ children }: { children: ReactNode }) {
+  return (
+    <VariantContext.Provider value={DEFAULT_VARIANT}>
+      <ResearchLogContext.Provider value={NOOP_RESEARCH_LOG}>{children}</ResearchLogContext.Provider>
+    </VariantContext.Provider>
+  )
+}
+
 export default function NaviApp() {
   const location = useLocation()
+  const studyLink = useMatch('/navi/s/:token')
   const [initial] = useState(() => readInitialParams(location.search))
   const [deptId, setDeptId] = useState<string | null>(initial.deptId)
   const dept = FIXTURE_DEPARTMENTS.find((d) => d.id === deptId) ?? null
@@ -107,21 +121,35 @@ export default function NaviApp() {
     setDeptId(id)
   }, [])
 
+  // 調査のカードの URL は、学科えらびより先に調査の入口へ
+  if (studyLink !== null) {
+    return (
+      <NaviProviders>
+        <StudyGate />
+      </NaviProviders>
+    )
+  }
   // 学科なしで開いたときは W7（学科えらび）から（UX 仕様 S1-d）
   if (dept === null) {
     return (
-      <div className="navi-app">
-        <title>学科えらび | コースナビ</title>
-        <div className="sp">
-          <header className="bar">
-            <span className="brand">コースナビ</span>
-          </header>
-          <DepartmentScreen departments={FIXTURE_DEPARTMENTS} onChoose={chooseDept} />
+      <NaviProviders>
+        <div className="navi-app">
+          <title>学科えらび | コースナビ</title>
+          <div className="sp">
+            <header className="bar">
+              <span className="brand">コースナビ</span>
+            </header>
+            <DepartmentScreen departments={FIXTURE_DEPARTMENTS} onChoose={chooseDept} />
+          </div>
         </div>
-      </div>
+      </NaviProviders>
     )
   }
-  return <NaviRoot dept={dept} initial={initial} chooseDept={chooseDept} />
+  return (
+    <NaviProviders>
+      <NaviRoot dept={dept} initial={initial} chooseDept={chooseDept} />
+    </NaviProviders>
+  )
 }
 
 interface NaviRootProps {
