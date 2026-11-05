@@ -165,7 +165,8 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
   const { log } = useResearchLog()
   const titleId = useId()
   useSyllabusViewLog(course.code)
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  // 旗も渡す（detailWhy は recommend=catalog・off のとき、おすすめの並びの説明を出さない）
+  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags }
   const kept = isKept(course.code)
   const required = isRequired(course)
   const why = detailWhy(ctx, course, origin, ask)
