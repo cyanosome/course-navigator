@@ -256,31 +256,32 @@ python -m src.loaders.postgres.verify_data query "SELECT subject_name, credits, 
 
 ---
 
-### 5.4 PostgreSQL Web 管理画面 (`NocoDB`)
+### 5.4 PostgreSQL Web 管理画面 (`Adminer`)
 
-PostgreSQL の `courses` テーブルに格納された長文シラバス（`description`, `objective`）や週別講義計画・成績評価基準などの JSONB カラム（`schedule_raw`, `grading_criteria`）を Web ブラウザ上で直感的に閲覧・全文検索・カード展開するための Web 管理 UI です。
+PostgreSQL の `courses` テーブルに格納された長文シラバス（`description`, `objective`）や週別講義計画・成績評価基準などの JSONB カラム（`schedule_raw`, `grading_criteria`）を Web ブラウザ上で直感的に閲覧・検索・SQL 実行するための軽量 Web 管理 UI です。
 
-FastAPI バックエンドを経由せず、`db/compose.yaml` 単体で独立起動します。外部へのポート直接公開は行わず、Traefik リバースプロキシ経由のサブパスでセキュアにアクセス可能です。
+FastAPI バックエンドを経由せず、`db/compose.yaml` 単体で独立起動します。独自のアカウント登録システムを持たないため、**メールアドレス登録等の初期サインアップは一切不要**です。外部へのポート直接公開は行わず、Traefik リバースプロキシ経由のサブパスでセキュアにアクセス可能です。
 
 ```bash
-# DB レイヤー（PostgreSQL, Neo4j, NocoDB）の起動
+# DB レイヤー（PostgreSQL, Neo4j, Adminer）の起動
 docker compose -f db/compose.yaml up -d
 ```
 
-- **アクセス URL**: `http://course-navigator.localhost/nocodb`
+- **アクセス URL**: `http://course-navigator.localhost/adminer`
 - **セキュリティ・アーキテクチャ**:
-  - ホストポート直接公開なし（Traefik 経由のサブパス運用）
-  - メタデータはコンテナ内 SQLite（`nocodb_data` Docker ボリューム）に完全分離され、PostgreSQL のスキーマを汚しません
-- **データソース接続手順**:
-  1. 初回アクセス時にローカル管理者アカウントを作成（メールアドレス・パスワード）
-  2. プロジェクト作成時に「Connect to External Database」を選択し、`PostgreSQL` を指定
-  3. 接続情報:
-     - **Host**: `postgres` (Docker 内部ネットワーク)
-     - **Port**: `5432`
-     - **Database**: `coursenavigator`
-     - **User**: `admin`
-     - **Password**: `${POSTGRES_PASSWORD}`
-  4. 登録後、`courses` テーブルの 1,029 件がグリッド表示され、カード展開で長文や JSONB を快適にブラウジングできます。
+  - ホストポート直接公開なし（Traefik 経由のサブパス `/adminer` 運用）
+  - 単一 PHP スクリプトによる相対パス動作のため、ルート `/api`（FastAPI）とのパス競合が構造上発生しません
+  - PostgreSQL 側のスキーマ汚染（不要な管理テーブル作成）ゼロ
+- **ログイン手順**:
+  1. ブラウザで `http://course-navigator.localhost/adminer` を開く
+  2. ログインフォームを入力（「サーバ」欄は環境変数により自動で `postgres` が補完されます）：
+     - **システム**: `PostgreSQL`
+     - **サーバ**: `postgres`
+     - **ユーザ**: `admin`
+     - **パスワード**: `${POSTGRES_PASSWORD}`（`.env` に設定された DB パスワード）
+     - **データベース**: `coursenavigator`
+  3. 「ログイン」をクリックすると、即座にテーブル一覧が表示されます。
+  4. `courses` テーブルの「データ選択」をクリックすると、1,029 件の講義一覧、全文検索、ソート、JSONB プレビューが確認できます。
 
 ---
 
