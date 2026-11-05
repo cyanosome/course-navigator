@@ -1,16 +1,16 @@
 """
-Unit tests for Syllabus Embedding Generator.
+Unit tests for Syllabus Embedding Generator (Fail-Fast, Strict API).
 """
 
 import json
 from pathlib import Path
-import numpy as np
+from unittest.mock import MagicMock, patch
 import pytest
 
 from src.transformers.kansai.embedding_generator import (
     build_course_text,
-    generate_deterministic_mock_embedding,
     EmbeddingGenerator,
+    GeminiConnectionError,
     run_generate_embeddings,
     DEFAULT_DIMENSION,
 )
@@ -38,57 +38,79 @@ def test_build_course_text():
     assert "第1回: ガイダンスと熱力学の基礎" in text
 
 
-def test_generate_deterministic_mock_embedding():
-    text1 = "物理化学１ 化学熱力学"
-    text2 = "物理化学１ 化学熱力学"
-    text3 = "有機化学１ 構造と反応"
-
-    emb1 = generate_deterministic_mock_embedding(text1, dimension=DEFAULT_DIMENSION)
-    emb2 = generate_deterministic_mock_embedding(text2, dimension=DEFAULT_DIMENSION)
-    emb3 = generate_deterministic_mock_embedding(text3, dimension=DEFAULT_DIMENSION)
-
-    assert len(emb1) == DEFAULT_DIMENSION
-    assert emb1 == emb2, "Identical text must generate identical embeddings"
-    assert emb1 != emb3, "Different text must generate different embeddings"
-
-    # Verify unit norm
-    norm = np.linalg.norm(emb1)
-    assert pytest.approx(norm, rel=1e-3) == 1.0
+def test_missing_api_key_raises_error(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="GEMINI_API_KEY が未設定です"):
+        EmbeddingGenerator(api_key="")
 
 
-def test_embedding_generator_mock_batch():
-    generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION, force_mock=True)
-    courses = [
-        {"syllabus_id": "1001", "course_code": "C01", "subject_name": "科目A", "description": "説明A"},
-        {"syllabus_id": "1002", "course_code": "C02", "subject_name": "科目B", "description": "説明B"},
-    ]
-    res = generator.generate_embeddings_for_courses(courses, batch_size=1)
-    assert res["count"] == 2
-    assert "1001" in res["courses"]
-    assert "1002" in res["courses"]
-    assert len(res["courses"]["1001"]["embedding"]) == DEFAULT_DIMENSION
+def test_api_failure_fails_fast_without_mock(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
+    generator = EmbeddingGenerator()
+
+    # Mock httpx failure
+    with patch("httpx.Client.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = "API key not valid"
+        mock_post.return_value = mock_resp
+
+        with pytest.raises(GeminiConnectionError, match="事前疎通テストに失敗しました"):
+            generator.generate_embeddings_for_courses([
+                {"syllabus_id": "1", "course_code": "C01", "subject_name": "テスト"}
+            ])
+
+
+def test_embedding_generator_successful_batch(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
+    generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION)
+
+    dummy_vector = [0.1] * DEFAULT_DIMENSION
+
+    with patch("httpx.Client.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "embeddings": [
+                {"values": dummy_vector},
+                {"values": dummy_vector},
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        # Probe uses 1 text, so mock embed_texts_batch_gemini return for probe and batch
+        with patch.object(generator, "embed_texts_batch_gemini", side_effect=[
+            [dummy_vector],  # probe
+            [dummy_vector, dummy_vector],  # batch
+        ]):
+            courses = [
+                {"syllabus_id": "1001", "course_code": "C01", "subject_name": "科目A"},
+                {"syllabus_id": "1002", "course_code": "C02", "subject_name": "科目B"},
+            ]
+            res = generator.generate_embeddings_for_courses(courses, batch_size=2)
+            assert res["count"] == 2
+            assert res["courses"]["1001"]["embedding"] == dummy_vector
+            assert res["courses"]["1002"]["embedding"] == dummy_vector
 
 
 def test_run_generate_embeddings_cache(tmp_path: Path):
     dummy_input = tmp_path / "dummy_courses.json"
     dummy_output = tmp_path / "dummy_embeddings.json"
 
-    sample = [{"syllabus_id": "999", "subject_name": "テスト科目", "description": "テスト"}]
-    with open(dummy_input, "w", encoding="utf-8") as f:
-        json.dump(sample, f)
+    # Pre-populate cache file
+    cached_data = {
+        "model": "gemini-embedding-001",
+        "dimension": DEFAULT_DIMENSION,
+        "count": 1,
+        "courses": {"999": {"syllabus_id": "999", "embedding": [0.5] * DEFAULT_DIMENSION}},
+    }
+    with open(dummy_output, "w", encoding="utf-8") as f:
+        json.dump(cached_data, f)
 
-    res1 = run_generate_embeddings(
-        input_path=dummy_input,
-        output_path=dummy_output,
-        force_mock=True,
-    )
-    assert dummy_output.exists()
-    assert res1["count"] == 1
-
-    # Call again without force_recompute -> must load from cache
-    res2 = run_generate_embeddings(
+    # Must load from cache without calling API
+    res = run_generate_embeddings(
         input_path=dummy_input,
         output_path=dummy_output,
         force_recompute=False,
     )
-    assert res2 == res1
+    assert res == cached_data

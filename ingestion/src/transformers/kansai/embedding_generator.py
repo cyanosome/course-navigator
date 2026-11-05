@@ -1,20 +1,18 @@
 """
-Syllabus Embedding Generator for Kansai University.
+Syllabus Embedding Generator for Kansai University (Fail-Fast, Strict Gemini API).
 
-Generates 768-dimensional text embeddings for courses using Google Gemini (text-embedding-004)
-or a deterministic mock generator (fallback for offline/testing environments).
-Saves results into course_embeddings.json for Neo4j Vector Index and similarity calculation.
+Generates 768-dimensional text embeddings for courses using Google Gemini (gemini-embedding-001).
+Fails fast with explicit errors if GEMINI_API_KEY is missing or Gemini API is unreachable,
+preventing silent errors caused by fabricated mock vectors.
 """
 
 import argparse
-import hashlib
 import json
 import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import httpx
-import numpy as np
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,12 +31,17 @@ DEFAULT_EMBEDDINGS_OUTPUT = (
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 DEFAULT_DIMENSION = 768
 
+
+class GeminiConnectionError(RuntimeError):
+    """Raised when communication with Gemini API fails."""
+    pass
+
+
 def sanitize_key(key: Optional[str]) -> str:
     """Trim leading/trailing whitespaces, newlines, and single/double quotes."""
     if not key:
         return ""
     return key.strip().strip("'\"").strip()
-
 
 
 def build_course_text(course: Dict[str, Any]) -> str:
@@ -75,43 +78,38 @@ def build_course_text(course: Dict[str, Any]) -> str:
     return "\n\n".join(parts)
 
 
-def generate_deterministic_mock_embedding(text: str, dimension: int = DEFAULT_DIMENSION) -> List[float]:
-    """
-    Generate a deterministic unit-norm pseudo-random vector based on text SHA-256 hash.
-    Ensures identical text produces identical embedding vectors for test repeatability.
-    """
-    h = hashlib.sha256(text.encode("utf-8")).digest()
-    # Use first 8 bytes of hash as integer seed
-    seed = int.from_bytes(h[:8], byteorder="big") % (2**32)
-    rng = np.random.RandomState(seed)
-    raw_vec = rng.randn(dimension).astype(np.float32)
-    norm = np.linalg.norm(raw_vec)
-    if norm > 0:
-        normalized_vec = raw_vec / norm
-    else:
-        normalized_vec = raw_vec
-    return [round(float(v), 6) for v in normalized_vec]
-
-
 class EmbeddingGenerator:
-    """Handles embedding generation via Gemini API with deterministic fallback."""
+    """Handles embedding generation via Gemini API strictly without mock fallback."""
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = GEMINI_EMBEDDING_MODEL,
         dimension: int = DEFAULT_DIMENSION,
-        force_mock: bool = False,
     ):
         self.api_key = sanitize_key(api_key or os.getenv("GEMINI_API_KEY"))
-        self.model = model
+        if not self.api_key:
+            raise ValueError(
+                "GEMINI_API_KEY が未設定です。.env に設定するか、"
+                "python -m src.tools.verify_gemini でキーの健全性を確認してください。"
+            )
+        self.model = model.removeprefix("models/")
         self.dimension = dimension
-        self.force_mock = force_mock
 
-        if not self.api_key or self.api_key in ("gemini", "your_gemini_api_key_here", ""):
-            if not self.force_mock:
-                logger.warning("Valid GEMINI_API_KEY not found in environment. Falling back to deterministic mock embeddings.")
-            self.force_mock = True
+    def probe_connectivity(self) -> None:
+        """Probe Gemini API with 1 text to ensure connectivity before batch processing."""
+        logger.info("Probing Gemini API connectivity (model=%s)...", self.model)
+        try:
+            res = self.embed_texts_batch_gemini(["疎通テスト"])
+            if not res or len(res[0]) != self.dimension:
+                raise GeminiConnectionError(f"Unexpected embedding dimension: {len(res[0]) if res else 0}")
+            logger.info("Gemini API probe succeeded (dimension=%d).", len(res[0]))
+        except Exception as e:
+            raise GeminiConnectionError(
+                f"Gemini API への事前疎通テストに失敗しました。\n"
+                f"理由: {e}\n"
+                f"python -m src.tools.verify_gemini を実行して原因と対処法を確認してください。"
+            ) from e
 
     def embed_texts_batch_gemini(self, texts: List[str]) -> List[List[float]]:
         """Call Google Gemini batchEmbedContents API."""
@@ -131,11 +129,15 @@ class EmbeddingGenerator:
             headers = {"Content-Type": "application/json", "x-goog-api-key": self.api_key}
             resp = client.post(url, json=payload, headers=headers)
             if resp.status_code != 200:
-                raise RuntimeError(
-                    f"Gemini Embedding API error ({resp.status_code}): {resp.text}"
+                raise GeminiConnectionError(
+                    f"Gemini Embedding API error (HTTP {resp.status_code}): {resp.text[:300]}"
                 )
             data = resp.json()
             embeddings = data.get("embeddings", [])
+            if len(embeddings) != len(texts):
+                raise GeminiConnectionError(
+                    f"Expected {len(texts)} embeddings, but received {len(embeddings)}"
+                )
             return [e["values"] for e in embeddings]
 
     def generate_embeddings_for_courses(
@@ -143,30 +145,25 @@ class EmbeddingGenerator:
         courses: List[Dict[str, Any]],
         batch_size: int = 50,
     ) -> Dict[str, Any]:
-        """Generate embeddings for all courses with progress logging."""
+        """Generate embeddings for all courses with progress logging (Fail-Fast)."""
         results: Dict[str, Any] = {}
         total = len(courses)
-        logger.info("Generating embeddings for %d courses (force_mock=%s)...", total, self.force_mock)
+        logger.info("Generating embeddings for %d courses via Gemini API...", total)
+
+        # Preflight connectivity probe
+        self.probe_connectivity()
 
         for i in range(0, total, batch_size):
             batch = courses[i : i + batch_size]
             batch_texts = [build_course_text(c) for c in batch]
             
-            if self.force_mock:
-                batch_embeddings = [
-                    generate_deterministic_mock_embedding(t, self.dimension)
-                    for t in batch_texts
-                ]
-            else:
-                try:
-                    batch_embeddings = self.embed_texts_batch_gemini(batch_texts)
-                except Exception as e:
-                    logger.warning("Gemini API call failed for batch %d: %s. Switching to mock fallback for remaining batches.", i, e)
-                    self.force_mock = True
-                    batch_embeddings = [
-                        generate_deterministic_mock_embedding(t, self.dimension)
-                        for t in batch_texts
-                    ]
+            try:
+                batch_embeddings = self.embed_texts_batch_gemini(batch_texts)
+            except Exception as e:
+                logger.error("Gemini API call failed for batch starting at index %d: %s", i, e)
+                raise GeminiConnectionError(
+                    f"バッチ処理中 (インデックス {i}/{total}) に Gemini API 通信が中断しました: {e}"
+                ) from e
 
             for course, emb in zip(batch, batch_embeddings):
                 s_id = str(course.get("syllabus_id"))
@@ -179,7 +176,7 @@ class EmbeddingGenerator:
             logger.info("Processed %d / %d courses", min(i + batch_size, total), total)
 
         output_data = {
-            "model": "deterministic-mock-768" if self.force_mock else self.model,
+            "model": self.model,
             "dimension": self.dimension,
             "count": len(results),
             "courses": results,
@@ -190,7 +187,6 @@ class EmbeddingGenerator:
 def run_generate_embeddings(
     input_path: Path = DEFAULT_COURSES_DETAIL,
     output_path: Path = DEFAULT_EMBEDDINGS_OUTPUT,
-    force_mock: bool = False,
     force_recompute: bool = False,
     batch_size: int = 50,
 ) -> Dict[str, Any]:
@@ -206,7 +202,7 @@ def run_generate_embeddings(
     with open(input_path, "r", encoding="utf-8") as f:
         courses = json.load(f)
 
-    generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION, force_mock=force_mock)
+    generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION)
     data = generator.generate_embeddings_for_courses(courses=courses, batch_size=batch_size)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,10 +214,9 @@ def run_generate_embeddings(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate course embeddings for Neo4j Vector Index")
+    parser = argparse.ArgumentParser(description="Generate course embeddings for Neo4j Vector Index (Strict Gemini API)")
     parser.add_argument("--input", type=Path, default=DEFAULT_COURSES_DETAIL, help="Path to courses_detail.json")
     parser.add_argument("--output", type=Path, default=DEFAULT_EMBEDDINGS_OUTPUT, help="Output path for embeddings")
-    parser.add_argument("--mock", action="store_true", help="Force deterministic mock embedding generation")
     parser.add_argument("--force", action="store_true", help="Force recomputation even if cache exists")
     parser.add_argument("--batch-size", type=int, default=50, help="Batch size for embedding generation")
     args = parser.parse_args()
@@ -229,7 +224,6 @@ def main():
     run_generate_embeddings(
         input_path=args.input,
         output_path=args.output,
-        force_mock=args.mock,
         force_recompute=args.force,
         batch_size=args.batch_size,
     )

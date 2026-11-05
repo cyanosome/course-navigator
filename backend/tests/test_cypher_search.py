@@ -1,5 +1,6 @@
 """Tests for Cypher search repository, embedding service, and search API."""
 
+import asyncio
 import math
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -18,7 +19,7 @@ from course_core.schemas.navi import Department, NaviCourse, Frame, Requirements
 from course_core.repositories import cypher_search_repo
 from services.embedding import (
     EmbeddingService,
-    generate_deterministic_mock_embedding,
+    GeminiApiUnavailableError,
     get_embedding,
     get_embeddings,
 )
@@ -26,51 +27,57 @@ from agent import cypher_tools, deps
 
 
 # =====================================================================
-# 1. Embedding Service Tests (Offline Unit Tests)
+# 1. Embedding Service Tests (Fail-Fast, Strict API)
 # =====================================================================
 
 
-def test_deterministic_mock_embedding_properties():
-    """Verify mock embedding generates 768-dim unit-norm deterministic vector."""
-    text1 = "機械学習入門"
-    emb1 = generate_deterministic_mock_embedding(text1, dimension=768)
-    assert len(emb1) == 768
-
-    # Determinism: identical text -> identical embedding
-    emb1_repeat = generate_deterministic_mock_embedding(text1, dimension=768)
-    assert emb1 == emb1_repeat
-
-    # Different text -> different embedding
-    text2 = "日本史概論"
-    emb2 = generate_deterministic_mock_embedding(text2, dimension=768)
-    assert emb1 != emb2
-
-    # L2 norm should be approximately 1.0
-    l2_norm = math.sqrt(sum(v * v for v in emb1))
-    assert abs(l2_norm - 1.0) < 1e-4
+def test_embedding_service_missing_key_raises_error(monkeypatch):
+    """Verify EmbeddingService raises GeminiApiUnavailableError when key is missing."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    service = EmbeddingService(api_key="")
+    with pytest.raises(GeminiApiUnavailableError, match="GEMINI_API_KEY が未設定です"):
+        asyncio.run(service.get_embedding("テスト講義"))
 
 
-@pytest.mark.anyio
-async def test_embedding_service_mock_mode():
-    """Verify EmbeddingService fallback behavior."""
-    service = EmbeddingService(force_mock=True)
+def test_embedding_service_api_failure_raises_error(monkeypatch):
+    """Verify EmbeddingService fails fast with explicit error on API failure."""
+    import asyncio
+    from unittest.mock import patch, MagicMock
 
-    # Empty text
-    empty_emb = await service.get_embedding("")
-    assert len(empty_emb) == 768
-    assert all(v == 0.0 for v in empty_emb)
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
+    service = EmbeddingService()
 
-    # Single text
-    emb = await service.get_embedding("プログラミング基礎")
-    assert len(emb) == 768
-    assert abs(math.sqrt(sum(v * v for v in emb)) - 1.0) < 1e-4
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = "API key not valid"
+        mock_post.return_value = mock_resp
 
-    # Batch texts
-    texts = ["データ構造", "アルゴリズム", "離散数学"]
-    batch_embs = await service.get_embeddings(texts)
-    assert len(batch_embs) == 3
-    for b in batch_embs:
-        assert len(b) == 768
+        # Patch SDK to raise as well so it tests REST fallback
+        with patch("services.embedding.GENAI_AVAILABLE", False):
+            with pytest.raises(GeminiApiUnavailableError, match="通信に失敗しました"):
+                asyncio.run(service.get_embedding("プログラミング基礎"))
+
+
+def test_embedding_service_successful_api_with_mocked_http(monkeypatch):
+    """Verify EmbeddingService returns dimension vector on successful response."""
+    import asyncio
+    from unittest.mock import patch, MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
+    service = EmbeddingService(dimension=768)
+    dummy_vec = [0.05] * 768
+
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"embedding": {"values": dummy_vec}}
+        mock_post.return_value = mock_resp
+
+        with patch("services.embedding.GENAI_AVAILABLE", False):
+            res = asyncio.run(service.get_embedding("データ構造"))
+            assert len(res) == 768
+            assert res == dummy_vec
 
 
 # =====================================================================
@@ -174,10 +181,15 @@ async def test_cypher_repo_with_mock_session():
 
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_real_db_search_modes():
+async def test_real_db_search_modes(monkeypatch):
     """Verify Mode A (Hybrid), Mode B (Similarity), and Mode C (Pure Graph) against real Neo4j."""
     from neo4j import AsyncGraphDatabase
     from course_core import config
+
+    monkeypatch.setattr(
+        "services.embedding.get_embedding",
+        AsyncMock(return_value=[0.05] * 768),
+    )
 
     driver = AsyncGraphDatabase.driver(
         config.NEO4J_URI,
@@ -186,7 +198,7 @@ async def test_real_db_search_modes():
 
     async with driver.session() as session:
         # Mode A: Hybrid search & Deduplication check
-        vec = await get_embedding("教育")
+        vec = [0.05] * 768
         hybrid_results = await cypher_search_repo.search_hybrid(
             session=session, query_embedding=vec, top_k=5
         )
@@ -228,10 +240,15 @@ async def test_real_db_search_modes():
 
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_real_db_agent_tools():
+async def test_real_db_agent_tools(monkeypatch):
     """Verify ADK / MCP cypher tools with real Neo4j."""
     from neo4j import AsyncGraphDatabase
     from course_core import config
+
+    monkeypatch.setattr(
+        "services.embedding.get_embedding",
+        AsyncMock(return_value=[0.05] * 768),
+    )
 
     driver = AsyncGraphDatabase.driver(
         config.NEO4J_URI,
@@ -258,8 +275,13 @@ async def test_real_db_agent_tools():
 
 
 @pytest.mark.db
-def test_real_db_api_endpoints():
+def test_real_db_api_endpoints(monkeypatch):
     """Verify FastAPI search and navi endpoints through TestClient (both stripped and /api prefixed)."""
+    monkeypatch.setattr(
+        "services.embedding.get_embedding",
+        AsyncMock(return_value=[0.05] * 768),
+    )
+
     with TestClient(app) as client:
         # 1. POST /search/courses (Hybrid)
         r1 = client.post(
@@ -317,3 +339,20 @@ def test_real_db_api_endpoints():
         r6 = client.get("/api/navi/departments/kansai-system-eng")
         assert r6.status_code == 200
         assert len(r6.json()["courses"]) > 0
+
+
+def test_search_api_hybrid_fails_with_503_when_gemini_unavailable(monkeypatch):
+    """Verify FastAPI hybrid search endpoint returns 503 when Gemini API fails."""
+    async def mock_fail(_):
+        raise GeminiApiUnavailableError("Gemini Embedding API との通信に失敗しました。")
+
+    monkeypatch.setattr("services.embedding.get_embedding", mock_fail)
+
+    with TestClient(app) as client:
+        r = client.post(
+            "/search/courses",
+            json={"query": "プログラミング", "mode": "hybrid", "top_k": 3},
+        )
+        assert r.status_code == 503
+        data = r.json()
+        assert "Gemini Embedding API との通信に失敗しました" in data["detail"]

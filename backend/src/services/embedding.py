@@ -1,10 +1,8 @@
-"""Embedding Service with Gemini API integration and deterministic fallback."""
+"""Embedding Service using Google Gemini API (Fail-Fast, No Mock Fallback)."""
 
-import hashlib
+import asyncio
 import logging
-import math
 import os
-import random
 from typing import List, Optional
 
 import httpx
@@ -16,17 +14,17 @@ except ImportError:
     genai = None
     GENAI_AVAILABLE = False
 
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
 from course_core import config
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
 DEFAULT_DIMENSION = 768
+
+
+class GeminiApiUnavailableError(RuntimeError):
+    """Raised when Gemini Embedding API is unreachable or returns an error."""
+    pass
 
 
 def sanitize_key(key: Optional[str]) -> str:
@@ -41,66 +39,41 @@ def _clean_model_name(model: str) -> str:
     return model.removeprefix("models/")
 
 
-def generate_deterministic_mock_embedding(text: str, dimension: int = DEFAULT_DIMENSION) -> List[float]:
-    """Generate a deterministic unit-norm pseudo-random vector based on text SHA-256 hash.
-
-    Identical to ingestion fallback (ingestion/src/transformers/kansai/embedding_generator.py)
-    when numpy is present.
-    """
-    h = hashlib.sha256(text.encode("utf-8")).digest()
-    seed = int.from_bytes(h[:8], byteorder="big") % (2**32)
-    if np is not None:
-        rng = np.random.RandomState(seed)
-        raw_vec = rng.randn(dimension).astype(np.float32)
-        norm = np.linalg.norm(raw_vec)
-        if norm > 0:
-            normalized_vec = raw_vec / norm
-        else:
-            normalized_vec = raw_vec
-        return [round(float(v), 6) for v in normalized_vec]
-
-    rng = random.Random(seed)
-    raw_vec = [rng.gauss(0, 1) for _ in range(dimension)]
-    norm = math.sqrt(sum(v * v for v in raw_vec))
-    if norm > 0:
-        normalized_vec = [v / norm for v in raw_vec]
-    else:
-        normalized_vec = raw_vec
-    return [round(float(v), 6) for v in normalized_vec]
-
-
 class EmbeddingService:
-    """Async embedding generator with deterministic fallback."""
+    """Async embedding generator strictly using Gemini API (Fail-Fast)."""
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: str = DEFAULT_EMBEDDING_MODEL,
         dimension: int = DEFAULT_DIMENSION,
-        force_mock: bool = False,
     ):
-        raw_key = api_key or os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", "")
+        if api_key is not None:
+            raw_key = api_key
+        else:
+            raw_key = os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", "")
         self.api_key = sanitize_key(raw_key)
         self.model = model
         self.dimension = dimension
-        self.force_mock = force_mock
-
-        if not self.api_key or self.api_key in ("gemini", "your_gemini_api_key_here", ""):
-            self.force_mock = True
 
     async def get_embedding(self, text: str) -> List[float]:
         """Generate embedding vector for a single query text (SDK primary, REST fallback)."""
         if not text or not text.strip():
             return [0.0] * self.dimension
 
-        if self.force_mock:
-            return generate_deterministic_mock_embedding(text, self.dimension)
+        if not self.api_key:
+            raise GeminiApiUnavailableError(
+                "GEMINI_API_KEY が未設定です。環境変数を確認するか、"
+                "python -m src.tools.verify_gemini で疎通を確認してください。"
+            )
+
+        last_error = "Unknown error"
 
         # 1. Try Google Official GenAI SDK first
         if GENAI_AVAILABLE and self.api_key:
             try:
                 loop = asyncio.get_running_loop()
-                raw_model = self.model.removeprefix("models/")
+                raw_model = _clean_model_name(self.model)
                 client = genai.Client(api_key=self.api_key)
                 res = await loop.run_in_executor(
                     None,
@@ -109,6 +82,7 @@ class EmbeddingService:
                 if res.embeddings and len(res.embeddings[0].values) == self.dimension:
                     return res.embeddings[0].values
             except Exception as e:
+                last_error = f"Official GenAI SDK failed: {e}"
                 logger.warning("Official GenAI SDK embed failed (%s), falling back to REST.", e)
 
         # 2. Try REST with x-goog-api-key header
@@ -133,30 +107,35 @@ class EmbeddingService:
                     values = embedding_data.get("values", [])
                     if values and len(values) == self.dimension:
                         return values
-                logger.warning(
-                    "Gemini Embedding API returned status %s: %s. Falling back to deterministic mock.",
-                    resp.status_code,
-                    resp.text[:200],
-                )
+                last_error = f"REST API error ({resp.status_code}): {resp.text[:200]}"
+                logger.warning("Gemini Embedding API returned status %s: %s", resp.status_code, resp.text[:200])
         except Exception as e:
-            logger.warning("Gemini Embedding API call failed (%s). Falling back to deterministic mock.", e)
+            last_error = f"REST API call failed: {e}"
+            logger.warning("Gemini Embedding REST call failed (%s)", e)
 
-        # 3. Deterministic mock fallback
-        return generate_deterministic_mock_embedding(text, self.dimension)
+        # Fail-Fast: Never fabricate mock vectors!
+        raise GeminiApiUnavailableError(
+            f"Gemini Embedding API ({self.model}) との通信に失敗しました。詳細: {last_error}"
+        )
 
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for multiple texts (SDK primary, REST fallback)."""
         if not texts:
             return []
 
-        if self.force_mock:
-            return [generate_deterministic_mock_embedding(t, self.dimension) for t in texts]
+        if not self.api_key:
+            raise GeminiApiUnavailableError(
+                "GEMINI_API_KEY が未設定です。環境変数を確認するか、"
+                "python -m src.tools.verify_gemini で疎通を確認してください。"
+            )
+
+        last_error = "Unknown error"
 
         # 1. Try Google Official GenAI SDK first
         if GENAI_AVAILABLE and self.api_key:
             try:
                 loop = asyncio.get_running_loop()
-                raw_model = self.model.removeprefix("models/")
+                raw_model = _clean_model_name(self.model)
                 client = genai.Client(api_key=self.api_key)
                 res = await loop.run_in_executor(
                     None,
@@ -165,6 +144,7 @@ class EmbeddingService:
                 if res.embeddings and len(res.embeddings) == len(texts):
                     return [emb.values for emb in res.embeddings]
             except Exception as e:
+                last_error = f"Official GenAI SDK batch failed: {e}"
                 logger.warning("Official GenAI SDK batch embed failed (%s), falling back to REST.", e)
 
         # 2. Try REST with x-goog-api-key header
@@ -192,16 +172,16 @@ class EmbeddingService:
                     embeddings = data.get("embeddings", [])
                     if embeddings and len(embeddings) == len(texts):
                         return [e["values"] for e in embeddings]
-                logger.warning(
-                    "Gemini Batch Embedding API returned status %s: %s. Falling back to deterministic mock.",
-                    resp.status_code,
-                    resp.text[:200],
-                )
+                last_error = f"REST Batch API error ({resp.status_code}): {resp.text[:200]}"
+                logger.warning("Gemini Batch Embedding API returned status %s: %s", resp.status_code, resp.text[:200])
         except Exception as e:
-            logger.warning("Gemini Batch Embedding API call failed (%s). Falling back to deterministic mock.", e)
+            last_error = f"REST Batch call failed: {e}"
+            logger.warning("Gemini Batch Embedding API call failed (%s)", e)
 
-        # 3. Deterministic mock fallback
-        return [generate_deterministic_mock_embedding(t, self.dimension) for t in texts]
+        # Fail-Fast: Never fabricate mock vectors!
+        raise GeminiApiUnavailableError(
+            f"Gemini Batch Embedding API ({self.model}) との通信に失敗しました。詳細: {last_error}"
+        )
 
 
 default_embedding_service = EmbeddingService()

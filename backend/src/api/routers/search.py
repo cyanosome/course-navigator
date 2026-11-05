@@ -33,7 +33,10 @@ async def search_courses(request_data: CourseSearchRequest, request: Request) ->
 
     async with driver.session() as session:
         if request_data.mode == SearchMode.HYBRID:
-            query_embedding = await embedding.get_embedding(request_data.query)
+            try:
+                query_embedding = await embedding.get_embedding(request_data.query)
+            except embedding.GeminiApiUnavailableError as e:
+                raise HTTPException(status_code=503, detail=str(e))
             results = await cypher_search_repo.search_hybrid(
                 session=session,
                 query_embedding=query_embedding,
