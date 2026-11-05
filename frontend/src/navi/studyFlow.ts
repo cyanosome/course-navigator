@@ -234,7 +234,10 @@ export function submitQuestionnaire(scope: QuestionScope, answers: Questionnaire
 let ending: Promise<void> | null = null
 let finishing: Promise<void> | null = null
 
-/** ブロックの終了（R5）と次の段階 */
+/**
+ * ブロックの終了（R5）と次の段階。列に残ったイベント（そのブロックの最後の task_submit・質問票）を送り切ってから
+ * R5 を呼ぶ（サーバーは受け取った時点のブロックをイベントに付けるので、R5 の後に届くとブロックの外の扱いになる）
+ */
 export function endBlock(): Promise<void> {
   if (ending === null) {
     ending = endBlockOnce().finally(() => {
@@ -248,6 +251,8 @@ async function endBlockOnce(): Promise<void> {
   const study = need()
   if (study.phase.kind !== 'blockEnd') return
   const { block } = study.phase
+  const sent = await flushEvents()
+  if (!sent) throw new StudyError(null, '記録を送り切れませんでした')
   const transport = await researchTransport(study.transport)
   try {
     await transport.endBlock(study.session.session_id, block)
