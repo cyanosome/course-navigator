@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { CourseSummary } from '../../navi/apiTypes'
+import { useNaviData } from '../../navi/dataSource'
 import { findCourse } from '../../navi/graph'
 import {
   PAGE_SIZE,
   rememberCourseNames,
-  searchCourses,
   searchErrorText,
   setKeywordQuery,
   takeKeywordSubmission,
@@ -43,6 +43,7 @@ type Load =
  */
 export default function KeywordResults({ ctx, query, currentCode }: KeywordResultsProps) {
   const { dept } = useNavi()
+  const { source } = useNaviData()
   const { log } = useResearchLog()
   const [load, setLoad] = useState<Load>({ status: 'loading' })
   /** 足していく続きの読み込み（null は最初のページ） */
@@ -61,7 +62,8 @@ export default function KeywordResults({ ctx, query, currentCode }: KeywordResul
   useEffect(() => {
     const control = new AbortController()
     const offset = moreOffset ?? 0
-    searchCourses(dept, { q: query, limit: PAGE_SIZE, offset }, control.signal)
+    source
+      .searchCourses({ dept: dept.id, q: query, limit: PAGE_SIZE, offset }, control.signal)
       .then((page) => {
         // 見本のデータ源は signal を見ないので、捨てた読み込みの結果はここで捨てる
         if (control.signal.aborted) return
@@ -88,7 +90,7 @@ export default function KeywordResults({ ctx, query, currentCode }: KeywordResul
         setLoad({ status: 'error', text: searchErrorText(err) })
       })
     return () => control.abort()
-  }, [dept, query, moreOffset, retry, submissions, log])
+  }, [dept, source, query, moreOffset, retry, submissions, log])
 
   const heading = query === '' ? '科目の一覧' : `「${query}」で探した結果`
 
