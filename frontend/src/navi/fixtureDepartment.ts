@@ -136,6 +136,7 @@ export const FIXTURE_DEPARTMENT: Department = {
   requirements: {
     total: 124,
     termCap: 24,
+    sample: true,
     needs: [
       { category: '必修', need: 40 },
       { category: '選択', need: 64 },
