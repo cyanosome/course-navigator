@@ -1,0 +1,56 @@
+{
+ "group_dag": {
+  "is_dag": true,
+  "n_nodes": 21,
+  "n_edges": 25,
+  "n_dp_nodes": 3
+ },
+ "n_tree_courses": 70,
+ "n_with_syllabus": 67,
+ "n_without_syllabus": 3,
+ "without_syllabus": [
+  "グリーンケミストリー",
+  "品質管理",
+  "エネルギー材料学"
+ ],
+ "match_rule_counts": {
+  "exact": 65,
+  "none": 3,
+  "split: 講義+演習の2科目。代表は講義": 2
+ },
+ "repo_parser_resolved": 65,
+ "repo_vs_mine_syllabus_id_differs": [
+  {
+   "name": "物理学実験",
+   "repo": "161061",
+   "mine": "161060"
+  },
+  {
+   "name": "化学実験",
+   "repo": "161023",
+   "mine": "161019"
+  },
+  {
+   "name": "数学を学ぶ（微分積分Ⅰ・演習Ⅰ）",
+   "repo": null,
+   "mine": "032315"
+  },
+  {
+   "name": "数学を学ぶ（微分積分Ⅱ・演習Ⅱ）",
+   "repo": null,
+   "mine": "032322"
+  }
+ ],
+ "multi_year_sections": [],
+ "year_differs_from_group_year": [
+  {
+   "name": "外国書講読Ⅰ",
+   "group": "ForeignLit1",
+   "group_year": 2,
+   "syllabus_year": 3
+  }
+ ],
+ "semester_ambiguous": [],
+ "empty_objectives": [],
+ "empty_description": []
+}

@@ -1,0 +1,64 @@
+{
+ "D_year_rule": {
+  "rule": "はい iff 配当年次が異なる",
+  "tp": 51,
+  "fp": 39,
+  "tn": 21,
+  "fn": 9,
+  "balanced_accuracy": 0.6,
+  "mcc": 0.2309401076758503,
+  "precision_yes": 0.5666666666666667,
+  "recall_yes": 0.85
+ },
+ "sonnet_C0_mirror_contradictions": [
+  {
+   "run": "1",
+   "mirror_id": "M20",
+   "presentation1": "A=基礎からの情報処理 / B=基礎分析化学 -> A",
+   "presentation2": "A=基礎分析化学 / B=基礎からの情報処理 -> A",
+   "truth_earlier": "基礎からの情報処理"
+  },
+  {
+   "run": "1",
+   "mirror_id": "M23",
+   "presentation1": "A=数学を学ぶ（微分積分Ⅰ・演習Ⅰ） / B=図学 -> B",
+   "presentation2": "A=図学 / B=数学を学ぶ（微分積分Ⅰ・演習Ⅰ） -> B",
+   "truth_earlier": "数学を学ぶ（微分積分Ⅰ・演習Ⅰ）"
+  },
+  {
+   "run": "2",
+   "mirror_id": "M02",
+   "presentation1": "A=化学工学量論及び演習 / B=熱・統計力学 -> B",
+   "presentation2": "A=熱・統計力学 / B=化学工学量論及び演習 -> B",
+   "truth_earlier": "化学工学量論及び演習"
+  },
+  {
+   "run": "2",
+   "mirror_id": "M14",
+   "presentation1": "A=分析化学実験 / B=触媒化学工学 -> B",
+   "presentation2": "A=触媒化学工学 / B=分析化学実験 -> B",
+   "truth_earlier": "分析化学実験"
+  },
+  {
+   "run": "2",
+   "mirror_id": "M17",
+   "presentation1": "A=反応工学 / B=ユニットオペレーション演習Ⅱ -> B",
+   "presentation2": "A=ユニットオペレーション演習Ⅱ / B=反応工学 -> B",
+   "truth_earlier": "反応工学"
+  },
+  {
+   "run": "2",
+   "mirror_id": "M20",
+   "presentation1": "A=基礎からの情報処理 / B=基礎分析化学 -> A",
+   "presentation2": "A=基礎分析化学 / B=基礎からの情報処理 -> A",
+   "truth_earlier": "基礎からの情報処理"
+  },
+  {
+   "run": "2",
+   "mirror_id": "M23",
+   "presentation1": "A=数学を学ぶ（微分積分Ⅰ・演習Ⅰ） / B=図学 -> B",
+   "presentation2": "A=図学 / B=数学を学ぶ（微分積分Ⅰ・演習Ⅰ） -> B",
+   "truth_earlier": "数学を学ぶ（微分積分Ⅰ・演習Ⅰ）"
+  }
+ ]
+}

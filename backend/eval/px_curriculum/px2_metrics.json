@@ -1,0 +1,1105 @@
+{
+ "source_dataset": "C:\\Users\\haseg\\AppData\\Local\\Temp\\claude\\b29e68e4a15ed551\\3966b0bc-d61d-4e57-8b68-0d63b9e90c62\\scratchpad\\px\\dataset",
+ "definitions": {
+  "blocking_factor": "b(v) = number of vertices reachable from v by a directed path of length >= 1 (Heileman et al. 2018 Eq.7-8); b(G) = sum_v b(v) (Eq.9)",
+  "delay_factor": "d(v) = number of vertices on the longest path through v (Eq.5); d(G) = sum_v d(v) (Eq.6)",
+  "structural_complexity": "h(G) = d(G) + b(G) = sum_v (d(v) + b(v)) (Eq.14)",
+  "comparable_ratio": "#unordered pairs {u,v} with u~>v or v~>u / C(n,2)",
+  "width": "maximum antichain size, exact via Dilworth",
+  "course_expansion": "course x -> course y iff group(x) -> group(y) is an edge of the group DAG without DP nodes; courses in the same group are not connected"
+ },
+ "group_dag_with_dp": {
+  "graph": "group DAG (21 nodes incl. DP1-3)",
+  "n_nodes": 21,
+  "n_edges": 25,
+  "n_edges_transitive_reduction": 25,
+  "n_edges_transitive_closure": 108,
+  "longest_path_edges": 6,
+  "longest_path_vertices": 7,
+  "longest_path_example": [
+   "G_Common",
+   "G_1Y_ChemEng",
+   "G_2Y_UnitOp",
+   "G_3Y_AppChemEng",
+   "G_Research1",
+   "G_Research2",
+   "DP1"
+  ],
+  "width_max_antichain": 7,
+  "width_method": "exact (Dilworth: n - maximum bipartite matching on transitive closure)",
+  "max_antichain_example": [
+   "ForeignLit2",
+   "G_3Y_AppChemEng",
+   "G_3Y_MatEnergy",
+   "G_3Y_OrgCatal",
+   "G_3Y_SafetySeminar",
+   "G_LawBiz",
+   "InfoExercise"
+  ],
+  "comparable_pairs": 108,
+  "total_pairs": 210,
+  "comparable_ratio": 0.5142857142857142,
+  "blocking_total_bG": 108,
+  "delay_total_dG": 131,
+  "structural_complexity_hG": 239,
+  "blocking_max": 14,
+  "delay_max": 7,
+  "per_node": {
+   "DP1": {
+    "blocking": 0,
+    "delay": 7,
+    "complexity": 7
+   },
+   "DP2": {
+    "blocking": 0,
+    "delay": 7,
+    "complexity": 7
+   },
+   "DP3": {
+    "blocking": 0,
+    "delay": 7,
+    "complexity": 7
+   },
+   "G_Research2": {
+    "blocking": 3,
+    "delay": 7,
+    "complexity": 10
+   },
+   "G_Research1": {
+    "blocking": 4,
+    "delay": 7,
+    "complexity": 11
+   },
+   "G_LawBiz": {
+    "blocking": 4,
+    "delay": 3,
+    "complexity": 7
+   },
+   "G_3Y_AppChemEng": {
+    "blocking": 5,
+    "delay": 7,
+    "complexity": 12
+   },
+   "G_3Y_MatEnergy": {
+    "blocking": 5,
+    "delay": 7,
+    "complexity": 12
+   },
+   "G_3Y_OrgCatal": {
+    "blocking": 5,
+    "delay": 7,
+    "complexity": 12
+   },
+   "G_3Y_SafetySeminar": {
+    "blocking": 5,
+    "delay": 5,
+    "complexity": 10
+   },
+   "ForeignLit2": {
+    "blocking": 5,
+    "delay": 6,
+    "complexity": 11
+   },
+   "G_2Y_UnitOp": {
+    "blocking": 6,
+    "delay": 7,
+    "complexity": 13
+   },
+   "G_2Y_PhysChem": {
+    "blocking": 7,
+    "delay": 7,
+    "complexity": 14
+   },
+   "G_2Y_AnalOrg": {
+    "blocking": 7,
+    "delay": 7,
+    "complexity": 14
+   },
+   "ChemEnglish": {
+    "blocking": 7,
+    "delay": 6,
+    "complexity": 13
+   },
+   "ForeignLit1": {
+    "blocking": 6,
+    "delay": 6,
+    "complexity": 12
+   },
+   "G_1Y_ChemEng": {
+    "blocking": 9,
+    "delay": 7,
+    "complexity": 16
+   },
+   "G_1Y_BasicChem": {
+    "blocking": 10,
+    "delay": 7,
+    "complexity": 17
+   },
+   "FreshmanSeminar": {
+    "blocking": 6,
+    "delay": 5,
+    "complexity": 11
+   },
+   "InfoExercise": {
+    "blocking": 0,
+    "delay": 2,
+    "complexity": 2
+   },
+   "G_Common": {
+    "blocking": 14,
+    "delay": 7,
+    "complexity": 21
+   }
+  },
+  "n_sources": 4,
+  "n_sinks": 4,
+  "n_isolated": 0,
+  "n_weak_components": 1
+ },
+ "group_dag_no_dp": {
+  "graph": "group DAG without DP (18 course groups)",
+  "n_nodes": 18,
+  "n_edges": 22,
+  "n_edges_transitive_reduction": 22,
+  "n_edges_transitive_closure": 57,
+  "longest_path_edges": 5,
+  "longest_path_vertices": 6,
+  "longest_path_example": [
+   "G_Common",
+   "G_1Y_ChemEng",
+   "G_2Y_UnitOp",
+   "G_3Y_AppChemEng",
+   "G_Research1",
+   "G_Research2"
+  ],
+  "width_max_antichain": 7,
+  "width_method": "exact (Dilworth: n - maximum bipartite matching on transitive closure)",
+  "max_antichain_example": [
+   "ForeignLit2",
+   "G_3Y_AppChemEng",
+   "G_3Y_MatEnergy",
+   "G_3Y_OrgCatal",
+   "G_3Y_SafetySeminar",
+   "G_LawBiz",
+   "InfoExercise"
+  ],
+  "comparable_pairs": 57,
+  "total_pairs": 153,
+  "comparable_ratio": 0.37254901960784315,
+  "blocking_total_bG": 57,
+  "delay_total_dG": 93,
+  "structural_complexity_hG": 150,
+  "blocking_max": 11,
+  "delay_max": 6,
+  "per_node": {
+   "G_Research2": {
+    "blocking": 0,
+    "delay": 6,
+    "complexity": 6
+   },
+   "G_Research1": {
+    "blocking": 1,
+    "delay": 6,
+    "complexity": 7
+   },
+   "G_LawBiz": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "G_3Y_AppChemEng": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "G_3Y_MatEnergy": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "G_3Y_OrgCatal": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "G_3Y_SafetySeminar": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "ForeignLit2": {
+    "blocking": 2,
+    "delay": 5,
+    "complexity": 7
+   },
+   "G_2Y_UnitOp": {
+    "blocking": 3,
+    "delay": 6,
+    "complexity": 9
+   },
+   "G_2Y_PhysChem": {
+    "blocking": 4,
+    "delay": 6,
+    "complexity": 10
+   },
+   "G_2Y_AnalOrg": {
+    "blocking": 4,
+    "delay": 6,
+    "complexity": 10
+   },
+   "ChemEnglish": {
+    "blocking": 4,
+    "delay": 5,
+    "complexity": 9
+   },
+   "ForeignLit1": {
+    "blocking": 3,
+    "delay": 5,
+    "complexity": 8
+   },
+   "G_1Y_ChemEng": {
+    "blocking": 6,
+    "delay": 6,
+    "complexity": 12
+   },
+   "G_1Y_BasicChem": {
+    "blocking": 7,
+    "delay": 6,
+    "complexity": 13
+   },
+   "FreshmanSeminar": {
+    "blocking": 3,
+    "delay": 4,
+    "complexity": 7
+   },
+   "InfoExercise": {
+    "blocking": 0,
+    "delay": 2,
+    "complexity": 2
+   },
+   "G_Common": {
+    "blocking": 11,
+    "delay": 6,
+    "complexity": 17
+   }
+  },
+  "n_sources": 4,
+  "n_sinks": 2,
+  "n_isolated": 0,
+  "n_weak_components": 1
+ },
+ "course_dag_70": {
+  "graph": "course DAG, all 70 tree subjects",
+  "n_nodes": 70,
+  "n_edges": 453,
+  "n_edges_transitive_reduction": 453,
+  "n_edges_transitive_closure": 950,
+  "longest_path_edges": 5,
+  "longest_path_vertices": 6,
+  "longest_path_example": [
+   "c65",
+   "c54",
+   "c33",
+   "c07",
+   "c02",
+   "c01"
+  ],
+  "width_max_antichain": 31,
+  "width_method": "exact (Dilworth: n - maximum bipartite matching on transitive closure)",
+  "max_antichain_example": [
+   "c03",
+   "c04",
+   "c05",
+   "c06",
+   "c07",
+   "c08",
+   "c09",
+   "c10",
+   "c11",
+   "c12",
+   "c13",
+   "c14",
+   "c15",
+   "c16",
+   "c17",
+   "c18",
+   "c19",
+   "c20",
+   "c21",
+   "c22",
+   "c23",
+   "c24",
+   "c25",
+   "c26",
+   "c27",
+   "c28",
+   "c29",
+   "c30",
+   "c31",
+   "c32",
+   "c64"
+  ],
+  "comparable_pairs": 950,
+  "total_pairs": 2415,
+  "comparable_ratio": 0.39337474120082816,
+  "blocking_total_bG": 950,
+  "delay_total_dG": 385,
+  "structural_complexity_hG": 1335,
+  "blocking_max": 51,
+  "delay_max": 6,
+  "per_node": {
+   "c01": {
+    "blocking": 0,
+    "delay": 6,
+    "complexity": 6
+   },
+   "c02": {
+    "blocking": 1,
+    "delay": 6,
+    "complexity": 7
+   },
+   "c03": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c04": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c05": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c06": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c07": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c08": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c09": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c10": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c11": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c12": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c13": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c14": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c15": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c16": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c17": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c18": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c19": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c20": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c21": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c22": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c23": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c24": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c25": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c26": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c27": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c28": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c29": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c30": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c31": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c32": {
+    "blocking": 2,
+    "delay": 5,
+    "complexity": 7
+   },
+   "c33": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c34": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c35": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c36": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c37": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c38": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c39": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c40": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c41": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c42": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c43": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c44": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c45": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c46": {
+    "blocking": 19,
+    "delay": 6,
+    "complexity": 25
+   },
+   "c47": {
+    "blocking": 10,
+    "delay": 6,
+    "complexity": 16
+   },
+   "c48": {
+    "blocking": 10,
+    "delay": 6,
+    "complexity": 16
+   },
+   "c49": {
+    "blocking": 10,
+    "delay": 6,
+    "complexity": 16
+   },
+   "c50": {
+    "blocking": 10,
+    "delay": 6,
+    "complexity": 16
+   },
+   "c51": {
+    "blocking": 10,
+    "delay": 6,
+    "complexity": 16
+   },
+   "c52": {
+    "blocking": 4,
+    "delay": 5,
+    "complexity": 9
+   },
+   "c53": {
+    "blocking": 3,
+    "delay": 5,
+    "complexity": 8
+   },
+   "c54": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c55": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c56": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c57": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c58": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c59": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c60": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c61": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c62": {
+    "blocking": 33,
+    "delay": 6,
+    "complexity": 39
+   },
+   "c63": {
+    "blocking": 7,
+    "delay": 4,
+    "complexity": 11
+   },
+   "c64": {
+    "blocking": 0,
+    "delay": 2,
+    "complexity": 2
+   },
+   "c65": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   },
+   "c66": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   },
+   "c67": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   },
+   "c68": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   },
+   "c69": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   },
+   "c70": {
+    "blocking": 51,
+    "delay": 6,
+    "complexity": 57
+   }
+  },
+  "n_sources": 12,
+  "n_sinks": 2,
+  "n_isolated": 0,
+  "n_weak_components": 1
+ },
+ "course_dag_67_with_syllabus": {
+  "graph": "course DAG, 67 subjects with 2026 syllabus (PX-1 pool)",
+  "n_nodes": 67,
+  "n_edges": 439,
+  "n_edges_transitive_reduction": 439,
+  "n_edges_transitive_closure": 920,
+  "longest_path_edges": 5,
+  "longest_path_vertices": 6,
+  "longest_path_example": [
+   "c65",
+   "c54",
+   "c33",
+   "c07",
+   "c02",
+   "c01"
+  ],
+  "width_max_antichain": 28,
+  "width_method": "exact (Dilworth: n - maximum bipartite matching on transitive closure)",
+  "max_antichain_example": [
+   "c03",
+   "c04",
+   "c07",
+   "c08",
+   "c09",
+   "c10",
+   "c11",
+   "c12",
+   "c13",
+   "c14",
+   "c15",
+   "c16",
+   "c17",
+   "c18",
+   "c19",
+   "c20",
+   "c21",
+   "c22",
+   "c24",
+   "c25",
+   "c26",
+   "c27",
+   "c28",
+   "c29",
+   "c30",
+   "c31",
+   "c32",
+   "c64"
+  ],
+  "comparable_pairs": 920,
+  "total_pairs": 2211,
+  "comparable_ratio": 0.4161013116236997,
+  "blocking_total_bG": 920,
+  "delay_total_dG": 375,
+  "structural_complexity_hG": 1295,
+  "blocking_max": 50,
+  "delay_max": 6,
+  "per_node": {
+   "c01": {
+    "blocking": 0,
+    "delay": 6,
+    "complexity": 6
+   },
+   "c02": {
+    "blocking": 1,
+    "delay": 6,
+    "complexity": 7
+   },
+   "c03": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c04": {
+    "blocking": 1,
+    "delay": 2,
+    "complexity": 3
+   },
+   "c07": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c08": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c09": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c10": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c11": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c12": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c13": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c14": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c15": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c16": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c17": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c18": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c19": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c20": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c21": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c22": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c24": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c25": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c26": {
+    "blocking": 2,
+    "delay": 6,
+    "complexity": 8
+   },
+   "c27": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c28": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c29": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c30": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c31": {
+    "blocking": 2,
+    "delay": 4,
+    "complexity": 6
+   },
+   "c32": {
+    "blocking": 2,
+    "delay": 5,
+    "complexity": 7
+   },
+   "c33": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c34": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c35": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c36": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c37": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c38": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c39": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c40": {
+    "blocking": 14,
+    "delay": 6,
+    "complexity": 20
+   },
+   "c41": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c42": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c43": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c44": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c45": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c46": {
+    "blocking": 18,
+    "delay": 6,
+    "complexity": 24
+   },
+   "c47": {
+    "blocking": 9,
+    "delay": 6,
+    "complexity": 15
+   },
+   "c48": {
+    "blocking": 9,
+    "delay": 6,
+    "complexity": 15
+   },
+   "c49": {
+    "blocking": 9,
+    "delay": 6,
+    "complexity": 15
+   },
+   "c50": {
+    "blocking": 9,
+    "delay": 6,
+    "complexity": 15
+   },
+   "c51": {
+    "blocking": 9,
+    "delay": 6,
+    "complexity": 15
+   },
+   "c52": {
+    "blocking": 4,
+    "delay": 5,
+    "complexity": 9
+   },
+   "c53": {
+    "blocking": 3,
+    "delay": 5,
+    "complexity": 8
+   },
+   "c54": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c55": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c56": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c57": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c58": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c59": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c60": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c61": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c62": {
+    "blocking": 32,
+    "delay": 6,
+    "complexity": 38
+   },
+   "c63": {
+    "blocking": 7,
+    "delay": 4,
+    "complexity": 11
+   },
+   "c64": {
+    "blocking": 0,
+    "delay": 2,
+    "complexity": 2
+   },
+   "c65": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   },
+   "c66": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   },
+   "c67": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   },
+   "c68": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   },
+   "c69": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   },
+   "c70": {
+    "blocking": 50,
+    "delay": 6,
+    "complexity": 56
+   }
+  },
+  "n_sources": 10,
+  "n_sinks": 2,
+  "n_isolated": 0,
+  "n_weak_components": 1
+ }
+}

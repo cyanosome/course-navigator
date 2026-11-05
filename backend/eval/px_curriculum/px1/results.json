@@ -1,0 +1,936 @@
+{
+ "O": {
+  "Gemini 3.8 Flash (High)|C0|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C0",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 113,
+   "accuracy": 0.9416666666666667,
+   "wilson95": [
+    0.8844740796636988,
+    0.9714589899997798
+   ],
+   "accuracy_invalid_as_wrong": 0.9416666666666667,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 61
+  },
+  "Gemini 3.8 Flash (High)|C0|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C0",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 113,
+   "accuracy": 0.9416666666666667,
+   "wilson95": [
+    0.8844740796636988,
+    0.9714589899997798
+   ],
+   "accuracy_invalid_as_wrong": 0.9416666666666667,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 11,
+   "answered_A": 61
+  },
+  "Gemini 3.8 Flash (High)|C1|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C1",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 117,
+   "accuracy": 0.975,
+   "wilson95": [
+    0.9290699666721339,
+    0.9914618252300978
+   ],
+   "accuracy_invalid_as_wrong": 0.975,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 61
+  },
+  "Gemini 3.8 Flash (High)|C1|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C1",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 116,
+   "accuracy": 0.9666666666666667,
+   "wilson95": [
+    0.917419662440894,
+    0.9869624489016494
+   ],
+   "accuracy_invalid_as_wrong": 0.9666666666666667,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 62
+  },
+  "Gemini 3.8 Flash (High)|C2|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C2",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 119,
+   "accuracy": 0.9916666666666667,
+   "wilson95": [
+    0.9543037087549505,
+    0.998527444266658
+   ],
+   "accuracy_invalid_as_wrong": 0.9916666666666667,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 59
+  },
+  "Gemini 3.8 Flash (High)|C2|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C2",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 119,
+   "accuracy": 0.9916666666666667,
+   "wilson95": [
+    0.9543037087549505,
+    0.998527444266658
+   ],
+   "accuracy_invalid_as_wrong": 0.9916666666666667,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 0,
+   "mirror_contradiction_rate": 0.0,
+   "mirror_contra_both_first": 0,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 59
+  },
+  "Claude Sonnet 5.5 (Medium)|C0|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C0",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 109,
+   "accuracy": 0.9083333333333333,
+   "wilson95": [
+    0.843291530273291,
+    0.9480428171514347
+   ],
+   "accuracy_invalid_as_wrong": 0.9083333333333333,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 2,
+   "mirror_contradiction_rate": 0.06666666666666667,
+   "mirror_contra_both_first": 1,
+   "mirror_contra_both_second": 1,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 11,
+   "answered_A": 63
+  },
+  "Claude Sonnet 5.5 (Medium)|C0|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C0",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 108,
+   "accuracy": 0.9,
+   "wilson95": [
+    0.833318258891048,
+    0.9418664079739892
+   ],
+   "accuracy_invalid_as_wrong": 0.9,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 5,
+   "mirror_contradiction_rate": 0.16666666666666666,
+   "mirror_contra_both_first": 1,
+   "mirror_contra_both_second": 4,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 62
+  },
+  "Claude Sonnet 5.5 (Medium)|C1|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C1",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 110,
+   "accuracy": 0.9166666666666666,
+   "wilson95": [
+    0.8533776783593434,
+    0.9541063496250703
+   ],
+   "accuracy_invalid_as_wrong": 0.9166666666666666,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 2,
+   "mirror_contradiction_rate": 0.06666666666666667,
+   "mirror_contra_both_first": 2,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 66
+  },
+  "Claude Sonnet 5.5 (Medium)|C1|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C1",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 110,
+   "accuracy": 0.9166666666666666,
+   "wilson95": [
+    0.8533776783593434,
+    0.9541063496250703
+   ],
+   "accuracy_invalid_as_wrong": 0.9166666666666666,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 3,
+   "mirror_contradiction_rate": 0.1,
+   "mirror_contra_both_first": 2,
+   "mirror_contra_both_second": 1,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 12,
+   "answered_A": 68
+  },
+  "Claude Sonnet 5.5 (Medium)|C2|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C2",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 115,
+   "accuracy": 0.9583333333333334,
+   "wilson95": [
+    0.9061591476629647,
+    0.9820732831198906
+   ],
+   "accuracy_invalid_as_wrong": 0.9583333333333334,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 2,
+   "mirror_contradiction_rate": 0.06666666666666667,
+   "mirror_contra_both_first": 2,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 8,
+   "answered_A": 63
+  },
+  "Claude Sonnet 5.5 (Medium)|C2|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C2",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "n_correct": 115,
+   "accuracy": 0.9583333333333334,
+   "wilson95": [
+    0.9061591476629647,
+    0.9820732831198906
+   ],
+   "accuracy_invalid_as_wrong": 0.9583333333333334,
+   "mirror_pairs_valid": 30,
+   "mirror_contradictions": 2,
+   "mirror_contradiction_rate": 0.06666666666666667,
+   "mirror_contra_both_first": 2,
+   "mirror_contra_both_second": 0,
+   "triples_valid": 20,
+   "triple_cycles": 0,
+   "triple_cycle_rate": 0.0,
+   "same_year_valid": 13,
+   "same_year_correct": 9,
+   "answered_A": 65
+  }
+ },
+ "D": {
+  "Gemini 3.8 Flash (High)|C0|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C0",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 11,
+   "fp": 3,
+   "tn": 57,
+   "fn": 49,
+   "balanced_accuracy": 0.5666666666666667,
+   "mcc": 0.207669652660466,
+   "mcc_den_zero": false,
+   "precision_yes": 0.7857142857142857,
+   "recall_yes": 0.18333333333333332,
+   "specificity": 0.95,
+   "yes_rate": 0.11666666666666667
+  },
+  "Gemini 3.8 Flash (High)|C0|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C0",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 14,
+   "fp": 4,
+   "tn": 56,
+   "fn": 46,
+   "balanced_accuracy": 0.5833333333333334,
+   "mcc": 0.2333800140046683,
+   "mcc_den_zero": false,
+   "precision_yes": 0.7777777777777778,
+   "recall_yes": 0.23333333333333334,
+   "specificity": 0.9333333333333333,
+   "yes_rate": 0.15
+  },
+  "Gemini 3.8 Flash (High)|C1|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C1",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 10,
+   "fp": 1,
+   "tn": 59,
+   "fn": 50,
+   "balanced_accuracy": 0.575,
+   "mcc": 0.25991594201605844,
+   "mcc_den_zero": false,
+   "precision_yes": 0.9090909090909091,
+   "recall_yes": 0.16666666666666666,
+   "specificity": 0.9833333333333333,
+   "yes_rate": 0.09166666666666666
+  },
+  "Gemini 3.8 Flash (High)|C1|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C1",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 13,
+   "fp": 2,
+   "tn": 58,
+   "fn": 47,
+   "balanced_accuracy": 0.5916666666666667,
+   "mcc": 0.27717394687343333,
+   "mcc_den_zero": false,
+   "precision_yes": 0.8666666666666667,
+   "recall_yes": 0.21666666666666667,
+   "specificity": 0.9666666666666667,
+   "yes_rate": 0.125
+  },
+  "Gemini 3.8 Flash (High)|C2|1": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C2",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 9,
+   "fp": 1,
+   "tn": 59,
+   "fn": 51,
+   "balanced_accuracy": 0.5666666666666667,
+   "mcc": 0.2412090756622109,
+   "mcc_den_zero": false,
+   "precision_yes": 0.9,
+   "recall_yes": 0.15,
+   "specificity": 0.9833333333333333,
+   "yes_rate": 0.08333333333333333
+  },
+  "Gemini 3.8 Flash (High)|C2|2": {
+   "model": "Gemini 3.8 Flash (High)",
+   "condition": "C2",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 7,
+   "fp": 1,
+   "tn": 59,
+   "fn": 53,
+   "balanced_accuracy": 0.5499999999999999,
+   "mcc": 0.20044593143431827,
+   "mcc_den_zero": false,
+   "precision_yes": 0.875,
+   "recall_yes": 0.11666666666666667,
+   "specificity": 0.9833333333333333,
+   "yes_rate": 0.06666666666666667
+  },
+  "Claude Sonnet 5.5 (Medium)|C0|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C0",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 29,
+   "fp": 17,
+   "tn": 43,
+   "fn": 31,
+   "balanced_accuracy": 0.6,
+   "mcc": 0.2056773510573183,
+   "mcc_den_zero": false,
+   "precision_yes": 0.6304347826086957,
+   "recall_yes": 0.48333333333333334,
+   "specificity": 0.7166666666666667,
+   "yes_rate": 0.38333333333333336
+  },
+  "Claude Sonnet 5.5 (Medium)|C0|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C0",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 36,
+   "fp": 14,
+   "tn": 46,
+   "fn": 24,
+   "balanced_accuracy": 0.6833333333333333,
+   "mcc": 0.3718678720805473,
+   "mcc_den_zero": false,
+   "precision_yes": 0.72,
+   "recall_yes": 0.6,
+   "specificity": 0.7666666666666667,
+   "yes_rate": 0.4166666666666667
+  },
+  "Claude Sonnet 5.5 (Medium)|C1|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C1",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 20,
+   "fp": 15,
+   "tn": 45,
+   "fn": 40,
+   "balanced_accuracy": 0.5416666666666666,
+   "mcc": 0.09166984970282113,
+   "mcc_den_zero": false,
+   "precision_yes": 0.5714285714285714,
+   "recall_yes": 0.3333333333333333,
+   "specificity": 0.75,
+   "yes_rate": 0.2916666666666667
+  },
+  "Claude Sonnet 5.5 (Medium)|C1|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C1",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 100,
+   "n_invalid": 20,
+   "invalid_rate": 0.16666666666666666,
+   "tp": 20,
+   "fp": 13,
+   "tn": 39,
+   "fn": 28,
+   "balanced_accuracy": 0.5833333333333334,
+   "mcc": 0.17708291763060793,
+   "mcc_den_zero": false,
+   "precision_yes": 0.6060606060606061,
+   "recall_yes": 0.4166666666666667,
+   "specificity": 0.75,
+   "yes_rate": 0.33
+  },
+  "Claude Sonnet 5.5 (Medium)|C2|1": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C2",
+   "run": 1,
+   "n_items": 120,
+   "n_valid": 120,
+   "n_invalid": 0,
+   "invalid_rate": 0.0,
+   "tp": 24,
+   "fp": 12,
+   "tn": 48,
+   "fn": 36,
+   "balanced_accuracy": 0.6000000000000001,
+   "mcc": 0.2182178902359924,
+   "mcc_den_zero": false,
+   "precision_yes": 0.6666666666666666,
+   "recall_yes": 0.4,
+   "specificity": 0.8,
+   "yes_rate": 0.3
+  },
+  "Claude Sonnet 5.5 (Medium)|C2|2": {
+   "model": "Claude Sonnet 5.5 (Medium)",
+   "condition": "C2",
+   "run": 2,
+   "n_items": 120,
+   "n_valid": 0,
+   "n_invalid": 120,
+   "invalid_rate": 1.0,
+   "tp": 0,
+   "fp": 0,
+   "tn": 0,
+   "fn": 0,
+   "balanced_accuracy": null,
+   "mcc": null,
+   "mcc_den_zero": true,
+   "precision_yes": null,
+   "recall_yes": null,
+   "specificity": null,
+   "yes_rate": null
+  }
+ },
+ "kappa": {
+  "Gemini 3.8 Flash (High)|O|C0": {
+   "n_both_valid": 120,
+   "kappa": 0.8482932996207329,
+   "raw_agreement": 0.9833333333333333
+  },
+  "Gemini 3.8 Flash (High)|D|C0": {
+   "n_both_valid": 120,
+   "kappa": 0.6402877697841727,
+   "raw_agreement": 0.9166666666666666
+  },
+  "Gemini 3.8 Flash (High)|O|C1": {
+   "n_both_valid": 120,
+   "kappa": 0.8529411764705886,
+   "raw_agreement": 0.9916666666666667
+  },
+  "Gemini 3.8 Flash (High)|D|C1": {
+   "n_both_valid": 120,
+   "kappa": 0.8279569892473119,
+   "raw_agreement": 0.9666666666666667
+  },
+  "Gemini 3.8 Flash (High)|O|C2": {
+   "n_both_valid": 120,
+   "kappa": 1.0,
+   "raw_agreement": 1.0
+  },
+  "Gemini 3.8 Flash (High)|D|C2": {
+   "n_both_valid": 120,
+   "kappa": 0.8799999999999997,
+   "raw_agreement": 0.9833333333333333
+  },
+  "Claude Sonnet 5.5 (Medium)|O|C0": {
+   "n_both_valid": 120,
+   "kappa": 0.5673076923076926,
+   "raw_agreement": 0.925
+  },
+  "Claude Sonnet 5.5 (Medium)|D|C0": {
+   "n_both_valid": 120,
+   "kappa": 0.6184971098265896,
+   "raw_agreement": 0.8166666666666667
+  },
+  "Claude Sonnet 5.5 (Medium)|O|C1": {
+   "n_both_valid": 120,
+   "kappa": 0.23636363636363678,
+   "raw_agreement": 0.8833333333333333
+  },
+  "Claude Sonnet 5.5 (Medium)|D|C1": {
+   "n_both_valid": 100,
+   "kappa": 0.45028680688336525,
+   "raw_agreement": 0.77
+  },
+  "Claude Sonnet 5.5 (Medium)|O|C2": {
+   "n_both_valid": 120,
+   "kappa": 0.5826086956521731,
+   "raw_agreement": 0.9666666666666667
+  },
+  "Claude Sonnet 5.5 (Medium)|D|C2": {
+   "n_both_valid": 0,
+   "kappa": null,
+   "raw_agreement": null
+  }
+ },
+ "mcnemar": {
+  "Gemini 3.8 Flash (High)|run1|C0_vs_C1": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 5,
+   "p_exact_two_sided": 0.21875
+  },
+  "Gemini 3.8 Flash (High)|run1|C1_vs_C2": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 3,
+   "p_exact_two_sided": 0.625
+  },
+  "Gemini 3.8 Flash (High)|run1|C0_vs_C2": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 7,
+   "p_exact_two_sided": 0.0703125
+  },
+  "Gemini 3.8 Flash (High)|run1|C0_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 7,
+   "p_exact_two_sided": 0.34375
+  },
+  "Gemini 3.8 Flash (High)|run1|C1_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 3,
+   "p_exact_two_sided": 1.0
+  },
+  "Gemini 3.8 Flash (High)|run1|C2_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 2,
+   "only_second_correct": 0,
+   "p_exact_two_sided": 0.5
+  },
+  "Gemini 3.8 Flash (High)|run2|C0_vs_C1": {
+   "n": 120,
+   "only_first_correct": 0,
+   "only_second_correct": 3,
+   "p_exact_two_sided": 0.25
+  },
+  "Gemini 3.8 Flash (High)|run2|C1_vs_C2": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 4,
+   "p_exact_two_sided": 0.375
+  },
+  "Gemini 3.8 Flash (High)|run2|C0_vs_C2": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 7,
+   "p_exact_two_sided": 0.0703125
+  },
+  "Gemini 3.8 Flash (High)|run2|C0_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 7,
+   "p_exact_two_sided": 0.34375
+  },
+  "Gemini 3.8 Flash (High)|run2|C1_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 4,
+   "p_exact_two_sided": 1.0
+  },
+  "Gemini 3.8 Flash (High)|run2|C2_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 2,
+   "only_second_correct": 0,
+   "p_exact_two_sided": 0.5
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C0_vs_C1": {
+   "n": 120,
+   "only_first_correct": 5,
+   "only_second_correct": 6,
+   "p_exact_two_sided": 1.0
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C1_vs_C2": {
+   "n": 120,
+   "only_first_correct": 4,
+   "only_second_correct": 9,
+   "p_exact_two_sided": 0.266845703125
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C0_vs_C2": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 9,
+   "p_exact_two_sided": 0.14599609375
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C0_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 11,
+   "p_exact_two_sided": 0.057373046875
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C1_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 10,
+   "p_exact_two_sided": 0.09228515625
+  },
+  "Claude Sonnet 5.5 (Medium)|run1|C2_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 1,
+   "only_second_correct": 3,
+   "p_exact_two_sided": 0.625
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C0_vs_C1": {
+   "n": 120,
+   "only_first_correct": 5,
+   "only_second_correct": 7,
+   "p_exact_two_sided": 0.7744140625
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C1_vs_C2": {
+   "n": 120,
+   "only_first_correct": 4,
+   "only_second_correct": 9,
+   "p_exact_two_sided": 0.266845703125
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C0_vs_C2": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 10,
+   "p_exact_two_sided": 0.09228515625
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C0_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 12,
+   "p_exact_two_sided": 0.03515625
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C1_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 3,
+   "only_second_correct": 10,
+   "p_exact_two_sided": 0.09228515625
+  },
+  "Claude Sonnet 5.5 (Medium)|run2|C2_vs_B-year": {
+   "n": 120,
+   "only_first_correct": 2,
+   "only_second_correct": 4,
+   "p_exact_two_sided": 0.6875
+  }
+ },
+ "byear": {
+  "correct": 117,
+  "n": 120,
+  "accuracy": 0.975,
+  "wilson95": [
+   0.9290699666721339,
+   0.9914618252300978
+  ],
+  "ties": 5
+ },
+ "hypotheses": {
+  "H1": {
+   "rule": "both models: mean O accuracy (C1) < 0.90",
+   "per_model": {
+    "Gemini 3.8 Flash (High)": 0.9708333333333333,
+    "Claude Sonnet 5.5 (Medium)": 0.9166666666666666
+   },
+   "supported": false
+  },
+  "H2": {
+   "rule": "both models: mean O accuracy (C0) <= B-year accuracy (0.9750)",
+   "per_model": {
+    "Gemini 3.8 Flash (High)": 0.9416666666666667,
+    "Claude Sonnet 5.5 (Medium)": 0.9041666666666667
+   },
+   "supported": true
+  },
+  "H3": {
+   "rule": "both models: mean D MCC (C1) < 0.5 AND mean precision(yes) < mean recall(yes)",
+   "per_model": {
+    "Gemini 3.8 Flash (High)": {
+     "mcc": 0.26854494444474586,
+     "precision": 0.8878787878787879,
+     "recall": 0.19166666666666665
+    },
+    "Claude Sonnet 5.5 (Medium)": {
+     "mcc": 0.13437638366671453,
+     "precision": 0.5887445887445888,
+     "recall": 0.375
+    }
+   },
+   "supported": false
+  },
+  "H4": {
+   "rule": "at least one model: mean mirror contradiction rate (C0) >= 0.05 OR mean triple cycle rate (C0) >= 0.05",
+   "per_model": {
+    "Gemini 3.8 Flash (High)": {
+     "mirror": 0.0,
+     "cycle": 0.0
+    },
+    "Claude Sonnet 5.5 (Medium)": {
+     "mirror": 0.11666666666666667,
+     "cycle": 0.0
+    }
+   },
+   "supported": true
+  },
+  "H5": {
+   "rule": "both models: mean O accuracy (C2) - mean O accuracy (C1) >= 0.05",
+   "per_model_diff": {
+    "Gemini 3.8 Flash (High)": 0.02083333333333337,
+    "Claude Sonnet 5.5 (Medium)": 0.04166666666666674
+   },
+   "supported": false
+  }
+ },
+ "breakdown": {},
+ "means": {
+  "Gemini 3.8 Flash (High)|C0": {
+   "O_accuracy": 0.9416666666666667,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.0,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.575,
+   "D_mcc": 0.22052483333256714,
+   "D_precision_yes": 0.7817460317460317,
+   "D_recall_yes": 0.20833333333333331,
+   "D_invalid_rate": 0.0
+  },
+  "Gemini 3.8 Flash (High)|C1": {
+   "O_accuracy": 0.9708333333333333,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.0,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.5833333333333333,
+   "D_mcc": 0.26854494444474586,
+   "D_precision_yes": 0.8878787878787879,
+   "D_recall_yes": 0.19166666666666665,
+   "D_invalid_rate": 0.0
+  },
+  "Gemini 3.8 Flash (High)|C2": {
+   "O_accuracy": 0.9916666666666667,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.0,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.5583333333333333,
+   "D_mcc": 0.22082750354826458,
+   "D_precision_yes": 0.8875,
+   "D_recall_yes": 0.13333333333333333,
+   "D_invalid_rate": 0.0
+  },
+  "Claude Sonnet 5.5 (Medium)|C0": {
+   "O_accuracy": 0.9041666666666667,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.11666666666666667,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.6416666666666666,
+   "D_mcc": 0.2887726115689328,
+   "D_precision_yes": 0.6752173913043478,
+   "D_recall_yes": 0.5416666666666666,
+   "D_invalid_rate": 0.0
+  },
+  "Claude Sonnet 5.5 (Medium)|C1": {
+   "O_accuracy": 0.9166666666666666,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.08333333333333334,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.5625,
+   "D_mcc": 0.13437638366671453,
+   "D_precision_yes": 0.5887445887445888,
+   "D_recall_yes": 0.375,
+   "D_invalid_rate": 0.08333333333333333
+  },
+  "Claude Sonnet 5.5 (Medium)|C2": {
+   "O_accuracy": 0.9583333333333334,
+   "O_invalid_rate": 0.0,
+   "O_mirror_contradiction_rate": 0.06666666666666667,
+   "O_triple_cycle_rate": 0.0,
+   "D_balanced_accuracy": 0.6000000000000001,
+   "D_mcc": 0.2182178902359924,
+   "D_precision_yes": 0.6666666666666666,
+   "D_recall_yes": 0.4,
+   "D_invalid_rate": 0.5
+  }
+ },
+ "calls": {
+  "total_agy_invocations": 153,
+  "smoke": 2,
+  "main_first_attempts": 144,
+  "retries": 7,
+  "first_attempt_invalid": 7,
+  "retry_invalid": 7,
+  "skipped_budget": 0,
+  "timed_out": 0,
+  "tool_events_total": 0,
+  "init_models": [
+   "Claude Sonnet 5.5 (Medium) => Claude Sonnet 5.5 (Medium)",
+   "Gemini 3.8 Flash (High) => Gemini 3.8 Flash (High)"
+  ],
+  "elapsed_median_by_model": {
+   "Gemini 3.8 Flash (High)": 75.59,
+   "Claude Sonnet 5.5 (Medium)": 9.34
+  },
+  "parse_notes": {
+   "ok": 137,
+   "empty": 14
+  }
+ }
+}

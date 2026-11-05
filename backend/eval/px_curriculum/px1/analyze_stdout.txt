@@ -1,0 +1,147 @@
+{
+ "H1": {
+  "rule": "both models: mean O accuracy (C1) < 0.90",
+  "per_model": {
+   "Gemini 3.8 Flash (High)": 0.9708333333333333,
+   "Claude Sonnet 5.5 (Medium)": 0.9166666666666666
+  },
+  "supported": false
+ },
+ "H2": {
+  "rule": "both models: mean O accuracy (C0) <= B-year accuracy (0.9750)",
+  "per_model": {
+   "Gemini 3.8 Flash (High)": 0.9416666666666667,
+   "Claude Sonnet 5.5 (Medium)": 0.9041666666666667
+  },
+  "supported": true
+ },
+ "H3": {
+  "rule": "both models: mean D MCC (C1) < 0.5 AND mean precision(yes) < mean recall(yes)",
+  "per_model": {
+   "Gemini 3.8 Flash (High)": {
+    "mcc": 0.26854494444474586,
+    "precision": 0.8878787878787879,
+    "recall": 0.19166666666666665
+   },
+   "Claude Sonnet 5.5 (Medium)": {
+    "mcc": 0.13437638366671453,
+    "precision": 0.5887445887445888,
+    "recall": 0.375
+   }
+  },
+  "supported": false
+ },
+ "H4": {
+  "rule": "at least one model: mean mirror contradiction rate (C0) >= 0.05 OR mean triple cycle rate (C0) >= 0.05",
+  "per_model": {
+   "Gemini 3.8 Flash (High)": {
+    "mirror": 0.0,
+    "cycle": 0.0
+   },
+   "Claude Sonnet 5.5 (Medium)": {
+    "mirror": 0.11666666666666667,
+    "cycle": 0.0
+   }
+  },
+  "supported": true
+ },
+ "H5": {
+  "rule": "both models: mean O accuracy (C2) - mean O accuracy (C1) >= 0.05",
+  "per_model_diff": {
+   "Gemini 3.8 Flash (High)": 0.02083333333333337,
+   "Claude Sonnet 5.5 (Medium)": 0.04166666666666674
+  },
+  "supported": false
+ }
+}
+{
+ "Gemini 3.8 Flash (High)|C0": {
+  "O_accuracy": 0.9416666666666667,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.0,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.575,
+  "D_mcc": 0.22052483333256714,
+  "D_precision_yes": 0.7817460317460317,
+  "D_recall_yes": 0.20833333333333331,
+  "D_invalid_rate": 0.0
+ },
+ "Gemini 3.8 Flash (High)|C1": {
+  "O_accuracy": 0.9708333333333333,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.0,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.5833333333333333,
+  "D_mcc": 0.26854494444474586,
+  "D_precision_yes": 0.8878787878787879,
+  "D_recall_yes": 0.19166666666666665,
+  "D_invalid_rate": 0.0
+ },
+ "Gemini 3.8 Flash (High)|C2": {
+  "O_accuracy": 0.9916666666666667,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.0,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.5583333333333333,
+  "D_mcc": 0.22082750354826458,
+  "D_precision_yes": 0.8875,
+  "D_recall_yes": 0.13333333333333333,
+  "D_invalid_rate": 0.0
+ },
+ "Claude Sonnet 5.5 (Medium)|C0": {
+  "O_accuracy": 0.9041666666666667,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.11666666666666667,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.6416666666666666,
+  "D_mcc": 0.2887726115689328,
+  "D_precision_yes": 0.6752173913043478,
+  "D_recall_yes": 0.5416666666666666,
+  "D_invalid_rate": 0.0
+ },
+ "Claude Sonnet 5.5 (Medium)|C1": {
+  "O_accuracy": 0.9166666666666666,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.08333333333333334,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.5625,
+  "D_mcc": 0.13437638366671453,
+  "D_precision_yes": 0.5887445887445888,
+  "D_recall_yes": 0.375,
+  "D_invalid_rate": 0.08333333333333333
+ },
+ "Claude Sonnet 5.5 (Medium)|C2": {
+  "O_accuracy": 0.9583333333333334,
+  "O_invalid_rate": 0.0,
+  "O_mirror_contradiction_rate": 0.06666666666666667,
+  "O_triple_cycle_rate": 0.0,
+  "D_balanced_accuracy": 0.6000000000000001,
+  "D_mcc": 0.2182178902359924,
+  "D_precision_yes": 0.6666666666666666,
+  "D_recall_yes": 0.4,
+  "D_invalid_rate": 0.5
+ }
+}
+{
+ "total_agy_invocations": 153,
+ "smoke": 2,
+ "main_first_attempts": 144,
+ "retries": 7,
+ "first_attempt_invalid": 7,
+ "retry_invalid": 7,
+ "skipped_budget": 0,
+ "timed_out": 0,
+ "tool_events_total": 0,
+ "init_models": [
+  "Claude Sonnet 5.5 (Medium) => Claude Sonnet 5.5 (Medium)",
+  "Gemini 3.8 Flash (High) => Gemini 3.8 Flash (High)"
+ ],
+ "elapsed_median_by_model": {
+  "Gemini 3.8 Flash (High)": 75.59,
+  "Claude Sonnet 5.5 (Medium)": 9.34
+ },
+ "parse_notes": {
+  "ok": 137,
+  "empty": 14
+ }
+}

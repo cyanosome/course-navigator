@@ -1,0 +1,299 @@
+"""PX-1 の集計（事前登録の指標と判定規則をそのまま実装）。
+
+入力: px1/raw/calls.jsonl, px1/items_O.json, px1/items_D.json, px1/baseline_byear.json, dataset/courses.json
+出力: px1/results.json（全数値）, px1/item_answers.csv（項目×モデル×条件×回の最終の答え）
+"""
+import sys
+import csv
+import json
+import math
+from itertools import combinations
+from pathlib import Path
+
+PX = Path(__file__).resolve().parent.parent
+P1 = PX / "px1"
+MODELS = ("Gemini 3.8 Flash (High)", "Claude Sonnet 5.5 (Medium)")
+CONDITIONS = ("C0", "C1", "C2")
+RUNS = (1, 2)
+Z = 1.959963984540054
+CALLS = Path(sys.argv[1]) if len(sys.argv) > 1 else P1 / "raw" / "calls.jsonl"
+OUT_TAG = sys.argv[2] if len(sys.argv) > 2 else ""
+
+
+def wilson(k: int, n: int) -> list | None:
+    if n == 0:
+        return None
+    p = k / n
+    den = 1 + Z * Z / n
+    c = (p + Z * Z / (2 * n)) / den
+    h = Z * math.sqrt(p * (1 - p) / n + Z * Z / (4 * n * n)) / den
+    return [c - h, c + h]
+
+
+def mcnemar_exact(b: int, c: int) -> float:
+    n = b + c
+    if n == 0:
+        return 1.0
+    k = min(b, c)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+def kappa(x: list, y: list) -> float | None:
+    n = len(x)
+    if n == 0:
+        return None
+    labels = sorted(set(x) | set(y))
+    po = sum(a == b for a, b in zip(x, y)) / n
+    pe = sum((x.count(l) / n) * (y.count(l) / n) for l in labels)
+    if pe == 1:
+        return None
+    return (po - pe) / (1 - pe)
+
+
+def mean2(vals: list) -> float | None:
+    v = [x for x in vals if x is not None]
+    return sum(v) / len(v) if v else None
+
+
+def load_final() -> dict:
+    """{(model, task, cond, run): {item_id: answer or None}}"""
+    final = {}
+    for line in CALLS.read_text(encoding="utf-8").splitlines():
+        r = json.loads(line)
+        if r.get("type") not in ("call", "skipped_budget"):
+            continue
+        if not r.get("final"):
+            continue
+        if r["type"] == "skipped_budget":
+            continue  # 予算切れの項目は下で「無効」として埋まる
+        key = (r["model"], r["task"], r["condition"], r["run"])
+        d = final.setdefault(key, {})
+        for qid, item_id in r["qmap"].items():
+            d[item_id] = r["final_answers"][qid]
+    return final
+
+
+def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
+    items_o = json.loads((P1 / "items_O.json").read_text(encoding="utf-8"))
+    items_d = json.loads((P1 / "items_D.json").read_text(encoding="utf-8"))
+    byear = json.loads((P1 / "baseline_byear.json").read_text(encoding="utf-8"))
+    courses = {c["course_id"]: c for c in json.loads((PX / "dataset" / "courses.json").read_text(encoding="utf-8"))}
+    final = load_final()
+
+    def answers(model, task, cond, run):
+        d = final.get((model, task, cond, run), {})
+        its = items_o if task == "O" else items_d
+        return {it["item_id"]: d.get(it["item_id"]) for it in its}
+
+    res = {"O": {}, "D": {}, "kappa": {}, "mcnemar": {}, "byear": {}, "hypotheses": {}, "breakdown": {}}
+    b_correct = sum(v["correct"] for v in byear.values())
+    res["byear"] = {"correct": b_correct, "n": len(byear), "accuracy": b_correct / len(byear),
+                    "wilson95": wilson(b_correct, len(byear)), "ties": sum(v["tie"] for v in byear.values())}
+
+    o_by_id = {it["item_id"]: it for it in items_o}
+    mirrors = {}
+    triples = {}
+    for it in items_o:
+        if it["kind"] == "mirror":
+            mirrors.setdefault(it["mirror_id"], []).append(it)
+        else:
+            triples.setdefault(it["triple_id"], []).append(it)
+
+    for m in MODELS:
+        for cond in CONDITIONS:
+            for run in RUNS:
+                # ---- O ----
+                a = answers(m, "O", cond, run)
+                valid = [i for i, v in a.items() if v is not None]
+                correct = [i for i in valid if a[i] == o_by_id[i]["truth"]]
+                n_valid, n_corr = len(valid), len(correct)
+                chosen_first = {}
+                for i in valid:
+                    it = o_by_id[i]
+                    chosen_first[i] = it["shown_A"] if a[i] == "A" else it["shown_B"]
+                mir_n = mir_contra = mir_both_first = mir_both_second = 0
+                for mid, pair in mirrors.items():
+                    if all(p["item_id"] in chosen_first for p in pair):
+                        mir_n += 1
+                        c1, c2 = (chosen_first[p["item_id"]] for p in pair)
+                        if c1 != c2:
+                            mir_contra += 1
+                            if all(a[p["item_id"]] == "A" for p in pair):
+                                mir_both_first += 1
+                            elif all(a[p["item_id"]] == "B" for p in pair):
+                                mir_both_second += 1
+                tri_n = tri_cyc = 0
+                for tid, trip in triples.items():
+                    if all(t["item_id"] in chosen_first for t in trip):
+                        tri_n += 1
+                        edges = set()
+                        for t in trip:
+                            first = chosen_first[t["item_id"]]
+                            other = t["shown_B"] if first == t["shown_A"] else t["shown_A"]
+                            edges.add((first, other))
+                        nodes = {x for e in edges for x in e}
+                        outdeg = {v: sum(1 for e in edges if e[0] == v) for v in nodes}
+                        if len(nodes) == 3 and all(d == 1 for d in outdeg.values()):
+                            tri_cyc += 1
+                same_year = [i for i in valid if courses[o_by_id[i]["earlier"]]["year"] == courses[o_by_id[i]["later"]]["year"]]
+                res["O"][f"{m}|{cond}|{run}"] = {
+                    "model": m, "condition": cond, "run": run, "n_items": len(a), "n_valid": n_valid,
+                    "n_invalid": len(a) - n_valid, "invalid_rate": (len(a) - n_valid) / len(a),
+                    "n_correct": n_corr, "accuracy": n_corr / n_valid if n_valid else None,
+                    "wilson95": wilson(n_corr, n_valid), "accuracy_invalid_as_wrong": n_corr / len(a),
+                    "mirror_pairs_valid": mir_n, "mirror_contradictions": mir_contra,
+                    "mirror_contradiction_rate": mir_contra / mir_n if mir_n else None,
+                    "mirror_contra_both_first": mir_both_first, "mirror_contra_both_second": mir_both_second,
+                    "triples_valid": tri_n, "triple_cycles": tri_cyc,
+                    "triple_cycle_rate": tri_cyc / tri_n if tri_n else None,
+                    "same_year_valid": len(same_year),
+                    "same_year_correct": sum(1 for i in same_year if a[i] == o_by_id[i]["truth"]),
+                    "answered_A": sum(1 for i in valid if a[i] == "A"),
+                }
+                # ---- D ----
+                a = answers(m, "D", cond, run)
+                tp = fp = tn = fn = 0
+                for it in items_d:
+                    v = a[it["item_id"]]
+                    if v is None:
+                        continue
+                    if it["truth"] == "はい":
+                        tp += v == "はい"
+                        fn += v == "いいえ"
+                    else:
+                        fp += v == "はい"
+                        tn += v == "いいえ"
+                n_valid = tp + fp + tn + fn
+                tpr = tp / (tp + fn) if tp + fn else None
+                tnr = tn / (tn + fp) if tn + fp else None
+                den = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+                res["D"][f"{m}|{cond}|{run}"] = {
+                    "model": m, "condition": cond, "run": run, "n_items": len(a), "n_valid": n_valid,
+                    "n_invalid": len(a) - n_valid, "invalid_rate": (len(a) - n_valid) / len(a),
+                    "tp": tp, "fp": fp, "tn": tn, "fn": fn,
+                    "balanced_accuracy": (tpr + tnr) / 2 if tpr is not None and tnr is not None else None,
+                    # 事前登録後の修正（逸脱 E3）: 有効な項目が 0 件のときは MCC を出さない（None）。分母 0 で 0 とするのは有効な項目があるときだけ
+                    "mcc": None if n_valid == 0 else ((tp * tn - fp * fn) / den if den else 0.0), "mcc_den_zero": den == 0,
+                    "precision_yes": tp / (tp + fp) if tp + fp else None,
+                    "recall_yes": tpr, "specificity": tnr, "yes_rate": (tp + fp) / n_valid if n_valid else None,
+                }
+            # ---- 実行間の一致 ----
+            for task, its in (("O", items_o), ("D", items_d)):
+                a1, a2 = answers(m, task, cond, 1), answers(m, task, cond, 2)
+                both = [it["item_id"] for it in its if a1[it["item_id"]] is not None and a2[it["item_id"]] is not None]
+                if task == "O":
+                    x = [a1[i] == o_by_id[i]["truth"] for i in both]
+                    y = [a2[i] == o_by_id[i]["truth"] for i in both]
+                else:
+                    x = [a1[i] for i in both]
+                    y = [a2[i] for i in both]
+                res["kappa"][f"{m}|{task}|{cond}"] = {"n_both_valid": len(both), "kappa": kappa(x, y),
+                                                     "raw_agreement": (sum(p == q for p, q in zip(x, y)) / len(both)) if both else None}
+        # ---- McNemar（向き、同じ回どうし、両方有効な項目）----
+        for run in RUNS:
+            corr = {}
+            for cond in CONDITIONS:
+                a = answers(m, "O", cond, run)
+                corr[cond] = {i: (v == o_by_id[i]["truth"]) for i, v in a.items() if v is not None}
+            corr["B-year"] = {i: v["correct"] for i, v in byear.items()}
+            for c1, c2 in (("C0", "C1"), ("C1", "C2"), ("C0", "C2"), ("C0", "B-year"), ("C1", "B-year"), ("C2", "B-year")):
+                common = sorted(set(corr[c1]) & set(corr[c2]))
+                b = sum(1 for i in common if corr[c1][i] and not corr[c2][i])
+                c = sum(1 for i in common if not corr[c1][i] and corr[c2][i])
+                res["mcnemar"][f"{m}|run{run}|{c1}_vs_{c2}"] = {"n": len(common), "only_first_correct": b,
+                                                                 "only_second_correct": c, "p_exact_two_sided": mcnemar_exact(b, c)}
+
+    # ---- 2回の平均と仮説の判定 ----
+    def mo(m, cond, key):
+        return mean2([res["O"][f"{m}|{cond}|{r}"][key] for r in RUNS])
+
+    def md(m, cond, key):
+        return mean2([res["D"][f"{m}|{cond}|{r}"][key] for r in RUNS])
+
+    means = {}
+    for m in MODELS:
+        for cond in CONDITIONS:
+            means[f"{m}|{cond}"] = {
+                "O_accuracy": mo(m, cond, "accuracy"), "O_invalid_rate": mo(m, cond, "invalid_rate"),
+                "O_mirror_contradiction_rate": mo(m, cond, "mirror_contradiction_rate"),
+                "O_triple_cycle_rate": mo(m, cond, "triple_cycle_rate"),
+                "D_balanced_accuracy": md(m, cond, "balanced_accuracy"), "D_mcc": md(m, cond, "mcc"),
+                "D_precision_yes": md(m, cond, "precision_yes"), "D_recall_yes": md(m, cond, "recall_yes"),
+                "D_invalid_rate": md(m, cond, "invalid_rate"),
+            }
+    res["means"] = means
+    by = res["byear"]["accuracy"]
+    h = {}
+    per = {m: means[f"{m}|C1"]["O_accuracy"] for m in MODELS}
+    h["H1"] = {"rule": "both models: mean O accuracy (C1) < 0.90", "per_model": per,
+               "supported": all(v is not None and v < 0.90 for v in per.values())}
+    per = {m: means[f"{m}|C0"]["O_accuracy"] for m in MODELS}
+    h["H2"] = {"rule": f"both models: mean O accuracy (C0) <= B-year accuracy ({by:.4f})", "per_model": per,
+               "supported": all(v is not None and v <= by for v in per.values())}
+    per = {m: {"mcc": means[f"{m}|C1"]["D_mcc"], "precision": means[f"{m}|C1"]["D_precision_yes"],
+               "recall": means[f"{m}|C1"]["D_recall_yes"]} for m in MODELS}
+    h["H3"] = {"rule": "both models: mean D MCC (C1) < 0.5 AND mean precision(yes) < mean recall(yes)", "per_model": per,
+               "supported": all(v["mcc"] is not None and v["mcc"] < 0.5 and v["precision"] is not None
+                                and v["recall"] is not None and v["precision"] < v["recall"] for v in per.values())}
+    per = {m: {"mirror": means[f"{m}|C0"]["O_mirror_contradiction_rate"], "cycle": means[f"{m}|C0"]["O_triple_cycle_rate"]}
+           for m in MODELS}
+    h["H4"] = {"rule": "at least one model: mean mirror contradiction rate (C0) >= 0.05 OR mean triple cycle rate (C0) >= 0.05",
+               "per_model": per,
+               "supported": any((v["mirror"] is not None and v["mirror"] >= 0.05) or (v["cycle"] is not None and v["cycle"] >= 0.05)
+                                for v in per.values())}
+    per = {m: (None if means[f"{m}|C2"]["O_accuracy"] is None or means[f"{m}|C1"]["O_accuracy"] is None
+               else means[f"{m}|C2"]["O_accuracy"] - means[f"{m}|C1"]["O_accuracy"]) for m in MODELS}
+    h["H5"] = {"rule": "both models: mean O accuracy (C2) - mean O accuracy (C1) >= 0.05", "per_model_diff": per,
+               "supported": all(v is not None and v >= 0.05 for v in per.values())}
+    res["hypotheses"] = h
+
+    # ---- 項目ごとの答え（CSV）----
+    rows = []
+    for task, its in (("O", items_o), ("D", items_d)):
+        for it in its:
+            for m in MODELS:
+                for cond in CONDITIONS:
+                    for run in RUNS:
+                        v = answers(m, task, cond, run)[it["item_id"]]
+                        rows.append({"task": task, "item_id": it["item_id"], "model": m, "condition": cond, "run": run,
+                                     "shown_A": courses[it["shown_A"]]["name"], "shown_B": courses[it["shown_B"]]["name"],
+                                     "truth": it["truth"], "answer": v if v is not None else "",
+                                     "correct": "" if v is None else int(v == it["truth"])})
+    with open(P1 / f"item_answers{OUT_TAG}.csv", "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+
+    # ---- 呼び出しの統計 ----
+    calls = [json.loads(l) for l in CALLS.read_text(encoding="utf-8").splitlines()]
+    cc = [c for c in calls if c.get("type") == "call"]
+    res["calls"] = {
+        "total_agy_invocations": sum(1 for c in calls if c.get("type") in ("call", "smoke")),
+        "smoke": sum(1 for c in calls if c.get("type") == "smoke"),
+        "main_first_attempts": sum(1 for c in cc if c["attempt"] == 1),
+        "retries": sum(1 for c in cc if c["attempt"] == 2),
+        "first_attempt_invalid": sum(1 for c in cc if c["attempt"] == 1 and not c["call_valid"]),
+        "retry_invalid": sum(1 for c in cc if c["attempt"] == 2 and not c["call_valid"]),
+        "skipped_budget": sum(1 for c in calls if c.get("type") == "skipped_budget"),
+        "timed_out": sum(1 for c in cc if c.get("timed_out")),
+        "tool_events_total": sum(c.get("tool_events", 0) for c in cc),
+        "init_models": sorted({f"{c['model']} => {c.get('init_model')}" for c in cc}),
+        "elapsed_median_by_model": {},
+        "parse_notes": {},
+    }
+    for m in MODELS:
+        el = sorted(c["elapsed_s"] for c in cc if c["model"] == m)
+        res["calls"]["elapsed_median_by_model"][m] = el[len(el) // 2] if el else None
+    for c in cc:
+        res["calls"]["parse_notes"][c["parse_note"]] = res["calls"]["parse_notes"].get(c["parse_note"], 0) + 1
+
+    (P1 / f"results{OUT_TAG}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(json.dumps(res["hypotheses"], ensure_ascii=False, indent=1))
+    print(json.dumps(res["means"], ensure_ascii=False, indent=1))
+    print(json.dumps(res["calls"], ensure_ascii=False, indent=1))
+
+
+if __name__ == "__main__":
+    main()

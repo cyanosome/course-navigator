@@ -1,0 +1,765 @@
+{
+ "step_types": {
+  "user_input": 153,
+  "agent_response": 139,
+  "error_message": 14
+ },
+ "non_response_steps_by_model": {
+  "Claude Sonnet 5.5 (Medium)": 14
+ },
+ "tokens_by_model": {
+  "Claude Sonnet 5.5 (Medium)": {
+   "input_tokens": 1028821,
+   "output_tokens": 23986,
+   "thinking_tokens": 0,
+   "cache_read_tokens": 338000
+  },
+  "Gemini 3.8 Flash (High)": {
+   "input_tokens": 1001070,
+   "output_tokens": 836663,
+   "thinking_tokens": 815572,
+   "cache_read_tokens": 0
+  }
+ },
+ "elapsed_median_by_model_condition": {
+  "Claude Sonnet 5.5 (Medium)|C0": 12.08,
+  "Gemini 3.8 Flash (High)|C0": 74.75,
+  "Claude Sonnet 5.5 (Medium)|C1": 9.4,
+  "Gemini 3.8 Flash (High)|C1": 82.7,
+  "Claude Sonnet 5.5 (Medium)|C2": 8.72,
+  "Gemini 3.8 Flash (High)|C2": 71.15
+ },
+ "O_breakdown_pooled_runs": {
+  "Gemini 3.8 Flash (High)|C0": {
+   "agree_byear=no": {
+    "correct": 6,
+    "n": 20,
+    "acc": 0.3
+   },
+   "agree_byear=yes": {
+    "correct": 220,
+    "n": 220,
+    "acc": 1.0
+   },
+   "byear=correct": {
+    "correct": 220,
+    "n": 234,
+    "acc": 0.9401709401709402
+   },
+   "byear=wrong": {
+    "correct": 6,
+    "n": 6,
+    "acc": 1.0
+   },
+   "dy=0": {
+    "correct": 23,
+    "n": 26,
+    "acc": 0.8846153846153846
+   },
+   "dy=1": {
+    "correct": 129,
+    "n": 140,
+    "acc": 0.9214285714285714
+   },
+   "dy=2+": {
+    "correct": 74,
+    "n": 74,
+    "acc": 1.0
+   },
+   "kind=mirror": {
+    "correct": 120,
+    "n": 120,
+    "acc": 1.0
+   },
+   "kind=triple": {
+    "correct": 106,
+    "n": 120,
+    "acc": 0.8833333333333333
+   }
+  },
+  "Gemini 3.8 Flash (High)|C1": {
+   "agree_byear=no": {
+    "correct": 6,
+    "n": 13,
+    "acc": 0.46153846153846156
+   },
+   "agree_byear=yes": {
+    "correct": 227,
+    "n": 227,
+    "acc": 1.0
+   },
+   "byear=correct": {
+    "correct": 227,
+    "n": 234,
+    "acc": 0.9700854700854701
+   },
+   "byear=wrong": {
+    "correct": 6,
+    "n": 6,
+    "acc": 1.0
+   },
+   "dy=0": {
+    "correct": 24,
+    "n": 26,
+    "acc": 0.9230769230769231
+   },
+   "dy=1": {
+    "correct": 135,
+    "n": 140,
+    "acc": 0.9642857142857143
+   },
+   "dy=2+": {
+    "correct": 74,
+    "n": 74,
+    "acc": 1.0
+   },
+   "kind=mirror": {
+    "correct": 120,
+    "n": 120,
+    "acc": 1.0
+   },
+   "kind=triple": {
+    "correct": 113,
+    "n": 120,
+    "acc": 0.9416666666666667
+   }
+  },
+  "Gemini 3.8 Flash (High)|C2": {
+   "agree_byear=no": {
+    "correct": 4,
+    "n": 4,
+    "acc": 1.0
+   },
+   "agree_byear=yes": {
+    "correct": 234,
+    "n": 236,
+    "acc": 0.9915254237288136
+   },
+   "byear=correct": {
+    "correct": 234,
+    "n": 234,
+    "acc": 1.0
+   },
+   "byear=wrong": {
+    "correct": 4,
+    "n": 6,
+    "acc": 0.6666666666666666
+   },
+   "dy=0": {
+    "correct": 24,
+    "n": 26,
+    "acc": 0.9230769230769231
+   },
+   "dy=1": {
+    "correct": 140,
+    "n": 140,
+    "acc": 1.0
+   },
+   "dy=2+": {
+    "correct": 74,
+    "n": 74,
+    "acc": 1.0
+   },
+   "kind=mirror": {
+    "correct": 120,
+    "n": 120,
+    "acc": 1.0
+   },
+   "kind=triple": {
+    "correct": 118,
+    "n": 120,
+    "acc": 0.9833333333333333
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C0": {
+   "agree_byear=no": {
+    "correct": 6,
+    "n": 29,
+    "acc": 0.20689655172413793
+   },
+   "agree_byear=yes": {
+    "correct": 211,
+    "n": 211,
+    "acc": 1.0
+   },
+   "byear=correct": {
+    "correct": 211,
+    "n": 234,
+    "acc": 0.9017094017094017
+   },
+   "byear=wrong": {
+    "correct": 6,
+    "n": 6,
+    "acc": 1.0
+   },
+   "dy=0": {
+    "correct": 23,
+    "n": 26,
+    "acc": 0.8846153846153846
+   },
+   "dy=1": {
+    "correct": 120,
+    "n": 140,
+    "acc": 0.8571428571428571
+   },
+   "dy=2+": {
+    "correct": 74,
+    "n": 74,
+    "acc": 1.0
+   },
+   "kind=mirror": {
+    "correct": 113,
+    "n": 120,
+    "acc": 0.9416666666666667
+   },
+   "kind=triple": {
+    "correct": 104,
+    "n": 120,
+    "acc": 0.8666666666666667
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C1": {
+   "agree_byear=no": {
+    "correct": 6,
+    "n": 26,
+    "acc": 0.23076923076923078
+   },
+   "agree_byear=yes": {
+    "correct": 214,
+    "n": 214,
+    "acc": 1.0
+   },
+   "byear=correct": {
+    "correct": 214,
+    "n": 234,
+    "acc": 0.9145299145299145
+   },
+   "byear=wrong": {
+    "correct": 6,
+    "n": 6,
+    "acc": 1.0
+   },
+   "dy=0": {
+    "correct": 24,
+    "n": 26,
+    "acc": 0.9230769230769231
+   },
+   "dy=1": {
+    "correct": 123,
+    "n": 140,
+    "acc": 0.8785714285714286
+   },
+   "dy=2+": {
+    "correct": 73,
+    "n": 74,
+    "acc": 0.9864864864864865
+   },
+   "kind=mirror": {
+    "correct": 115,
+    "n": 120,
+    "acc": 0.9583333333333334
+   },
+   "kind=triple": {
+    "correct": 105,
+    "n": 120,
+    "acc": 0.875
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C2": {
+   "agree_byear=no": {
+    "correct": 3,
+    "n": 10,
+    "acc": 0.3
+   },
+   "agree_byear=yes": {
+    "correct": 227,
+    "n": 230,
+    "acc": 0.9869565217391304
+   },
+   "byear=correct": {
+    "correct": 227,
+    "n": 234,
+    "acc": 0.9700854700854701
+   },
+   "byear=wrong": {
+    "correct": 3,
+    "n": 6,
+    "acc": 0.5
+   },
+   "dy=0": {
+    "correct": 17,
+    "n": 26,
+    "acc": 0.6538461538461539
+   },
+   "dy=1": {
+    "correct": 139,
+    "n": 140,
+    "acc": 0.9928571428571429
+   },
+   "dy=2+": {
+    "correct": 74,
+    "n": 74,
+    "acc": 1.0
+   },
+   "kind=mirror": {
+    "correct": 116,
+    "n": 120,
+    "acc": 0.9666666666666667
+   },
+   "kind=triple": {
+    "correct": 114,
+    "n": 120,
+    "acc": 0.95
+   }
+  }
+ },
+ "byear_by_dy": {
+  "dy=0": {
+   "correct": 10,
+   "n": 13
+  },
+  "dy=1": {
+   "correct": 70,
+   "n": 70
+  },
+  "dy=2+": {
+   "correct": 37,
+   "n": 37
+  }
+ },
+ "D_yes_rate_breakdown_pooled_runs": {
+  "Gemini 3.8 Flash (High)|C0": {
+   "truth=いいえ|dy=0": {
+    "yes": 3,
+    "n": 42,
+    "yes_rate": 0.07142857142857142
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 4,
+    "n": 60,
+    "yes_rate": 0.06666666666666667
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 18,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 2,
+    "n": 18,
+    "yes_rate": 0.1111111111111111
+   },
+   "truth=はい|dy=1": {
+    "yes": 20,
+    "n": 62,
+    "yes_rate": 0.3225806451612903
+   },
+   "truth=はい|dy=2+": {
+    "yes": 3,
+    "n": 40,
+    "yes_rate": 0.075
+   }
+  },
+  "Gemini 3.8 Flash (High)|C1": {
+   "truth=いいえ|dy=0": {
+    "yes": 1,
+    "n": 42,
+    "yes_rate": 0.023809523809523808
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 2,
+    "n": 60,
+    "yes_rate": 0.03333333333333333
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 18,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 0,
+    "n": 18,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=1": {
+    "yes": 21,
+    "n": 62,
+    "yes_rate": 0.3387096774193548
+   },
+   "truth=はい|dy=2+": {
+    "yes": 2,
+    "n": 40,
+    "yes_rate": 0.05
+   }
+  },
+  "Gemini 3.8 Flash (High)|C2": {
+   "truth=いいえ|dy=0": {
+    "yes": 0,
+    "n": 42,
+    "yes_rate": 0.0
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 2,
+    "n": 60,
+    "yes_rate": 0.03333333333333333
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 18,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 2,
+    "n": 18,
+    "yes_rate": 0.1111111111111111
+   },
+   "truth=はい|dy=1": {
+    "yes": 14,
+    "n": 62,
+    "yes_rate": 0.22580645161290322
+   },
+   "truth=はい|dy=2+": {
+    "yes": 0,
+    "n": 40,
+    "yes_rate": 0.0
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C0": {
+   "truth=いいえ|dy=0": {
+    "yes": 12,
+    "n": 42,
+    "yes_rate": 0.2857142857142857
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 19,
+    "n": 60,
+    "yes_rate": 0.31666666666666665
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 18,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 9,
+    "n": 18,
+    "yes_rate": 0.5
+   },
+   "truth=はい|dy=1": {
+    "yes": 43,
+    "n": 62,
+    "yes_rate": 0.6935483870967742
+   },
+   "truth=はい|dy=2+": {
+    "yes": 13,
+    "n": 40,
+    "yes_rate": 0.325
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C1": {
+   "truth=いいえ|dy=0": {
+    "yes": 11,
+    "n": 38,
+    "yes_rate": 0.2894736842105263
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 17,
+    "n": 57,
+    "yes_rate": 0.2982456140350877
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 17,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 4,
+    "n": 17,
+    "yes_rate": 0.23529411764705882
+   },
+   "truth=はい|dy=1": {
+    "yes": 29,
+    "n": 55,
+    "yes_rate": 0.5272727272727272
+   },
+   "truth=はい|dy=2+": {
+    "yes": 7,
+    "n": 36,
+    "yes_rate": 0.19444444444444445
+   }
+  },
+  "Claude Sonnet 5.5 (Medium)|C2": {
+   "truth=いいえ|dy=0": {
+    "yes": 3,
+    "n": 21,
+    "yes_rate": 0.14285714285714285
+   },
+   "truth=いいえ|dy=1": {
+    "yes": 9,
+    "n": 30,
+    "yes_rate": 0.3
+   },
+   "truth=いいえ|dy=2+": {
+    "yes": 0,
+    "n": 9,
+    "yes_rate": 0.0
+   },
+   "truth=はい|dy=0": {
+    "yes": 3,
+    "n": 9,
+    "yes_rate": 0.3333333333333333
+   },
+   "truth=はい|dy=1": {
+    "yes": 18,
+    "n": 31,
+    "yes_rate": 0.5806451612903226
+   },
+   "truth=はい|dy=2+": {
+    "yes": 3,
+    "n": 20,
+    "yes_rate": 0.15
+   }
+  }
+ },
+ "O_wrong_by_all_4_C1": [],
+ "O_wrong_by_all_4_C0_count": 4,
+ "O_wrong_by_all_4_C2_count": 0,
+ "D_false_yes_by_all_4_C1": [
+  {
+   "item_id": "D073",
+   "A": "ユニットオペレーションⅠ",
+   "B": "粉体工学",
+   "groups": [
+    "G_2Y_UnitOp",
+    "G_3Y_MatEnergy"
+   ]
+  }
+ ],
+ "D_false_no_by_all_4_C1": [
+  {
+   "item_id": "D002",
+   "A": "粉体工学",
+   "B": "線形代数Ⅱ",
+   "groups": [
+    "G_3Y_MatEnergy",
+    "G_1Y_ChemEng"
+   ]
+  },
+  {
+   "item_id": "D005",
+   "A": "基礎分析化学",
+   "B": "特別研究Ⅰ",
+   "groups": [
+    "G_2Y_AnalOrg",
+    "G_Research1"
+   ]
+  },
+  {
+   "item_id": "D007",
+   "A": "粉体工学",
+   "B": "物理学実験",
+   "groups": [
+    "G_3Y_MatEnergy",
+    "G_1Y_ChemEng"
+   ]
+  },
+  {
+   "item_id": "D008",
+   "A": "特別研究Ⅱ",
+   "B": "知的財産権法",
+   "groups": [
+    "G_Research2",
+    "G_LawBiz"
+   ]
+  },
+  {
+   "item_id": "D009",
+   "A": "プロセス最適化工学",
+   "B": "化学実験",
+   "groups": [
+    "G_3Y_AppChemEng",
+    "G_1Y_BasicChem"
+   ]
+  },
+  {
+   "item_id": "D010",
+   "A": "機能性材料学",
+   "B": "基礎からの情報処理",
+   "groups": [
+    "G_3Y_MatEnergy",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D011",
+   "A": "有機化学",
+   "B": "数学を学ぶ（微分積分Ⅰ・演習Ⅰ）",
+   "groups": [
+    "G_2Y_AnalOrg",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D013",
+   "A": "分析化学実験",
+   "B": "物理を学ぶ（力学Ⅰ）",
+   "groups": [
+    "G_2Y_AnalOrg",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D014",
+   "A": "数学を学ぶ（微分積分Ⅱ・演習Ⅱ）",
+   "B": "入門化学結合論",
+   "groups": [
+    "G_Common",
+    "G_1Y_BasicChem"
+   ]
+  },
+  {
+   "item_id": "D017",
+   "A": "線形代数Ⅱ",
+   "B": "化学工学実験",
+   "groups": [
+    "G_1Y_ChemEng",
+    "G_3Y_AppChemEng"
+   ]
+  },
+  {
+   "item_id": "D022",
+   "A": "粉体工学",
+   "B": "入門化学結合論",
+   "groups": [
+    "G_3Y_MatEnergy",
+    "G_1Y_BasicChem"
+   ]
+  },
+  {
+   "item_id": "D023",
+   "A": "流体工学",
+   "B": "化学実験",
+   "groups": [
+    "G_3Y_AppChemEng",
+    "G_1Y_BasicChem"
+   ]
+  },
+  {
+   "item_id": "D024",
+   "A": "情報処理演習",
+   "B": "数学を学ぶ（微分積分Ⅱ・演習Ⅱ）",
+   "groups": [
+    "InfoExercise",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D025",
+   "A": "数学を学ぶ（微分積分Ⅰ・演習Ⅰ）",
+   "B": "物理化学演習",
+   "groups": [
+    "G_Common",
+    "G_2Y_PhysChem"
+   ]
+  },
+  {
+   "item_id": "D030",
+   "A": "プロセス最適化工学",
+   "B": "物理を学ぶ（電磁気学Ⅰ）",
+   "groups": [
+    "G_3Y_AppChemEng",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D038",
+   "A": "物理を学ぶ（力学Ⅰ）",
+   "B": "情報処理演習",
+   "groups": [
+    "G_Common",
+    "InfoExercise"
+   ]
+  },
+  {
+   "item_id": "D039",
+   "A": "入門エネルギー環境学",
+   "B": "図学",
+   "groups": [
+    "G_1Y_ChemEng",
+    "G_2Y_UnitOp"
+   ]
+  },
+  {
+   "item_id": "D042",
+   "A": "物理化学実験",
+   "B": "シミュレーション演習",
+   "groups": [
+    "G_2Y_PhysChem",
+    "G_3Y_AppChemEng"
+   ]
+  },
+  {
+   "item_id": "D043",
+   "A": "図学",
+   "B": "シミュレーション演習",
+   "groups": [
+    "G_2Y_UnitOp",
+    "G_3Y_AppChemEng"
+   ]
+  },
+  {
+   "item_id": "D045",
+   "A": "入門エネルギー環境学",
+   "B": "物理を学ぶ（力学Ⅰ）",
+   "groups": [
+    "G_1Y_ChemEng",
+    "G_Common"
+   ]
+  },
+  {
+   "item_id": "D047",
+   "A": "プロセス最適化工学",
+   "B": "物理化学実験",
+   "groups": [
+    "G_3Y_AppChemEng",
+    "G_2Y_PhysChem"
+   ]
+  },
+  {
+   "item_id": "D049",
+   "A": "物理を学ぶ（電磁気学Ⅰ）",
+   "B": "ユニットオペレーションⅡ",
+   "groups": [
+    "G_Common",
+    "G_2Y_UnitOp"
+   ]
+  },
+  {
+   "item_id": "D055",
+   "A": "有機化学反応論",
+   "B": "特別研究Ⅰ",
+   "groups": [
+    "G_3Y_OrgCatal",
+    "G_Research1"
+   ]
+  },
+  {
+   "item_id": "D056",
+   "A": "プロセス最適化工学",
+   "B": "無機化学",
+   "groups": [
+    "G_3Y_AppChemEng",
+    "G_1Y_BasicChem"
+   ]
+  },
+  {
+   "item_id": "D058",
+   "A": "特別研究Ⅱ",
+   "B": "図学",
+   "groups": [
+    "G_Research2",
+    "G_2Y_UnitOp"
+   ]
+  }
+ ]
+}

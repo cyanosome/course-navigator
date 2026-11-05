@@ -1,0 +1,842 @@
+[
+ {
+  "item_id": "D001",
+  "shown_A": "c69",
+  "shown_B": "c50",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D002",
+  "shown_A": "c19",
+  "shown_B": "c59",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D003",
+  "shown_A": "c20",
+  "shown_B": "c46",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D004",
+  "shown_A": "c65",
+  "shown_B": "c35",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D005",
+  "shown_A": "c47",
+  "shown_B": "c02",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D006",
+  "shown_A": "c08",
+  "shown_B": "c67",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D007",
+  "shown_A": "c19",
+  "shown_B": "c57",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D008",
+  "shown_A": "c01",
+  "shown_B": "c03",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D009",
+  "shown_A": "c12",
+  "shown_B": "c62",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D010",
+  "shown_A": "c20",
+  "shown_B": "c70",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D011",
+  "shown_A": "c50",
+  "shown_B": "c65",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D012",
+  "shown_A": "c09",
+  "shown_B": "c35",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D013",
+  "shown_A": "c48",
+  "shown_B": "c67",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D014",
+  "shown_A": "c66",
+  "shown_B": "c61",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D015",
+  "shown_A": "c17",
+  "shown_B": "c34",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D016",
+  "shown_A": "c48",
+  "shown_B": "c26",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D017",
+  "shown_A": "c59",
+  "shown_B": "c09",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D018",
+  "shown_A": "c24",
+  "shown_B": "c69",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D019",
+  "shown_A": "c43",
+  "shown_B": "c60",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D020",
+  "shown_A": "c45",
+  "shown_B": "c68",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D021",
+  "shown_A": "c51",
+  "shown_B": "c24",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D022",
+  "shown_A": "c19",
+  "shown_B": "c61",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D023",
+  "shown_A": "c15",
+  "shown_B": "c62",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D024",
+  "shown_A": "c64",
+  "shown_B": "c66",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D025",
+  "shown_A": "c65",
+  "shown_B": "c44",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D026",
+  "shown_A": "c39",
+  "shown_B": "c13",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D027",
+  "shown_A": "c41",
+  "shown_B": "c09",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D028",
+  "shown_A": "c02",
+  "shown_B": "c45",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D029",
+  "shown_A": "c07",
+  "shown_B": "c59",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D030",
+  "shown_A": "c12",
+  "shown_B": "c68",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D031",
+  "shown_A": "c10",
+  "shown_B": "c58",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D032",
+  "shown_A": "c67",
+  "shown_B": "c62",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D033",
+  "shown_A": "c67",
+  "shown_B": "c41",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D034",
+  "shown_A": "c01",
+  "shown_B": "c43",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D035",
+  "shown_A": "c69",
+  "shown_B": "c55",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D036",
+  "shown_A": "c59",
+  "shown_B": "c37",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D037",
+  "shown_A": "c13",
+  "shown_B": "c42",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D038",
+  "shown_A": "c67",
+  "shown_B": "c64",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D039",
+  "shown_A": "c56",
+  "shown_B": "c40",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D040",
+  "shown_A": "c12",
+  "shown_B": "c41",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D041",
+  "shown_A": "c35",
+  "shown_B": "c14",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D042",
+  "shown_A": "c45",
+  "shown_B": "c14",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D043",
+  "shown_A": "c40",
+  "shown_B": "c14",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D044",
+  "shown_A": "c34",
+  "shown_B": "c54",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D045",
+  "shown_A": "c56",
+  "shown_B": "c67",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D046",
+  "shown_A": "c62",
+  "shown_B": "c47",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D047",
+  "shown_A": "c12",
+  "shown_B": "c45",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D048",
+  "shown_A": "c17",
+  "shown_B": "c61",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D049",
+  "shown_A": "c68",
+  "shown_B": "c34",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D050",
+  "shown_A": "c17",
+  "shown_B": "c41",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D051",
+  "shown_A": "c09",
+  "shown_B": "c02",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D052",
+  "shown_A": "c58",
+  "shown_B": "c14",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D053",
+  "shown_A": "c34",
+  "shown_B": "c07",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D054",
+  "shown_A": "c33",
+  "shown_B": "c02",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D055",
+  "shown_A": "c26",
+  "shown_B": "c02",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D056",
+  "shown_A": "c12",
+  "shown_B": "c60",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D057",
+  "shown_A": "c54",
+  "shown_B": "c66",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D058",
+  "shown_A": "c01",
+  "shown_B": "c40",
+  "truth": "はい",
+  "path_dir": "B->A"
+ },
+ {
+  "item_id": "D059",
+  "shown_A": "c58",
+  "shown_B": "c38",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D060",
+  "shown_A": "c66",
+  "shown_B": "c58",
+  "truth": "はい",
+  "path_dir": "A->B"
+ },
+ {
+  "item_id": "D061",
+  "shown_A": "c20",
+  "shown_B": "c07",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D062",
+  "shown_A": "c22",
+  "shown_B": "c14",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D063",
+  "shown_A": "c52",
+  "shown_B": "c34",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D064",
+  "shown_A": "c30",
+  "shown_B": "c57",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D065",
+  "shown_A": "c30",
+  "shown_B": "c64",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D066",
+  "shown_A": "c43",
+  "shown_B": "c36",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D067",
+  "shown_A": "c63",
+  "shown_B": "c69",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D068",
+  "shown_A": "c64",
+  "shown_B": "c58",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D069",
+  "shown_A": "c04",
+  "shown_B": "c40",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D070",
+  "shown_A": "c64",
+  "shown_B": "c37",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D071",
+  "shown_A": "c32",
+  "shown_B": "c08",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D072",
+  "shown_A": "c25",
+  "shown_B": "c35",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D073",
+  "shown_A": "c33",
+  "shown_B": "c19",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D074",
+  "shown_A": "c53",
+  "shown_B": "c21",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D075",
+  "shown_A": "c19",
+  "shown_B": "c37",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D076",
+  "shown_A": "c51",
+  "shown_B": "c08",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D077",
+  "shown_A": "c50",
+  "shown_B": "c31",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D078",
+  "shown_A": "c60",
+  "shown_B": "c39",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D079",
+  "shown_A": "c64",
+  "shown_B": "c53",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D080",
+  "shown_A": "c26",
+  "shown_B": "c42",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D081",
+  "shown_A": "c31",
+  "shown_B": "c56",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D082",
+  "shown_A": "c35",
+  "shown_B": "c21",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D083",
+  "shown_A": "c03",
+  "shown_B": "c53",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D084",
+  "shown_A": "c39",
+  "shown_B": "c21",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D085",
+  "shown_A": "c41",
+  "shown_B": "c40",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D086",
+  "shown_A": "c02",
+  "shown_B": "c04",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D087",
+  "shown_A": "c54",
+  "shown_B": "c63",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D088",
+  "shown_A": "c41",
+  "shown_B": "c51",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D089",
+  "shown_A": "c20",
+  "shown_B": "c36",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D090",
+  "shown_A": "c21",
+  "shown_B": "c13",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D091",
+  "shown_A": "c04",
+  "shown_B": "c65",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D092",
+  "shown_A": "c48",
+  "shown_B": "c16",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D093",
+  "shown_A": "c29",
+  "shown_B": "c66",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D094",
+  "shown_A": "c33",
+  "shown_B": "c30",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D095",
+  "shown_A": "c53",
+  "shown_B": "c28",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D096",
+  "shown_A": "c26",
+  "shown_B": "c41",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D097",
+  "shown_A": "c38",
+  "shown_B": "c52",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D098",
+  "shown_A": "c03",
+  "shown_B": "c54",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D099",
+  "shown_A": "c63",
+  "shown_B": "c59",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D100",
+  "shown_A": "c47",
+  "shown_B": "c18",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D101",
+  "shown_A": "c52",
+  "shown_B": "c21",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D102",
+  "shown_A": "c04",
+  "shown_B": "c16",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D103",
+  "shown_A": "c64",
+  "shown_B": "c42",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D104",
+  "shown_A": "c32",
+  "shown_B": "c04",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D105",
+  "shown_A": "c10",
+  "shown_B": "c25",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D106",
+  "shown_A": "c24",
+  "shown_B": "c39",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D107",
+  "shown_A": "c50",
+  "shown_B": "c07",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D108",
+  "shown_A": "c48",
+  "shown_B": "c17",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D109",
+  "shown_A": "c62",
+  "shown_B": "c54",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D110",
+  "shown_A": "c34",
+  "shown_B": "c26",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D111",
+  "shown_A": "c58",
+  "shown_B": "c49",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D112",
+  "shown_A": "c48",
+  "shown_B": "c13",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D113",
+  "shown_A": "c53",
+  "shown_B": "c45",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D114",
+  "shown_A": "c39",
+  "shown_B": "c50",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D115",
+  "shown_A": "c48",
+  "shown_B": "c58",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D116",
+  "shown_A": "c20",
+  "shown_B": "c38",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D117",
+  "shown_A": "c41",
+  "shown_B": "c32",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D118",
+  "shown_A": "c04",
+  "shown_B": "c42",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D119",
+  "shown_A": "c25",
+  "shown_B": "c12",
+  "truth": "いいえ",
+  "path_dir": null
+ },
+ {
+  "item_id": "D120",
+  "shown_A": "c21",
+  "shown_B": "c11",
+  "truth": "いいえ",
+  "path_dir": null
+ }
+]

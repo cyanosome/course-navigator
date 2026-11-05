@@ -1,0 +1,328 @@
+{
+ "source": "KansaiCurriculumTreeParser.parse_pdf(tree_env.pdf, page_number=6) @ origin/main 14f8d57",
+ "is_dag": true,
+ "n_nodes": 21,
+ "n_edges": 25,
+ "nodes": [
+  {
+   "group_id": "DP1",
+   "label": "DP1（知識・技能）",
+   "academic_year": 0,
+   "semester": null,
+   "n_members": 0,
+   "is_dp": true
+  },
+  {
+   "group_id": "DP2",
+   "label": "DP2（思考力・判断力・表現力等の能力）",
+   "academic_year": 0,
+   "semester": null,
+   "n_members": 0,
+   "is_dp": true
+  },
+  {
+   "group_id": "DP3",
+   "label": "DP3（主体的な態度）",
+   "academic_year": 0,
+   "semester": null,
+   "n_members": 0,
+   "is_dp": true
+  },
+  {
+   "group_id": "G_Research2",
+   "label": "【特別研究Ⅱ】（4年秋）",
+   "academic_year": 4,
+   "semester": "秋",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_Research1",
+   "label": "【特別研究Ⅰ】（4年春）",
+   "academic_year": 4,
+   "semester": "春",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_LawBiz",
+   "label": "【法規・知財・マネジメントグループ】",
+   "academic_year": 4,
+   "semester": null,
+   "n_members": 4,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_3Y_AppChemEng",
+   "label": "【応用化学工学系グループ】",
+   "academic_year": 3,
+   "semester": null,
+   "n_members": 12,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_3Y_MatEnergy",
+   "label": "【材料・エネルギー系グループ】",
+   "academic_year": 3,
+   "semester": null,
+   "n_members": 5,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_3Y_OrgCatal",
+   "label": "【有機・触媒系グループ】",
+   "academic_year": 3,
+   "semester": null,
+   "n_members": 3,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_3Y_SafetySeminar",
+   "label": "【安全・倫理・特別講義系グループ】",
+   "academic_year": 3,
+   "semester": null,
+   "n_members": 5,
+   "is_dp": false
+  },
+  {
+   "group_id": "ForeignLit2",
+   "label": "外国書講読Ⅱ",
+   "academic_year": 3,
+   "semester": "秋",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_2Y_UnitOp",
+   "label": "【ユニットオペレーション・反応工学・数理系グループ】",
+   "academic_year": 2,
+   "semester": null,
+   "n_members": 8,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_2Y_PhysChem",
+   "label": "【物理化学系グループ】",
+   "academic_year": 2,
+   "semester": null,
+   "n_members": 6,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_2Y_AnalOrg",
+   "label": "【分析・有機化学系グループ】",
+   "academic_year": 2,
+   "semester": null,
+   "n_members": 5,
+   "is_dp": false
+  },
+  {
+   "group_id": "ChemEnglish",
+   "label": "基礎化学英語",
+   "academic_year": 2,
+   "semester": "春",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "ForeignLit1",
+   "label": "外国書講読Ⅰ",
+   "academic_year": 2,
+   "semester": "秋",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_1Y_ChemEng",
+   "label": "【化学工学・エネルギー・基礎数理系グループ】",
+   "academic_year": 1,
+   "semester": null,
+   "n_members": 6,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_1Y_BasicChem",
+   "label": "【無機・基礎化学系グループ】",
+   "academic_year": 1,
+   "semester": null,
+   "n_members": 3,
+   "is_dp": false
+  },
+  {
+   "group_id": "FreshmanSeminar",
+   "label": "フレッシュマンゼミナール",
+   "academic_year": 1,
+   "semester": "春",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "InfoExercise",
+   "label": "情報処理演習",
+   "academic_year": 1,
+   "semester": "秋",
+   "n_members": 1,
+   "is_dp": false
+  },
+  {
+   "group_id": "G_Common",
+   "label": "【共通教養科目グループ】（全学共通プラットフォーム）",
+   "academic_year": 1,
+   "semester": null,
+   "n_members": 6,
+   "is_dp": false
+  }
+ ],
+ "edges": [
+  {
+   "source": "G_2Y_AnalOrg",
+   "target": "G_3Y_OrgCatal",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_Research2",
+   "target": "DP1",
+   "edge_type": "dp_contribution",
+   "is_major": true
+  },
+  {
+   "source": "G_Research2",
+   "target": "DP2",
+   "edge_type": "dp_contribution",
+   "is_major": true
+  },
+  {
+   "source": "G_LawBiz",
+   "target": "G_Research2",
+   "edge_type": "prerequisite",
+   "is_major": false
+  },
+  {
+   "source": "ForeignLit1",
+   "target": "ForeignLit2",
+   "edge_type": "english_track",
+   "is_major": false
+  },
+  {
+   "source": "G_Common",
+   "target": "InfoExercise",
+   "edge_type": "prerequisite",
+   "is_major": false
+  },
+  {
+   "source": "G_Common",
+   "target": "G_1Y_ChemEng",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_Common",
+   "target": "G_1Y_BasicChem",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_1Y_ChemEng",
+   "target": "G_2Y_UnitOp",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_1Y_ChemEng",
+   "target": "G_2Y_PhysChem",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_1Y_BasicChem",
+   "target": "G_2Y_PhysChem",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_1Y_BasicChem",
+   "target": "G_2Y_AnalOrg",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_2Y_UnitOp",
+   "target": "G_3Y_AppChemEng",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_3Y_AppChemEng",
+   "target": "G_Research1",
+   "edge_type": "capstone",
+   "is_major": true
+  },
+  {
+   "source": "G_3Y_MatEnergy",
+   "target": "G_Research1",
+   "edge_type": "capstone",
+   "is_major": true
+  },
+  {
+   "source": "G_Research1",
+   "target": "G_Research2",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_3Y_OrgCatal",
+   "target": "G_Research1",
+   "edge_type": "capstone",
+   "is_major": true
+  },
+  {
+   "source": "G_3Y_SafetySeminar",
+   "target": "G_Research1",
+   "edge_type": "capstone",
+   "is_major": true
+  },
+  {
+   "source": "ForeignLit2",
+   "target": "G_Research1",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_2Y_PhysChem",
+   "target": "G_3Y_AppChemEng",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_2Y_AnalOrg",
+   "target": "G_3Y_MatEnergy",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_2Y_PhysChem",
+   "target": "G_3Y_MatEnergy",
+   "edge_type": "prerequisite",
+   "is_major": true
+  },
+  {
+   "source": "G_Research2",
+   "target": "DP3",
+   "edge_type": "dp_contribution",
+   "is_major": true
+  },
+  {
+   "source": "ChemEnglish",
+   "target": "ForeignLit1",
+   "edge_type": "english_track",
+   "is_major": false
+  },
+  {
+   "source": "FreshmanSeminar",
+   "target": "G_3Y_SafetySeminar",
+   "edge_type": "prerequisite",
+   "is_major": true
+  }
+ ]
+}

@@ -1,0 +1,746 @@
+[
+ {
+  "name": "必修科目",
+  "norm": "必修科目",
+  "cx": 666.0,
+  "cy": 46.1,
+  "geom_groups": [],
+  "defined_group": null
+ },
+ {
+  "name": "選択必修科目",
+  "norm": "選択必修科目",
+  "cx": 722.1,
+  "cy": 46.4,
+  "geom_groups": [],
+  "defined_group": null
+ },
+ {
+  "name": "選択科目",
+  "norm": "選択科目",
+  "cx": 779.8,
+  "cy": 46.1,
+  "geom_groups": [],
+  "defined_group": null
+ },
+ {
+  "name": "特別研究Ⅱ",
+  "norm": "特別研究2",
+  "cx": 316.6,
+  "cy": 175.2,
+  "geom_groups": [
+   "G_Research2"
+  ],
+  "defined_group": "G_Research2"
+ },
+ {
+  "name": "知的財産権法",
+  "norm": "知的財産権法",
+  "cx": 641.7,
+  "cy": 194.6,
+  "geom_groups": [
+   "G_LawBiz"
+  ],
+  "defined_group": "G_LawBiz"
+ },
+ {
+  "name": "技術者ビジネス法",
+  "norm": "技術者ビジネス法",
+  "cx": 729.0,
+  "cy": 194.6,
+  "geom_groups": [
+   "G_LawBiz"
+  ],
+  "defined_group": "G_LawBiz"
+ },
+ {
+  "name": "グリーンケミストリー",
+  "norm": "グリーンケミストリー",
+  "cx": 650.7,
+  "cy": 207.0,
+  "geom_groups": [
+   "G_LawBiz"
+  ],
+  "defined_group": "G_LawBiz"
+ },
+ {
+  "name": "品質管理",
+  "norm": "品質管理",
+  "cx": 717.1,
+  "cy": 207.0,
+  "geom_groups": [
+   "G_LawBiz"
+  ],
+  "defined_group": "G_LawBiz"
+ },
+ {
+  "name": "特別研究Ⅰ",
+  "norm": "特別研究1",
+  "cx": 316.6,
+  "cy": 226.6,
+  "geom_groups": [
+   "G_Research1"
+  ],
+  "defined_group": "G_Research1"
+ },
+ {
+  "name": "大気・水環境化学工学",
+  "norm": "大気水環境化学工学",
+  "cx": 96.6,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "化学プラント設計",
+  "norm": "化学プラント設計",
+  "cx": 180.4,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "化学工学実験",
+  "norm": "化学工学実験",
+  "cx": 260.8,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "粉体工学",
+  "norm": "粉体工学",
+  "cx": 352.9,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_MatEnergy"
+  ],
+  "defined_group": "G_3Y_MatEnergy"
+ },
+ {
+  "name": "機能性材料学",
+  "norm": "機能性材料学",
+  "cx": 440.1,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_MatEnergy"
+  ],
+  "defined_group": "G_3Y_MatEnergy"
+ },
+ {
+  "name": "有機化学実験",
+  "norm": "有機化学実験",
+  "cx": 535.3,
+  "cy": 282.0,
+  "geom_groups": [
+   "G_3Y_OrgCatal"
+  ],
+  "defined_group": "G_3Y_OrgCatal"
+ },
+ {
+  "name": "化学技術の安全と倫理",
+  "norm": "化学技術の安全と倫理",
+  "cx": 627.3,
+  "cy": 278.7,
+  "geom_groups": [
+   "G_3Y_SafetySeminar"
+  ],
+  "defined_group": "G_3Y_SafetySeminar"
+ },
+ {
+  "name": "ユニットオペレーション演習Ⅱ",
+  "norm": "ユニットオペレーション演習2",
+  "cx": 104.8,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "プロセス制御工学",
+  "norm": "プロセス制御工学",
+  "cx": 180.8,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "シミュレーション演習",
+  "norm": "シミュレーション演習",
+  "cx": 270.7,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "応用界面工学",
+  "norm": "応用界面工学",
+  "cx": 359.1,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_MatEnergy"
+  ],
+  "defined_group": "G_3Y_MatEnergy"
+ },
+ {
+  "name": "電気エネルギー化学",
+  "norm": "電気エネルギー化学",
+  "cx": 449.4,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_MatEnergy"
+  ],
+  "defined_group": "G_3Y_MatEnergy"
+ },
+ {
+  "name": "触媒化学工学",
+  "norm": "触媒化学工学",
+  "cx": 535.3,
+  "cy": 300.4,
+  "geom_groups": [
+   "G_3Y_OrgCatal"
+  ],
+  "defined_group": "G_3Y_OrgCatal"
+ },
+ {
+  "name": "ユニットオペレーションⅢ",
+  "norm": "ユニットオペレーション3",
+  "cx": 631.1,
+  "cy": 295.5,
+  "geom_groups": [
+   "G_3Y_SafetySeminar"
+  ],
+  "defined_group": "G_3Y_SafetySeminar"
+ },
+ {
+  "name": "エネルギー工学ディスカッション",
+  "norm": "エネルギー工学ディスカッション",
+  "cx": 640.4,
+  "cy": 312.1,
+  "geom_groups": [
+   "G_3Y_SafetySeminar"
+  ],
+  "defined_group": "G_3Y_SafetySeminar"
+ },
+ {
+  "name": "外国書講読Ⅱ",
+  "norm": "外国書講読2",
+  "cx": 728.2,
+  "cy": 313.5,
+  "geom_groups": [
+   "ForeignLit2"
+  ],
+  "defined_group": "ForeignLit2"
+ },
+ {
+  "name": "高度分離工学",
+  "norm": "高度分離工学",
+  "cx": 85.6,
+  "cy": 320.3,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "プロセス最適化工学",
+  "norm": "プロセス最適化工学",
+  "cx": 183.8,
+  "cy": 320.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "流体工学",
+  "norm": "流体工学",
+  "cx": 254.6,
+  "cy": 320.3,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "エネルギー材料学",
+  "norm": "エネルギー材料学",
+  "cx": 365.2,
+  "cy": 320.0,
+  "geom_groups": [
+   "G_3Y_MatEnergy"
+  ],
+  "defined_group": "G_3Y_MatEnergy"
+ },
+ {
+  "name": "有機化学反応論",
+  "norm": "有機化学反応論",
+  "cx": 538.4,
+  "cy": 320.0,
+  "geom_groups": [
+   "G_3Y_OrgCatal"
+  ],
+  "defined_group": "G_3Y_OrgCatal"
+ },
+ {
+  "name": "特別講義Ⅱ",
+  "norm": "特別講義2",
+  "cx": 612.0,
+  "cy": 328.2,
+  "geom_groups": [
+   "G_3Y_SafetySeminar"
+  ],
+  "defined_group": "G_3Y_SafetySeminar"
+ },
+ {
+  "name": "基礎分離工学",
+  "norm": "基礎分離工学",
+  "cx": 85.6,
+  "cy": 339.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "応用反応工学",
+  "norm": "応用反応工学",
+  "cx": 175.0,
+  "cy": 339.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "環境熱工学",
+  "norm": "環境熱工学",
+  "cx": 257.7,
+  "cy": 339.4,
+  "geom_groups": [
+   "G_3Y_AppChemEng"
+  ],
+  "defined_group": "G_3Y_AppChemEng"
+ },
+ {
+  "name": "特別講義Ⅰ",
+  "norm": "特別講義1",
+  "cx": 612.0,
+  "cy": 344.5,
+  "geom_groups": [
+   "G_3Y_SafetySeminar"
+  ],
+  "defined_group": "G_3Y_SafetySeminar"
+ },
+ {
+  "name": "外国書講読Ⅰ",
+  "norm": "外国書講読1",
+  "cx": 728.2,
+  "cy": 346.9,
+  "geom_groups": [
+   "ForeignLit1"
+  ],
+  "defined_group": "ForeignLit1"
+ },
+ {
+  "name": "基礎化学英語",
+  "norm": "基礎化学英語",
+  "cx": 730.1,
+  "cy": 374.7,
+  "geom_groups": [
+   "ChemEnglish"
+  ],
+  "defined_group": "ChemEnglish"
+ },
+ {
+  "name": "ユニットオペレーションⅠ",
+  "norm": "ユニットオペレーション1",
+  "cx": 101.2,
+  "cy": 381.9,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "ユニットオペレーションⅡ",
+  "norm": "ユニットオペレーション2",
+  "cx": 182.3,
+  "cy": 381.9,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "物理化学実験",
+  "norm": "物理化学実験",
+  "cx": 262.2,
+  "cy": 381.9,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "物理化学演習",
+  "norm": "物理化学演習",
+  "cx": 340.6,
+  "cy": 381.9,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "分析化学実験",
+  "norm": "分析化学実験",
+  "cx": 433.0,
+  "cy": 389.0,
+  "geom_groups": [
+   "G_2Y_AnalOrg"
+  ],
+  "defined_group": "G_2Y_AnalOrg"
+ },
+ {
+  "name": "応用有機化学",
+  "norm": "応用有機化学",
+  "cx": 518.7,
+  "cy": 389.0,
+  "geom_groups": [
+   "G_2Y_AnalOrg"
+  ],
+  "defined_group": "G_2Y_AnalOrg"
+ },
+ {
+  "name": "反応工学",
+  "norm": "反応工学",
+  "cx": 79.5,
+  "cy": 401.2,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "工業製図",
+  "norm": "工業製図",
+  "cx": 160.6,
+  "cy": 401.2,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "物理化学Ⅲ",
+  "norm": "物理化学3",
+  "cx": 259.1,
+  "cy": 401.4,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "熱・統計力学",
+  "norm": "熱統計力学",
+  "cx": 339.3,
+  "cy": 401.3,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "機器分析化学",
+  "norm": "機器分析化学",
+  "cx": 433.0,
+  "cy": 408.4,
+  "geom_groups": [
+   "G_2Y_AnalOrg"
+  ],
+  "defined_group": "G_2Y_AnalOrg"
+ },
+ {
+  "name": "有機化学",
+  "norm": "有機化学",
+  "cx": 512.5,
+  "cy": 408.4,
+  "geom_groups": [
+   "G_2Y_AnalOrg"
+  ],
+  "defined_group": "G_2Y_AnalOrg"
+ },
+ {
+  "name": "数学解析Ⅰ",
+  "norm": "数学解析1",
+  "cx": 82.6,
+  "cy": 420.7,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "プロセス数理",
+  "norm": "プロセス数理",
+  "cx": 166.3,
+  "cy": 420.7,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "物理化学Ⅱ",
+  "norm": "物理化学2",
+  "cx": 259.1,
+  "cy": 420.7,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "基礎分析化学",
+  "norm": "基礎分析化学",
+  "cx": 433.0,
+  "cy": 425.9,
+  "geom_groups": [
+   "G_2Y_AnalOrg"
+  ],
+  "defined_group": "G_2Y_AnalOrg"
+ },
+ {
+  "name": "ユニットオペレーション演習Ⅰ",
+  "norm": "ユニットオペレーション演習1",
+  "cx": 99.8,
+  "cy": 440.2,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "図学",
+  "norm": "図学",
+  "cx": 154.9,
+  "cy": 439.8,
+  "geom_groups": [
+   "G_2Y_UnitOp"
+  ],
+  "defined_group": "G_2Y_UnitOp"
+ },
+ {
+  "name": "物理化学Ⅰ",
+  "norm": "物理化学1",
+  "cx": 259.1,
+  "cy": 440.2,
+  "geom_groups": [
+   "G_2Y_PhysChem"
+  ],
+  "defined_group": "G_2Y_PhysChem"
+ },
+ {
+  "name": "線形代数Ⅱ",
+  "norm": "線形代数2",
+  "cx": 82.6,
+  "cy": 480.6,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "物理学実験",
+  "norm": "物理学実験",
+  "cx": 165.7,
+  "cy": 480.6,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "プロセス量論及び演習",
+  "norm": "プロセス量論及び演習",
+  "cx": 264.1,
+  "cy": 480.6,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "化学実験",
+  "norm": "化学実験",
+  "cx": 469.6,
+  "cy": 480.6,
+  "geom_groups": [
+   "G_1Y_BasicChem"
+  ],
+  "defined_group": "G_1Y_BasicChem"
+ },
+ {
+  "name": "フレッシュマンゼミナール",
+  "norm": "フレッシュマンゼミナール",
+  "cx": 633.1,
+  "cy": 480.6,
+  "geom_groups": [
+   "FreshmanSeminar"
+  ],
+  "defined_group": "FreshmanSeminar"
+ },
+ {
+  "name": "線形代数Ⅰ",
+  "norm": "線形代数1",
+  "cx": 82.6,
+  "cy": 499.0,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "入門エネルギー環境学",
+  "norm": "入門エネルギー環境学",
+  "cx": 181.5,
+  "cy": 499.0,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "化学工学量論及び演習",
+  "norm": "化学工学量論及び演習",
+  "cx": 264.8,
+  "cy": 499.0,
+  "geom_groups": [
+   "G_1Y_ChemEng"
+  ],
+  "defined_group": "G_1Y_ChemEng"
+ },
+ {
+  "name": "無機化学",
+  "norm": "無機化学",
+  "cx": 426.6,
+  "cy": 499.2,
+  "geom_groups": [
+   "G_1Y_BasicChem"
+  ],
+  "defined_group": "G_1Y_BasicChem"
+ },
+ {
+  "name": "入門化学結合論",
+  "norm": "入門化学結合論",
+  "cx": 521.4,
+  "cy": 499.2,
+  "geom_groups": [
+   "G_1Y_BasicChem"
+  ],
+  "defined_group": "G_1Y_BasicChem"
+ },
+ {
+  "name": "情報処理演習",
+  "norm": "情報処理演習",
+  "cx": 640.6,
+  "cy": 520.3,
+  "geom_groups": [
+   "InfoExercise"
+  ],
+  "defined_group": "InfoExercise"
+ },
+ {
+  "name": "●",
+  "norm": "",
+  "cx": 147.3,
+  "cy": 557.0,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "数",
+  "norm": "数",
+  "cx": 153.2,
+  "cy": 546.5,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "●",
+  "norm": "",
+  "cx": 231.6,
+  "cy": 557.0,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "数",
+  "norm": "数",
+  "cx": 237.6,
+  "cy": 546.5,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "物",
+  "norm": "物",
+  "cx": 319.7,
+  "cy": 547.2,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "物",
+  "norm": "物",
+  "cx": 375.7,
+  "cy": 547.2,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "化",
+  "norm": "化",
+  "cx": 435.4,
+  "cy": 547.2,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ },
+ {
+  "name": "情",
+  "norm": "情",
+  "cx": 496.5,
+  "cy": 554.7,
+  "geom_groups": [
+   "G_Common"
+  ],
+  "defined_group": null
+ }
+]

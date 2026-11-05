@@ -1,0 +1,1562 @@
+{
+ "O001": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O002": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O003": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O004": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O005": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O006": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O007": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O008": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O009": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O010": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O011": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O012": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O013": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O014": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O015": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O016": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": false
+ },
+ "O017": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O018": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O019": {
+  "answer": "B",
+  "tie": true,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O020": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O021": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O022": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O023": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O024": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O025": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O026": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O027": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O028": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O029": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   4,
+   1
+  ],
+  "correct": true
+ },
+ "O030": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   4,
+   1
+  ],
+  "correct": true
+ },
+ "O031": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O032": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O033": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O034": {
+  "answer": "B",
+  "tie": true,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O035": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O036": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O037": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O038": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O039": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O040": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O041": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O042": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O043": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O044": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O045": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O046": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O047": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O048": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O049": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O050": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O051": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O052": {
+  "answer": "A",
+  "tie": true,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O053": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O054": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O055": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O056": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O057": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O058": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O059": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O060": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O061": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   4,
+   3
+  ],
+  "correct": true
+ },
+ "O062": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O063": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O064": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O065": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O066": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O067": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O068": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O069": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O070": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O071": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O072": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O073": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O074": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O075": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O076": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O077": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O078": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O079": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   4,
+   3
+  ],
+  "correct": true
+ },
+ "O080": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O081": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   4,
+   1
+  ],
+  "correct": true
+ },
+ "O082": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O083": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O084": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O085": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O086": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O087": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O088": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O089": {
+  "answer": "B",
+  "tie": true,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": false
+ },
+ "O090": {
+  "answer": "A",
+  "tie": true,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": false
+ },
+ "O091": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O092": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O093": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O094": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O095": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O096": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O097": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   4,
+   1
+  ],
+  "correct": true
+ },
+ "O098": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O099": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O100": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O101": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O102": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O103": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O104": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ },
+ "O105": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   1
+  ],
+  "correct": true
+ },
+ "O106": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O107": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O108": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O109": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   4,
+   3
+  ],
+  "correct": true
+ },
+ "O110": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O111": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O112": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O113": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   2,
+   3
+  ],
+  "correct": true
+ },
+ "O114": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   2,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O115": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   3,
+   1
+  ],
+  "correct": true
+ },
+ "O116": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   1
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O117": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   1
+  ],
+  "key_B": [
+   4,
+   3
+  ],
+  "correct": true
+ },
+ "O118": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   4,
+   3
+  ],
+  "key_B": [
+   1,
+   1
+  ],
+  "correct": true
+ },
+ "O119": {
+  "answer": "A",
+  "tie": false,
+  "key_A": [
+   1,
+   3
+  ],
+  "key_B": [
+   3,
+   3
+  ],
+  "correct": true
+ },
+ "O120": {
+  "answer": "B",
+  "tie": false,
+  "key_A": [
+   3,
+   3
+  ],
+  "key_B": [
+   1,
+   3
+  ],
+  "correct": true
+ }
+}

@@ -1,0 +1,12 @@
+{
+ "checked_values": 3011,
+ "problems": [],
+ "all_match": true,
+ "hypotheses_recomputed": {
+  "H1": false,
+  "H2": true,
+  "H3": false,
+  "H4": true,
+  "H5": false
+ }
+}
