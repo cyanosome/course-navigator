@@ -1,0 +1,390 @@
+"""AI の口（POST /assist/ask）のテスト。実 LLM・実 DB を使わず CI で回る。
+
+- LLM は台本どおりに function_call を返す偽モデルの LlmAgent を route_options.build_agent に差し込み、
+  runner.run_mcp_grounded（ADK の Workflow・ツール実行・出典の照合）は本物を通す（test_mcp_grounded.py と同じやり方）。
+- PostgreSQL は seed の科目を返す偽プール、研究のログは記録する偽の口（dependency_overrides）。
+"""
+
+import asyncio
+from collections.abc import AsyncGenerator, Mapping
+from contextlib import asynccontextmanager
+from typing import Any
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from google.adk.agents.llm_agent import LlmAgent
+from google.adk.models.base_llm import BaseLlm
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
+from google.genai import types
+
+import fake_graph
+from agent import deps, rdb_tools, route_options, runner
+from agent.route_options import AssistOptions
+from agent.schemas import AnswerPayload
+from api.routers import assist as assist_router
+from course_core import config
+from course_core.research.sink import SessionVariant, get_research_sink
+from course_core.research.variants import VARIANTS
+
+_KNOWN_CODE = "GMS-303"  # seed にある
+_UNKNOWN_CODE = "GMS-999"  # seed に無い（照合で外れる役）
+_QUESTION = "架空の質問: 機械学習の次に取れる科目は?"
+_EVENT_ID = "6f1c2b9e-0000-4000-8000-000000000001"
+
+
+# --- 代役 -------------------------------------------------------------------------------
+
+
+class _FakeConnection:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self._rows = rows
+
+    async def fetch(self, query: str, codes: list[str]) -> list[dict[str, Any]]:
+        return [row for row in self._rows if row["code"] in codes]
+
+
+class _FakePool:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.connection = _FakeConnection(rows)
+
+    @asynccontextmanager
+    async def acquire(self) -> AsyncGenerator[_FakeConnection, None]:
+        yield self.connection
+
+
+class _ScriptedLlm(BaseLlm):
+    """1ターン目は get_course_details、2ターン目は set_model_response を呼ぶ偽モデル。"""
+
+    model: str = "scripted-fake-llm"
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        answered = {
+            part.function_response.name
+            for content in llm_request.contents
+            for part in (content.parts or [])
+            if part.function_response
+        }
+        if "get_course_details" not in answered:
+            call = types.FunctionCall(name="get_course_details", args={"codes": [_KNOWN_CODE, _UNKNOWN_CODE]})
+        else:
+            call = types.FunctionCall(
+                name="set_model_response",
+                args={"answer": f"機械学習 [{_KNOWN_CODE}] です。", "cited_codes": [_KNOWN_CODE, _UNKNOWN_CODE]},
+            )
+        yield LlmResponse(content=types.Content(role="model", parts=[types.Part(function_call=call)]))
+
+
+class _FailingLlm(BaseLlm):
+    model: str = "failing-fake-llm"
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        raise RuntimeError("架空の LLM の障害")
+        yield  # 非同期ジェネレータにするための到達しない yield
+
+
+def _agent(llm: BaseLlm) -> LlmAgent:
+    return LlmAgent(
+        name="mcp_agent",
+        model=llm,
+        instruction="テスト用",
+        tools=[rdb_tools.get_course_details],
+        output_schema=AnswerPayload,
+    )
+
+
+class FakeSink:
+    """研究のログの口の代役。セッション → 今のブロックの変種と、書いたイベントを持つ。"""
+
+    def __init__(self) -> None:
+        self.sessions: dict[str, SessionVariant] = {}
+        self.events: list[tuple[str, str, Mapping[str, Any]]] = []
+
+    def add(self, session_id: str, variant_id: str | None, block: int | None = 1) -> None:
+        self.sessions[session_id] = SessionVariant(
+            session_id=session_id,
+            block=block,
+            condition_id="M" if variant_id else None,
+            variant_id=variant_id,
+            flags=VARIANTS[variant_id] if variant_id else None,
+        )
+
+    async def current_variant(self, session_id: str) -> SessionVariant | None:
+        return self.sessions.get(session_id)
+
+    async def append_server_event(self, session_id, event_type, payload) -> None:
+        self.events.append((session_id, event_type, dict(payload)))
+
+
+@pytest.fixture
+def built_options(monkeypatch) -> list[AssistOptions]:
+    """build_agent を偽モデルの LlmAgent に差し替え、渡された options を記録する。"""
+    received: list[AssistOptions] = []
+
+    def _build(options: AssistOptions) -> LlmAgent:
+        received.append(options)
+        return _agent(_ScriptedLlm())
+
+    monkeypatch.setattr(route_options, "build_agent", _build)
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    deps.set_backends(_FakePool(fake_graph.courses()), None)
+    yield received
+    deps.set_backends(None, None)
+
+
+@pytest.fixture
+def sink() -> FakeSink:
+    return FakeSink()
+
+
+@pytest.fixture
+def client(sink, monkeypatch) -> TestClient:
+    monkeypatch.delenv("RESEARCH_DEV", raising=False)
+    monkeypatch.delenv("NAVI_DEFAULT_VARIANT", raising=False)
+    app = FastAPI()
+    app.include_router(assist_router.router)
+    app.dependency_overrides[get_research_sink] = lambda: sink
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def _ask(client: TestClient, session: str | None = None, **body: Any):
+    headers = {"X-Navi-Session": session} if session else {}
+    return client.post("/assist/ask", json={"question": _QUESTION, **body}, headers=headers)
+
+
+# --- 因子の決め方 -------------------------------------------------------------------------
+
+
+def test_study_session_uses_block_flags_and_ignores_options(client, sink, built_options):
+    sink.add("sess-1", "V00")
+    response = _ask(
+        client,
+        session="sess-1",
+        options={"route": "mcp_grounded", "style": "brief", "verify": "off", "citations": "text"},
+        client_event_id=_EVENT_ID,
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Navi-Contract"] == "navi-v1"
+    body = response.json()
+    assert body["options_ignored"] is True
+    assert body["options_applied"] == {"route": "mcp_grounded", "style": "standard", "verify": "on", "citations": "cards"}
+    assert body["variant_id"] == "V00"
+    assert body["route"] == "mcp"
+    assert body["route_requested"] == "mcp_grounded"
+    assert [s["code"] for s in body["sources"]] == [_KNOWN_CODE]
+    assert body["unverified_codes"] == [_UNKNOWN_CODE]
+    assert body["unverified_items"] == []  # verify=on のときは埋めない
+    assert built_options == [AssistOptions()]
+
+    assert len(sink.events) == 1
+    session_id, event_type, payload = sink.events[0]
+    assert (session_id, event_type) == ("sess-1", "chat_response")
+    assert payload["request_id"] == body["request_id"]
+    assert payload["client_event_id"] == _EVENT_ID
+    assert payload["route_requested"] == "mcp_grounded"
+    assert payload["route_actual"] == "mcp"
+    assert payload["options_ignored"] is True
+    assert payload["model"] == "scripted-fake-llm"
+    assert len(payload["prompt_sha256"]) == 64
+    assert payload["cited_codes"] == [_KNOWN_CODE, _UNKNOWN_CODE]
+    assert payload["source_codes"] == [_KNOWN_CODE]
+    assert payload["unverified_codes"] == [_UNKNOWN_CODE]
+    assert [call["name"] for call in payload["tool_calls"]] == ["get_course_details", "set_model_response"]
+    assert "result_summary" not in payload["tool_calls"][0]
+    assert payload["error"] is None
+    assert payload["latency_ms"] >= 0
+
+
+def test_cookie_session_is_used_too(client, sink, built_options):
+    sink.add("sess-cookie", "V00")
+    client.cookies.set("navi_sid", "sess-cookie")
+    assert _ask(client).status_code == 200
+    assert [event[0] for event in sink.events] == ["sess-cookie"]
+
+
+def test_no_session_production_uses_default_variant(client, sink, built_options, monkeypatch):
+    monkeypatch.setenv("NAVI_DEFAULT_VARIANT", "V00")
+    response = _ask(client, options={"style": "detailed"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["variant_id"] == "V00"
+    assert body["options_ignored"] is True
+    assert body["options_applied"]["style"] == "standard"
+    assert sink.events == []  # セッションが無ければ記録しない
+
+
+def test_no_session_default_variant_without_ai_is_409(client, sink, built_options):
+    """既定の変種 V01（AI なし）のままなら、AI の口は断る。"""
+    response = _ask(client)
+    assert response.status_code == 409
+    assert built_options == []
+    assert sink.events == []
+
+
+def test_research_dev_applies_options(client, sink, built_options, monkeypatch):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    response = _ask(client, options={"route": "mcp_grounded", "style": "brief", "verify": "off", "citations": "text"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["options_ignored"] is False
+    assert body["variant_id"] is None
+    assert body["options_applied"] == {"route": "mcp_grounded", "style": "brief", "verify": "off", "citations": "text"}
+    assert body["unverified_items"] == [{"code": _UNKNOWN_CODE, "reason": "not_in_db"}]
+    assert built_options == [AssistOptions(style="brief", verify="off", citations="text")]
+
+
+def test_research_dev_without_options_uses_defaults(client, built_options, monkeypatch):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    body = _ask(client).json()
+    assert body["options_applied"] == AssistOptions().model_dump()
+
+
+def test_research_dev_does_not_override_study_session(client, sink, built_options, monkeypatch):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    sink.add("sess-1", "V00")
+    body = _ask(client, session="sess-1", options={"style": "brief"}).json()
+    assert body["options_ignored"] is True
+    assert body["options_applied"]["style"] == "standard"
+
+
+# --- 断る場合 -----------------------------------------------------------------------------
+
+
+def test_static_route_is_501_before_e1(client, sink, built_options, monkeypatch):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    response = _ask(client, options={"route": "static"})
+    assert response.status_code == 501
+    assert built_options == []
+
+
+def test_static_route_in_study_is_501_and_recorded(client, sink, built_options):
+    sink.add("sess-static", "V09")  # ai_route=static
+    response = _ask(client, session="sess-static")
+    assert response.status_code == 501
+    assert [(e[1], e[2]["error"], e[2]["route_actual"]) for e in sink.events] == [("chat_response", "other", None)]
+
+
+def test_harness_only_route_is_501(client, sink, built_options):
+    sink.add("sess-free", "V07")  # ai_route=mcp_free は評価ハーネスだけ
+    assert _ask(client, session="sess-free").status_code == 501
+    assert sink.events == []
+
+
+def test_unknown_session_is_401(client, sink, built_options):
+    response = _ask(client, session="no-such-session")
+    assert response.status_code == 401
+    assert built_options == []
+    assert sink.events == []
+
+
+def test_session_outside_block_is_409(client, sink, built_options):
+    sink.add("sess-idle", None, block=None)
+    assert _ask(client, session="sess-idle").status_code == 409
+
+
+def test_session_in_no_ai_block_is_409(client, sink, built_options):
+    sink.add("sess-noai", "V01")
+    assert _ask(client, session="sess-noai").status_code == 409
+    assert sink.events == []
+
+
+@pytest.mark.parametrize("question", ["", "   ", "あ" * 2001])
+def test_bad_question_is_422(client, built_options, question, monkeypatch):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    assert client.post("/assist/ask", json={"question": question}).status_code == 422
+    assert built_options == []
+
+
+# --- 失敗も記録する -------------------------------------------------------------------------
+
+
+def test_timeout_is_504_and_recorded(client, sink, monkeypatch):
+    async def _slow(question: str, options: AssistOptions):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(route_options, "run_with_options", _slow)
+    monkeypatch.setattr(assist_router, "ASSIST_TIMEOUT_SECONDS", 0.05)
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1", client_event_id=_EVENT_ID)
+    assert response.status_code == 504
+    assert len(sink.events) == 1
+    payload = sink.events[0][2]
+    assert payload["error"] == "timeout"
+    assert payload["client_event_id"] == _EVENT_ID
+    assert payload["route_actual"] is None
+
+
+def test_llm_failure_is_recorded_and_not_swallowed(client, sink, monkeypatch):
+    monkeypatch.setattr(route_options, "build_agent", lambda options: _agent(_FailingLlm()))
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1")
+    assert response.status_code == 500
+    assert len(sink.events) == 1
+    payload = sink.events[0][2]
+    assert payload["error"] == "other"
+    assert "架空の LLM の障害" in payload["error_detail"]
+
+
+def test_mcp_fallback_is_recorded_as_mcp_unavailable(client, sink, monkeypatch):
+    async def _fallback(question: str, options: AssistOptions):
+        result = runner.McpAgentRunResult(route="static", answer="静的", notes=["MCP なし"], latency_ms=3)
+        return route_options.AssistRun(result=result, prompt_sha256=None)
+
+    monkeypatch.setattr(route_options, "run_with_options", _fallback)
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1")
+    assert response.status_code == 200
+    assert response.json()["route"] == "static"
+    payload = sink.events[0][2]
+    assert (payload["route_actual"], payload["error"], payload["error_detail"]) == ("static", "mcp_unavailable", "MCP なし")
+
+
+def test_unimplemented_sink_fails_loudly_for_sessions(monkeypatch, built_options):
+    """研究のログの実装が入るまでは、セッション付きの要求を記録したふりで通さない。"""
+    app = FastAPI()
+    app.include_router(assist_router.router)
+    client = TestClient(app, raise_server_exceptions=False)
+    assert _ask(client, session="sess-1").status_code == 500
+
+
+def test_classify_error():
+    class _Db(Exception):
+        pass
+
+    _Db.__module__ = "asyncpg.exceptions"
+    assert assist_router.classify_error(_Db()) == "db"
+    _Db.__module__ = "neo4j.exceptions"
+    assert assist_router.classify_error(_Db()) == "db"
+    _Db.__module__ = "google.genai.errors"
+    assert assist_router.classify_error(_Db()) == "llm"
+    assert assist_router.classify_error(RuntimeError()) == "other"
+
+
+# --- 文体の追補 -----------------------------------------------------------------------------
+
+
+def test_instruction_for_styles():
+    from agent.mcp_agent import build_grounded_mcp_agent
+
+    assert route_options.instruction_for("standard") is None
+    default_instruction = build_grounded_mcp_agent().instruction
+    for style, marker in (("brief", "回答の長さ"), ("detailed", "回答の詳しさ")):
+        text = route_options.instruction_for(style)
+        assert text is not None
+        assert text.startswith(default_instruction)  # 今の文は書き換えず、後ろに足すだけ
+        assert marker in text[len(default_instruction):]
+
+
+def test_build_agent_passes_style_instruction():
+    agent = route_options.build_agent(AssistOptions(style="detailed"))
+    assert agent.instruction == route_options.instruction_for("detailed")
+    standard = route_options.build_agent(AssistOptions())
+    assert "回答の長さ" not in standard.instruction and "回答の詳しさ" not in standard.instruction
