@@ -347,10 +347,23 @@ def test_mcp_fallback_is_recorded_as_mcp_unavailable(client, sink, monkeypatch):
     assert (payload["route_actual"], payload["error"], payload["error_detail"]) == ("static", "mcp_unavailable", "MCP なし")
 
 
-def test_unimplemented_sink_fails_loudly_for_sessions(monkeypatch, built_options):
-    """研究のログの実装が入るまでは、セッション付きの要求を記録したふりで通さない。"""
+class _UnwritableSink(FakeSink):
+    """chat_response を書けない研究のログの口（ディスクの障害などの代役）。"""
+
+    async def append_server_event(self, session_id, event_type, payload) -> None:
+        raise OSError("架空の書き込みの障害")
+
+
+def test_unwritable_sink_fails_loudly_for_sessions(built_options):
+    """研究のログに書けないときは、セッション付きの要求を記録したふりで通さない（200 にしない）。
+
+    研究のログの口の実装（get_research_sink の中身）に依らないよう、書けない口を差し込んで確かめる。
+    """
+    sink = _UnwritableSink()
+    sink.add("sess-1", "V00")
     app = FastAPI()
     app.include_router(assist_router.router)
+    app.dependency_overrides[get_research_sink] = lambda: sink
     client = TestClient(app, raise_server_exceptions=False)
     assert _ask(client, session="sess-1").status_code == 500
 
