@@ -1,14 +1,16 @@
-import { useCallback, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, apiErrorMessage } from '../../navi/api'
 import { useNaviData } from '../../navi/dataSource'
 import { findCourse, findFrame, sequenceOf } from '../../navi/graph'
 import type { CourseMapping, UnmappedCourse } from '../../navi/mapping'
+import { useResearchLog } from '../../navi/research'
 import { courseHref, groupHref, useNavi } from '../../navi/state'
 import type { Origin, PaneState, PcTab, TrailEntry } from '../../navi/state'
 import { courseTermLabel, isRequired, slotLong } from '../../navi/timetable'
 import type { AgentSource, Course } from '../../navi/types'
 import { LOADING, useLoadable } from '../../navi/useLoadable'
+import { useFlags } from '../../navi/variant'
 import { clashText, detailWhy, isOtherTerm, leadText, WIDE_SPACE } from '../../navi/views'
 import type { ListContext } from '../../navi/views'
 import Accordion from './Accordion'
@@ -103,6 +105,16 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
   return <CourseBody course={load.value.course} origin={origin} trail={trail} tab={tab} />
 }
 
+/** 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに） */
+function useSyllabusViewLog(syllabusId: string) {
+  const { log } = useResearchLog()
+  useEffect(() => {
+    const opened = performance.now()
+    log('syllabus_open', { syllabus_id: syllabusId })
+    return () => log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
+  }, [log, syllabusId])
+}
+
 interface UnmappedDetailProps {
   course: UnmappedCourse
   trail: TrailEntry[]
@@ -143,10 +155,14 @@ interface CourseBodyProps {
 /**
  * 取れた科目の詳細。E1 3章・4章: 科目名、5つの項目、［候補に入れる］、授業でやること、なぜ、
  * 開閉（取る順・授業計画・成績のつけ方と教科書）、原文。データが無い項目は行を残して理由を灰で書く（E1 8章）。
+ * 旗 graph=off では「取る順」と、系統図から言う「なぜ」を出さない（AI の判断の「なぜ」は出す）。
  */
 function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
   const { dept, ask, isPc, isKept, toggleKeep, track, shortlist, focusTerm, assumedTerm } = useNavi()
+  const flags = useFlags()
+  const { log } = useResearchLog()
   const titleId = useId()
+  useSyllabusViewLog(course.code)
   const ctx = { dept, shortlist, focusTerm, assumedTerm }
   const kept = isKept(course.code)
   const required = isRequired(course)
@@ -157,6 +173,12 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
   const seq = sequenceOf(dept, course)
   const frame = findFrame(dept, course.frameId)
   const lead = leadText(course)
+  const showGraph = flags.graph === 'on'
+  const showWhy = showGraph || why.ai
+  const traverse = (to: Course, direction: 'before' | 'after') => {
+    track({ type: 'traverse' })
+    log('sequence_click', { from_syllabus_id: course.code, to_syllabus_id: to.code, direction })
+  }
 
   return (
     <article className="detail" aria-labelledby={titleId}>
@@ -203,7 +225,7 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
         <p className="primary-note">学科の必修なので、時間割に入れてあります。</p>
       ) : (
         <>
-          <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(course.code)}>
+          <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(course.code, 'detail')}>
             <Icon name={kept ? 'check' : 'plus'} />
             <span>{kept ? '候補に入っています' : '候補に入れる'}</span>
           </button>
@@ -217,62 +239,66 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
         {!lead.missing && <p className="src">{dept.syllabusYear}年度シラバスより</p>}
       </section>
 
-      <section className="sec">
-        <h2 className="sec-label">
-          <Icon name="why" small />
-          なぜ
-        </h2>
-        <p className="text">{why.text}</p>
-        <p className="src">
-          {why.source}
-          {why.ai && ' 間違うことがあります。シラバスの原文で確かめてください。'}
-        </p>
-      </section>
+      {showWhy && (
+        <section className="sec">
+          <h2 className="sec-label">
+            <Icon name="why" small />
+            なぜ
+          </h2>
+          <p className="text">{why.text}</p>
+          <p className="src">
+            {why.source}
+            {why.ai && ' 間違うことがあります。シラバスの原文で確かめてください。'}
+          </p>
+        </section>
+      )}
 
       <div className="accs">
-        <Accordion
-          label="取る順"
-          hint={[seq.before.length > 0 ? `前に${seq.before.length}科目` : '', seq.after.length > 0 ? `後に${seq.after.length}科目` : '']
-            .filter((x) => x !== '')
-            .join(WIDE_SPACE) || '前後の科目なし'}
-        >
-          <ol className="seq">
-            {seq.before.length > 0 && <li className="seq-h">先に取る</li>}
-            {seq.before.map((c) => (
-              <SeqItem key={c.code} course={c} from={course} step={step} onTraverse={() => track({ type: 'traverse' })} />
-            ))}
-            <li className="seq-h">この科目</li>
-            <li>
-              <div className="seq-item is-here">
-                <span className="seq-name">{course.name}</span>
-                <span className="seq-meta">
-                  {courseTermLabel(course)} {course.slots.join('・')}
-                </span>
-                <span />
-              </div>
-            </li>
-            {seq.after.length > 0 && <li className="seq-h">あとに続く</li>}
-            {seq.after.map((c) => (
-              <SeqItem key={c.code} course={c} from={course} step={step} onTraverse={() => track({ type: 'traverse' })} />
-            ))}
-          </ol>
-          {frame !== undefined && seq.same.length > 0 && (
-            <Link
-              className="seq-group"
-              to={groupHref(frame.id, { kind: 'course', code: course.code })}
-              state={step(frame.name, groupHref(frame.id, { kind: 'course', code: course.code }))}
-              onClick={() => track({ type: 'traverse' })}
-            >
-              <span>同じまとまりの科目（{frame.name}、ほかに{seq.same.length}科目）</span>
-              <Icon name="next" small />
-            </Link>
-          )}
-          <p className="seq-note">
-            {frame === undefined
-              ? 'この科目は学科の履修系統図に載っていません。'
-              : '系統図の線は科目のまとまりどうしを結ぶもので、直接の前提とは限りません。'}
-          </p>
-        </Accordion>
+        {showGraph && (
+          <Accordion
+            label="取る順"
+            hint={[seq.before.length > 0 ? `前に${seq.before.length}科目` : '', seq.after.length > 0 ? `後に${seq.after.length}科目` : '']
+              .filter((x) => x !== '')
+              .join(WIDE_SPACE) || '前後の科目なし'}
+          >
+            <ol className="seq">
+              {seq.before.length > 0 && <li className="seq-h">先に取る</li>}
+              {seq.before.map((c) => (
+                <SeqItem key={c.code} course={c} from={course} step={step} onTraverse={() => traverse(c, 'before')} />
+              ))}
+              <li className="seq-h">この科目</li>
+              <li>
+                <div className="seq-item is-here">
+                  <span className="seq-name">{course.name}</span>
+                  <span className="seq-meta">
+                    {courseTermLabel(course)} {course.slots.join('・')}
+                  </span>
+                  <span />
+                </div>
+              </li>
+              {seq.after.length > 0 && <li className="seq-h">あとに続く</li>}
+              {seq.after.map((c) => (
+                <SeqItem key={c.code} course={c} from={course} step={step} onTraverse={() => traverse(c, 'after')} />
+              ))}
+            </ol>
+            {frame !== undefined && seq.same.length > 0 && (
+              <Link
+                className="seq-group"
+                to={groupHref(frame.id, { kind: 'course', code: course.code })}
+                state={step(frame.name, groupHref(frame.id, { kind: 'course', code: course.code }))}
+                onClick={() => track({ type: 'traverse' })}
+              >
+                <span>同じまとまりの科目（{frame.name}、ほかに{seq.same.length}科目）</span>
+                <Icon name="next" small />
+              </Link>
+            )}
+            <p className="seq-note">
+              {frame === undefined
+                ? 'この科目は学科の履修系統図に載っていません。'
+                : '系統図の線は科目のまとまりどうしを結ぶもので、直接の前提とは限りません。'}
+            </p>
+          </Accordion>
+        )}
         <Accordion label="授業計画" hint={course.plan.length > 0 ? `${course.plan.length}回` : '記載なし'}>
           {course.plan.length > 0 ? (
             <ol className="plan">
@@ -301,7 +327,10 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
             href={course.syllabusUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => track({ type: 'original' })}
+            onClick={() => {
+              track({ type: 'original' })
+              log('original_open', { syllabus_id: course.code })
+            }}
           >
             <span>
               シラバスの原文<span className="vh">（大学のサイトが新しいタブで開きます）</span>
@@ -374,6 +403,7 @@ interface OutsideCourseProps {
 function OutsideCourse({ source, trail, tab }: OutsideCourseProps) {
   const { isPc, isKept, toggleKeep } = useNavi()
   const titleId = useId()
+  useSyllabusViewLog(source.code)
   const kept = isKept(source.code)
   return (
     <article className="detail" aria-labelledby={titleId}>
@@ -395,7 +425,7 @@ function OutsideCourse({ source, trail, tab }: OutsideCourseProps) {
           <dd>{source.instructor ?? <span className="note">準備中</span>}</dd>
         </div>
       </dl>
-      <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(source.code)}>
+      <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(source.code, 'detail')}>
         <Icon name={kept ? 'check' : 'plus'} />
         <span>{kept ? '候補に入っています' : '候補に入れる'}</span>
       </button>
