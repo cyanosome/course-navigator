@@ -193,7 +193,11 @@ export default function NaviApp() {
   const departments = useLoadable(`departments#${reload}`, listDepartments, '学科の一覧')
   const list = departments?.status === 'ready' ? departments.value : null
   const [chosenId, setChosenId] = useState<string | null>(null)
-  const deptId = chosenId ?? (list === null ? null : pickDepartment(list, initial))
+  // 調査のセッション中は、セッションの学科（R1 の department_id。API の学科 ID）に決める。
+  // タブを開き直して chosenId が消えても、学科の一覧やリンクに左右されない
+  const study = useStudy()
+  const studyDeptId = study === null ? null : study.session.department_id
+  const deptId = studyDeptId ?? chosenId ?? (list === null ? null : pickDepartment(list, initial))
   useEffect(() => {
     if (deptId !== null) writeJson('local', KEYS.dept, deptId)
   }, [deptId])
