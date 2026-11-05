@@ -1,0 +1,49 @@
+/* わざと禁止に当たる書き方を並べたサンプル（check_banlist.py の検出テスト用） */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap");
+
+:root {
+  --radius: 0.625rem;                               /* P09 shadcn の既定 */
+  --primary: oklch(0.205 0 0);                      /* P09 */
+  --font-heading: "Shippori Mincho", serif;         /* F39 ＋ P20（明朝見出し） */
+  --font-body: "Noto Sans JP", sans-serif;          /* F38 ＋ P20（ゴシック本文） */
+  --font-ui: system-ui, "Hiragino Sans", sans-serif; /* P27 システムだけ */
+  --clay: #d97757;                                  /* C01 */
+  --clay-near: #e07a5f;                             /* C01（近い色） */
+  --paper: #faf9f5;                                 /* C02 */
+  --paper-near: #fff7ed;                            /* C02（近い色） */
+  --sky: #6a9bcc;                                   /* C03 */
+  --indigo: #6366f1;                                /* C04 */
+  --violet-v4: oklch(60.6% 0.25 292.717);           /* C04（Tailwind v4 の値） */
+  --brass: #b08947;                                 /* C05 */
+  --ink: #141413;                                   /* C06（要注意） */
+}
+
+body { font-family: Inter, sans-serif; }            /* F01 */
+.legacy { font-family: Roboto, sans-serif; }        /* F02（先頭） */
+.brand { font-family: "Styrene B", sans-serif; }    /* F32 */
+
+.glass { backdrop-filter: blur(12px); }             /* P01 */
+.hero-title {
+  background: linear-gradient(90deg, #6366f1, #a855f7); /* P03 */
+  -webkit-background-clip: text;                    /* P02 */
+  background-clip: text;
+  color: transparent;
+  font-style: italic;                               /* P15 */
+}
+.warm { background: linear-gradient(135deg, #f97316, #ec4899); } /* P04 */
+.wash { background: linear-gradient(180deg, #ffffff, #e5e7eb); } /* P22（要注意） */
+.card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);        /* P10 */
+  border-left: 4px solid #0a7c86;                   /* P16 */
+  transition: all 200ms ease;                       /* P17 */
+}
+.card:hover { transform: scale(1.05); }             /* P18 */
+.pop { transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); } /* P19 */
+.eyebrow { text-transform: uppercase; letter-spacing: 0.18em; } /* P11 */
+.more::after { content: " →"; }                      /* P13 */
+.hero { min-height: 100vh; }                        /* P25（要注意） */
+
+@keyframes rise {                                   /* P24（要注意） */
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}

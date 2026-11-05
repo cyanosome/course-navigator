@@ -1,0 +1,20 @@
+{
+  "tokens": {
+    "ink": "#1c2422",
+    "surface": "#f2f5f3",
+    "gray-777": "#777777",
+    "gray-767": "#767676",
+    "border-949": "#949494",
+    "border-959": "#959595"
+  },
+  "pairs": [
+    {"label": "黒と白（21:1 になるはず）", "fg": "#000000", "bg": "#ffffff", "use": "body"},
+    {"label": "#767676 本文（4.54 で合格のはず）", "fg": "gray-767", "bg": "#ffffff", "use": "body"},
+    {"label": "#777777 本文（4.47 で不合格のはず）", "fg": "gray-777", "bg": "#ffffff", "use": "body"},
+    {"label": "#777777 大きい文字（3:1 基準なので合格のはず）", "fg": "gray-777", "bg": "#ffffff", "use": "large"},
+    {"label": "#949494 枠線（3.03 で合格のはず）", "fg": "border-949", "bg": "#ffffff", "use": "ui"},
+    {"label": "#959595 枠線（2.99 で不合格のはず）", "fg": "border-959", "bg": "#ffffff", "use": "ui"},
+    {"label": "半透明の黒 50%（#808080 相当、3.94 で不合格のはず）", "fg": "rgba(0,0,0,0.5)", "bg": "#ffffff", "use": "body"},
+    {"label": "本文トークン", "fg": "ink", "bg": "surface", "use": "本文"}
+  ]
+}
