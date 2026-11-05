@@ -33,6 +33,13 @@ DEFAULT_EMBEDDINGS_OUTPUT = (
 GEMINI_EMBEDDING_MODEL = "text-embedding-004"
 DEFAULT_DIMENSION = 768
 
+def sanitize_key(key: Optional[str]) -> str:
+    """Trim leading/trailing whitespaces, newlines, and single/double quotes."""
+    if not key:
+        return ""
+    return key.strip().strip("'\"").strip()
+
+
 
 def build_course_text(course: Dict[str, Any]) -> str:
     """Build structured summary text from course detail for embedding."""
@@ -96,7 +103,7 @@ class EmbeddingGenerator:
         dimension: int = DEFAULT_DIMENSION,
         force_mock: bool = False,
     ):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = sanitize_key(api_key or os.getenv("GEMINI_API_KEY"))
         self.model = model
         self.dimension = dimension
         self.force_mock = force_mock

@@ -10,6 +10,13 @@ from typing import List, Optional
 import httpx
 
 try:
+    from google import genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    genai = None
+    GENAI_AVAILABLE = False
+
+try:
     import numpy as np
 except ImportError:
     np = None
@@ -20,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
 DEFAULT_DIMENSION = 768
+
+
+def sanitize_key(key: Optional[str]) -> str:
+    """Trim leading/trailing whitespaces, newlines, and single/double quotes."""
+    if not key:
+        return ""
+    return key.strip().strip("'\"").strip()
 
 
 def _normalize_model_name(model: str) -> str:
@@ -67,7 +81,8 @@ class EmbeddingService:
         dimension: int = DEFAULT_DIMENSION,
         force_mock: bool = False,
     ):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", "")
+        raw_key = api_key or os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", "")
+        self.api_key = sanitize_key(raw_key)
         self.model = model
         self.dimension = dimension
         self.force_mock = force_mock
@@ -76,13 +91,29 @@ class EmbeddingService:
             self.force_mock = True
 
     async def get_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector for a single query text."""
+        """Generate embedding vector for a single query text (SDK primary, REST fallback)."""
         if not text or not text.strip():
             return [0.0] * self.dimension
 
         if self.force_mock:
             return generate_deterministic_mock_embedding(text, self.dimension)
 
+        # 1. Try Google Official GenAI SDK first
+        if GENAI_AVAILABLE and self.api_key:
+            try:
+                loop = asyncio.get_running_loop()
+                raw_model = self.model.removeprefix("models/")
+                client = genai.Client(api_key=self.api_key)
+                res = await loop.run_in_executor(
+                    None,
+                    lambda: client.models.embed_content(model=raw_model, contents=text),
+                )
+                if res.embeddings and len(res.embeddings[0].values) == self.dimension:
+                    return res.embeddings[0].values
+            except Exception as e:
+                logger.warning("Official GenAI SDK embed failed (%s), falling back to REST.", e)
+
+        # 2. Try REST with x-goog-api-key header
         normalized_model = _normalize_model_name(self.model)
         url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:embedContent"
         payload = {
@@ -112,16 +143,33 @@ class EmbeddingService:
         except Exception as e:
             logger.warning("Gemini Embedding API call failed (%s). Falling back to deterministic mock.", e)
 
+        # 3. Deterministic mock fallback
         return generate_deterministic_mock_embedding(text, self.dimension)
 
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embedding vectors for multiple texts."""
+        """Generate embedding vectors for multiple texts (SDK primary, REST fallback)."""
         if not texts:
             return []
 
         if self.force_mock:
             return [generate_deterministic_mock_embedding(t, self.dimension) for t in texts]
 
+        # 1. Try Google Official GenAI SDK first
+        if GENAI_AVAILABLE and self.api_key:
+            try:
+                loop = asyncio.get_running_loop()
+                raw_model = self.model.removeprefix("models/")
+                client = genai.Client(api_key=self.api_key)
+                res = await loop.run_in_executor(
+                    None,
+                    lambda: client.models.embed_content(model=raw_model, contents=texts),
+                )
+                if res.embeddings and len(res.embeddings) == len(texts):
+                    return [emb.values for emb in res.embeddings]
+            except Exception as e:
+                logger.warning("Official GenAI SDK batch embed failed (%s), falling back to REST.", e)
+
+        # 2. Try REST with x-goog-api-key header
         normalized_model = _normalize_model_name(self.model)
         url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:batchEmbedContents"
         requests = [
@@ -154,6 +202,7 @@ class EmbeddingService:
         except Exception as e:
             logger.warning("Gemini Batch Embedding API call failed (%s). Falling back to deterministic mock.", e)
 
+        # 3. Deterministic mock fallback
         return [generate_deterministic_mock_embedding(t, self.dimension) for t in texts]
 
 
