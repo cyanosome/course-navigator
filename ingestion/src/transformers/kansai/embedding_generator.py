@@ -30,7 +30,7 @@ DEFAULT_EMBEDDINGS_OUTPUT = (
     PROJECT_ROOT / "data" / "parsed" / "university" / "kansai" / "2026" / "course_embeddings.json"
 )
 
-GEMINI_EMBEDDING_MODEL = "models/text-embedding-004"
+GEMINI_EMBEDDING_MODEL = "text-embedding-004"
 DEFAULT_DIMENSION = 768
 
 
@@ -108,10 +108,11 @@ class EmbeddingGenerator:
 
     def embed_texts_batch_gemini(self, texts: List[str]) -> List[List[float]]:
         """Call Google Gemini batchEmbedContents API."""
-        url = f"https://generativelanguage.googleapis.com/v1beta/{self.model}:batchEmbedContents?key={self.api_key}"
+        model_name = self.model if self.model.startswith("models/") else f"models/{self.model}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:batchEmbedContents"
         requests = [
             {
-                "model": self.model,
+                "model": model_name,
                 "content": {"parts": [{"text": t}]},
                 "taskType": "RETRIEVAL_DOCUMENT",
             }
@@ -120,7 +121,8 @@ class EmbeddingGenerator:
         payload = {"requests": requests}
         
         with httpx.Client(timeout=30.0) as client:
-            resp = client.post(url, json=payload)
+            headers = {"Content-Type": "application/json", "x-goog-api-key": self.api_key}
+            resp = client.post(url, json=payload, headers=headers)
             if resp.status_code != 200:
                 raise RuntimeError(
                     f"Gemini Embedding API error ({resp.status_code}): {resp.text}"

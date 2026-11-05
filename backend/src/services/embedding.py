@@ -18,8 +18,15 @@ from course_core import config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EMBEDDING_MODEL = "models/text-embedding-004"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
 DEFAULT_DIMENSION = 768
+
+
+def _normalize_model_name(model: str) -> str:
+    """Ensure model name has models/ prefix for Gemini API URL."""
+    if not model.startswith("models/"):
+        return f"models/{model}"
+    return model
 
 
 def generate_deterministic_mock_embedding(text: str, dimension: int = DEFAULT_DIMENSION) -> List[float]:
@@ -76,16 +83,21 @@ class EmbeddingService:
         if self.force_mock:
             return generate_deterministic_mock_embedding(text, self.dimension)
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/{self.model}:embedContent?key={self.api_key}"
+        normalized_model = _normalize_model_name(self.model)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:embedContent"
         payload = {
-            "model": self.model,
+            "model": normalized_model,
             "content": {"parts": [{"text": text}]},
             "taskType": "RETRIEVAL_QUERY",
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
         }
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     embedding_data = data.get("embedding", {})
@@ -110,20 +122,25 @@ class EmbeddingService:
         if self.force_mock:
             return [generate_deterministic_mock_embedding(t, self.dimension) for t in texts]
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/{self.model}:batchEmbedContents?key={self.api_key}"
+        normalized_model = _normalize_model_name(self.model)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{normalized_model}:batchEmbedContents"
         requests = [
             {
-                "model": self.model,
+                "model": normalized_model,
                 "content": {"parts": [{"text": t}]},
                 "taskType": "RETRIEVAL_DOCUMENT",
             }
             for t in texts
         ]
         payload = {"requests": requests}
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     embeddings = data.get("embeddings", [])
