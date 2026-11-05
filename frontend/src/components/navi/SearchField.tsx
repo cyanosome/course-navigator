@@ -1,7 +1,9 @@
 import { useId, useRef, useState } from 'react'
 import type { FocusEvent, FormEvent, KeyboardEvent, MouseEvent } from 'react'
-import { findOutOfScopeWords } from '../../navi/ask'
+import { composeQuestion, findOutOfScopeWords } from '../../navi/ask'
+import { useResearchLog } from '../../navi/research'
 import { useNavi } from '../../navi/state'
+import { useFlags } from '../../navi/variant'
 import Icon from './Icon'
 
 interface SearchFieldProps {
@@ -9,30 +11,50 @@ interface SearchFieldProps {
   open: boolean
   /** 欄（［探す］や案内のボタンを含む）にカーソルが入った・外へ出た */
   onFocusChange: (focused: boolean) => void
-  /** 送れたとき（端末内の番号） */
+  /** キーワードで探した（空なら検索をやめる） */
+  onSearch: (query: string) => void
+  /** AI に送れたとき（端末内の番号） */
   onSent: (localId: string) => void
 }
 
-const NOTE =
+/** AI だけの欄（search=off）の注意 */
+const AI_ONLY_NOTE =
   'AIが探して答えます（1分ほど）。入力した文は外部のAIサービスに送られます。名前や学籍番号は書かないでください。'
+/** キーワード検索の欄に［AIに聞く］を足したとき（assistant=on）の注意 */
+const AI_NOTE = '［AIに聞く］を押すと、入力した文が外部のAIサービスに送られます（答えまで1分ほど）。名前や学籍番号は書かないでください。'
 
-const PLACEHOLDER = '例：環境に関わる仕事がしたい'
+const KEYWORD_PLACEHOLDER = '例：有機化学、環境'
+const AI_PLACEHOLDER = '例：環境に関わる仕事がしたい'
 
 type Problem = 'outOfScope' | 'busy' | 'empty' | null
 
 /**
- * 自分の言葉で探す（W5-1）と、範囲外の言葉の案内（W6-1、UX 仕様 C09〜C11）。さがすの一覧のいちばん上に、いつも出す（入口の案 a）。
- * 外部の AI に送る注意と［探す］は、欄にカーソルが入った時点で欄のすぐ下に出す。［探す］は注意と一緒にしか出ないので、
- * Enter で送るときも注意は送る前に必ず見える（E1 7章 C12）。送っていない文が無いまま欄の外へ出たら畳む。
- * 日本語の変換を確定する Enter では送らない（requirements.md R1-12）。入力した文は消さない（C11）。
+ * さがすの一覧のいちばん上の欄（入口の案 a）。旗で中身が変わる（ab-variants.md F01・F04）。
+ * - search=kw: キーワード検索。Enter と［探す］で科目名・概要・到達目標を探す。assistant=on のときだけ、
+ *   同じ文を AI に送る［AIに聞く］と外部に送る注意を足す（ほかの配置・文言は AI の有無で変えない。計画 4.1）。
+ * - search=off: 今までのモックの形（Enter と［探す］で AI に送る。W5-1）。
+ * 注意と［探す］は欄にカーソルが入った時点で欄のすぐ下に出す。［AIに聞く］は注意と一緒にしか出ないので、
+ * 外部に送る前に注意は必ず見える（E1 7章 C12）。日本語の変換を確定する Enter では送らない（requirements.md R1-12）。
+ * 入力した文は消さない（C11）。
  */
-export default function SearchField({ open, onFocusChange, onSent }: SearchFieldProps) {
-  const { askDraft, setAskDraft, askDraftUnsent, sendAsk } = useNavi()
+export default function SearchField({ open, onFocusChange, onSearch, onSent }: SearchFieldProps) {
+  const { dept, askDraft, setAskDraft, askDraftUnsent, sendAsk } = useNavi()
+  const flags = useFlags()
+  const { log } = useResearchLog()
   const [problem, setProblem] = useState<Problem>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const noteId = useId()
+  const keyword = flags.search !== 'off'
+  const ai = flags.assistant === 'on'
+  const note = !ai ? null : keyword ? AI_NOTE : AI_ONLY_NOTE
 
-  const submit = (withGuardrail: boolean) => {
+  const close = () => {
+    setProblem(null)
+    inputRef.current?.blur()
+    onFocusChange(false)
+  }
+
+  const sendToAi = (withGuardrail: boolean) => {
     const text = askDraft.trim()
     if (text === '') {
       setProblem('empty')
@@ -48,10 +70,14 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
       setProblem('busy')
       return
     }
-    setProblem(null)
-    inputRef.current?.blur()
-    onFocusChange(false)
+    log('chat_send', { input: text, question: composeQuestion(dept, text, withGuardrail), guardrail: withGuardrail, ask_local_id: localId })
+    close()
     onSent(localId)
+  }
+
+  const searchKeyword = () => {
+    close()
+    onSearch(askDraft.trim())
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -61,7 +87,8 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    submit(false)
+    if (keyword) searchKeyword()
+    else sendToAi(false)
   }
 
   // 欄の中（［探す］や案内のボタン）へ移ったときは畳まない。外へ出たとき、送っていない文があれば畳まない（案内も残す）
@@ -72,7 +99,7 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
     if (!askDraftUnsent) setProblem(null)
   }
 
-  // ［探す］を押してもカーソルを欄に残す（押した瞬間に欄が空として畳まれ、押せなくなるのを防ぐ）
+  // ボタンを押してもカーソルを欄に残す（押した瞬間に欄が空として畳まれ、押せなくなるのを防ぐ）
   const keepFocus = (e: MouseEvent<HTMLButtonElement>) => e.preventDefault()
 
   const message = problem !== null && (
@@ -86,7 +113,7 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
             <span>難しさや単位の取りやすさのデータは持っていません。その部分には答えられません。</span>
           </p>
           <div className="msg-acts">
-            <button className="text-btn" type="button" onClick={() => submit(true)}>
+            <button className="text-btn" type="button" onClick={() => sendToAi(true)}>
               ほかの部分で探す
             </button>
             <button
@@ -111,15 +138,15 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
     <form className="ask-top" onSubmit={onSubmit} onFocus={() => onFocusChange(true)} onBlur={onBlur} role="search">
       <label className={problem === 'outOfScope' ? 'field is-error' : 'field'}>
         <Icon name="search" />
-        <span className="vh">自分の言葉で探す（興味のあることや科目名）</span>
+        <span className="vh">{keyword ? '科目を探す（科目名や、授業で扱う言葉）' : '自分の言葉で探す（興味のあることや科目名）'}</span>
         <input
           ref={inputRef}
           type="text"
           value={askDraft}
-          placeholder={PLACEHOLDER}
+          placeholder={keyword ? KEYWORD_PLACEHOLDER : AI_PLACEHOLDER}
           autoComplete="off"
           enterKeyHint="search"
-          aria-describedby={noteId}
+          aria-describedby={note === null ? undefined : noteId}
           aria-invalid={problem === 'outOfScope'}
           onChange={(e) => {
             setAskDraft(e.target.value)
@@ -130,13 +157,20 @@ export default function SearchField({ open, onFocusChange, onSent }: SearchField
       </label>
       {/* 畳んでいるあいだも注意は読み上げの説明として残す（hidden でも aria-describedby からは読める） */}
       <div hidden={!open}>
-        <p className="sheet-note" id={noteId}>
-          {NOTE}
-        </p>
+        {note !== null && (
+          <p className="sheet-note" id={noteId}>
+            {note}
+          </p>
+        )}
         <div className="send-row">
           <button className="send" type="submit" onMouseDown={keepFocus}>
             探す
           </button>
+          {keyword && ai && (
+            <button className="send" type="button" onMouseDown={keepFocus} onClick={() => sendToAi(false)}>
+              AIに聞く
+            </button>
+          )}
         </div>
         {message}
       </div>

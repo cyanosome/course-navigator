@@ -255,6 +255,27 @@ export interface SessionOut {
   current_block: number | null
   variant: VariantOut | null
   backend_version: string
+  /** 終えたブロック（開き直したときにどこから続けるか。B2 で足した項目） */
+  completed_blocks: number[]
+  /** サーバーが受け付けた seq の最大（開き直したときに seq を続けるため。まだ無ければ 0。B2 で足した項目） */
+  last_seq: number
+}
+
+/** R3 POST /api/research/consent の入力 */
+export interface ConsentIn {
+  consent_version: string
+  /** 紙の同意書の通し番号（英数字とハイフン、1〜16 文字。FORM_SERIAL_PATTERN） */
+  form_serial: string
+  agreed: boolean
+}
+
+/** R3 の form_serial の形（backend の ConsentIn と同じ） */
+export const FORM_SERIAL_PATTERN = /^[0-9A-Za-z-]{1,16}$/
+
+/** R4 POST /api/research/blocks/{block}/start の応答 */
+export interface BlockStartOut {
+  plan: BlockPlan
+  variant: VariantOut
 }
 
 /** クライアントが送るイベントの種類（ab-variants.md 7.2 のクライアント側） */

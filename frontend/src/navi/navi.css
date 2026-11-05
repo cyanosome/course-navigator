@@ -131,7 +131,7 @@
   .field:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
   .field.is-error { border-color: var(--error); }
   .sheet-note { padding-top: 8px; font-size: 14px; color: var(--muted); }
-  .send-row { display: flex; padding-top: 16px; }
+  .send-row { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 16px; }
   .send {
     display: inline-flex; align-items: center; justify-content: center;
     height: 40px; padding: 0 24px; border-radius: 8px;
