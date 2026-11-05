@@ -3,6 +3,7 @@
  * 状態そのものは components/navi/NaviApp.tsx が持つ。
  */
 import { createContext, useContext } from 'react'
+import type { ShortlistFrom } from './research'
 import type { TermKey } from './timetable'
 import type { Department, McpAgentRunResult } from './types'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
@@ -195,8 +196,8 @@ export interface NaviContextValue {
 
   shortlist: string[]
   isKept: (code: string) => boolean
-  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す */
-  toggleKeep: (code: string) => void
+  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す。from は研究のログの「どこから」 */
+  toggleKeep: (code: string, from?: ShortlistFrom) => void
   /** 時間割の［外す］。［元に戻す］つきの知らせを出す */
   removeKeep: (code: string) => void
   undoRemove: (toast: ToastState) => void

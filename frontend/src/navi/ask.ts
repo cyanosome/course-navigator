@@ -1,12 +1,10 @@
 /**
  * 「自分の言葉で探す」（W5）の送信と、回答の読み取り。
  *
- * 本物は POST /api/test/agent/mcp（McpAgentRunResult を返す）。このモックは本物を呼ばず、
- * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。本物に差し替えるときは、
- * AskAdapter を満たす関数を作って NaviApp に渡すだけでよい。
+ * 本物は POST /api/assist/ask（askAdapter.ts の createHttpAskAdapter）。開発ビルドで ?wait= を付けたときだけ、
+ * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。見本の回答は本番の束に入れないよう、使うときに読み込む。
  */
 import type { Department, McpAgentRunResult } from './types'
-import { FIXTURE_ASK_RESULT } from './fixtureAsk'
 
 export interface AskAdapter {
   /** 送る文（composeQuestion で作ったもの）を受けて、回答を返す。signal で中断できる */
@@ -62,6 +60,7 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
         throw new TypeError('Failed to fetch（モック: サーバーにつながらない状態を真似ています）')
       }
       await delay(mode === 'long' ? LONG_WAIT_MS : SHORT_WAIT_MS, signal)
+      const { FIXTURE_ASK_RESULT } = await import('./fixtureAsk')
       const latency = Date.now() - started
       if (mode === 'empty') {
         return {
