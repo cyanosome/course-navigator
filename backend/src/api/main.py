@@ -15,7 +15,7 @@ from agent import deps as agent_deps
 from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
-from api.routers import agent, integrated, neo4j, postgres
+from api.routers import agent, integrated, navi, neo4j, postgres, search
 
 
 @asynccontextmanager
@@ -66,4 +66,6 @@ app.include_router(postgres.router)
 app.include_router(neo4j.router)
 app.include_router(integrated.router)
 app.include_router(agent.router)
+app.include_router(search.router)
+app.include_router(navi.router)
 
