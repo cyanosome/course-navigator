@@ -18,7 +18,15 @@ import { createCourseLoader, createNaviDataSource, NaviDataContext } from '../..
 import type { NaviData, NaviDataSource } from '../../navi/dataSource'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
-import { NOOP_RESEARCH_LOG, ResearchLogContext, useResearchLog } from '../../navi/research'
+import {
+  isTaskRunning,
+  NOOP_RESEARCH_LOG,
+  RESEARCH_LOG,
+  ResearchLogContext,
+  useFallbackVariant,
+  useResearchLog,
+  useStudy,
+} from '../../navi/research'
 import type { ShortlistFrom } from '../../navi/research'
 import { ASK_TIMEOUT_MS, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
@@ -26,7 +34,7 @@ import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '..
 import type { TermKey } from '../../navi/timetable'
 import type { Department } from '../../navi/types'
 import { useLoadable } from '../../navi/useLoadable'
-import { DEFAULT_VARIANT, ruleEdgeTypes, VariantContext } from '../../navi/variant'
+import { DEFAULT_VARIANT, ruleEdgeTypes, toVariantState, VariantContext } from '../../navi/variant'
 import { addedNotice } from '../../navi/views'
 import AboutScreen from './AboutScreen'
 import CourseScreen from './CourseScreen'
@@ -116,11 +124,23 @@ function newStudyRecord(surveyId: string): StudyRecord {
   }
 }
 
-/** 旗と研究のログの文脈。いまは既定の旗（V00 相当）と、何も記録しない口 */
+/**
+ * 旗と研究のログの文脈。
+ * - 調査のセッション中: サーバーが返したブロックの旗（R4）と、記録する口。課題のあいだだけ画面を開け、
+ *   ほかの段階で画面を開いたら調査の入口へ戻す（条件の違う画面を先に見せない）。
+ * - 調査でないとき: R8 の既定の旗（開発ビルドの ?variant=V02 は R9）と、何も記録しない口。
+ */
 function NaviProviders({ children }: { children: ReactNode }) {
+  const study = useStudy()
+  const location = useLocation()
+  const onGate = useMatch('/navi/s/:token') !== null
+  const fallback = useFallbackVariant(study === null, location.search)
+  const studyVariant = study?.variant ?? null
+  const fromStudy = useMemo(() => (studyVariant === null ? DEFAULT_VARIANT : toVariantState(studyVariant)), [studyVariant])
+  if (study !== null && !onGate && !isTaskRunning(study)) return <Navigate to={study.gatePath} replace />
   return (
-    <VariantContext.Provider value={DEFAULT_VARIANT}>
-      <ResearchLogContext.Provider value={NOOP_RESEARCH_LOG}>{children}</ResearchLogContext.Provider>
+    <VariantContext.Provider value={study === null ? fallback : fromStudy}>
+      <ResearchLogContext.Provider value={study === null ? NOOP_RESEARCH_LOG : RESEARCH_LOG}>{children}</ResearchLogContext.Provider>
     </VariantContext.Provider>
   )
 }
@@ -207,7 +227,7 @@ export default function NaviApp() {
   if (studyLink !== null) {
     return (
       <NaviProviders>
-        <StudyGate />
+        <StudyGate token={studyLink.params.token ?? ''} chooseDept={chooseDept} />
       </NaviProviders>
     )
   }

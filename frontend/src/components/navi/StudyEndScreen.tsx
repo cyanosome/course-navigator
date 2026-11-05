@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { FIXTURE_STUDY_CONFIG } from '../../navi/fixtureStudyConfig'
 import { findCourse, findInterest } from '../../navi/graph'
 import { formatDuration } from '../../navi/hooks'
+import { useStudy } from '../../navi/research'
 import { useNavi } from '../../navi/state'
 import type { StudyRecord } from '../../navi/state'
 import type { Course, Department } from '../../navi/types'
@@ -48,10 +49,12 @@ function surveyHref(study: StudyRecord, kept: Course[]): string {
   return `${FIXTURE_STUDY_CONFIG.surveyUrl}?${q.toString()}`
 }
 
-/** 調査の終了（W10。UX 仕様 8.7、C17・C21・C22） */
+/** 調査の終了（W10。UX 仕様 8.7、C17・C21・C22）。カードの URL から始めた調査のセッション中は、調査の入口の終わりへ戻す */
 export default function StudyEndScreen() {
   const { dept, isPc, study, shortlist } = useNavi()
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'failed'>('idle')
+  const research = useStudy()
+  if (research !== null) return <Navigate to={research.gatePath} replace />
 
   if (study === null) {
     return (

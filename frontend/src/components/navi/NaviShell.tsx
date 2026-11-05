@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { markVariantApplied, useResearchLog } from '../../navi/research'
 import { listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
-import { termCredits } from '../../navi/timetable'
+import { termCredits, termLabel } from '../../navi/timetable'
+import { useFlags } from '../../navi/variant'
 import { rootEntry } from '../../navi/views'
 import Icon from './Icon'
 import Menu from './Menu'
+import TaskCard from './TaskCard'
 import Toast from './Toast'
 import WaitLine from './WaitLine'
 
@@ -30,14 +33,35 @@ function placeOf(pathname: string): Place {
 /**
  * 上の帯・メニュー・下のタブ（スマホ）・調査モードの帯・待ちの1行・知らせ・読み上げ用の領域を、
  * どの画面にも同じ場所に出す（E1 4章・6章）。自分の言葉で探す欄は、さがすの一覧のいちばん上に置く（SearchList。入口の案 a）。
+ * 調査のセッション中（/navi/s/<トークン> から始めたとき）は、帯の場所に課題（TaskCard）を出し、メニューは出さない
+ * （学科を変える・このAIについては、どの条件でも開けないようにする）。
  */
 export default function NaviShell({ children }: NaviShellProps) {
   const { dept, isPc, shortlist, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
+  const flags = useFlags()
+  const { active: researching, log } = useResearchLog()
   const location = useLocation()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
   const place = placeOf(location.pathname)
   const minimal = place === 'study'
+
+  // 画面が使った旗を、ブロックごとに1回記録する（variant_applied）
+  useEffect(() => {
+    if (researching) markVariantApplied(flags)
+  }, [researching, flags])
+
+  // 時間割のタブを開いたら記録する（timetable_open。同じ画面の中で学期を変えても重ねない）
+  const ttLoggedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (place !== 'tt') {
+      ttLoggedRef.current = null
+      return
+    }
+    if (ttLoggedRef.current === location.key) return
+    ttLoggedRef.current = location.key
+    log('timetable_open', { term: termLabel(focusTerm) })
+  }, [place, location.key, focusTerm, log])
 
   /** 開いているメニュー。開いた画面から移ったら閉じたことにする */
   const [pop, setPop] = useState<{ kind: Pop; key: string } | null>(null)
@@ -81,8 +105,8 @@ export default function NaviShell({ children }: NaviShellProps) {
   const searchHref = listHref(lastDir)
   const credits = termCredits(dept, shortlist, focusTerm)
 
-  // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない
-  const askPending = ask !== null && (ask.status === 'waiting' || !ask.seen)
+  // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない。AI の欄が無い変種では出さない
+  const askPending = flags.assistant === 'on' && ask !== null && (ask.status === 'waiting' || !ask.seen)
   const showWait = askPending && !minimal && (isPc ? tab !== 'search' : place !== 'search')
 
   const finish = () => {
@@ -115,6 +139,8 @@ export default function NaviShell({ children }: NaviShellProps) {
   )
 
   const menu = openPop === 'menu' && <Menu id={MENU_ID} ref={popRef} />
+  const showMenu = !minimal && !researching
+  const task = researching && <TaskCard />
 
   const live = (
     <p className="vh" aria-live="polite">
@@ -126,6 +152,7 @@ export default function NaviShell({ children }: NaviShellProps) {
     return (
       <div className="pc">
         {band}
+        {task}
         <header className="pc-bar">
           <span className="brand">コースナビ</span>
           {!minimal && (
@@ -140,7 +167,7 @@ export default function NaviShell({ children }: NaviShellProps) {
           )}
           <div className="spacer" />
           <span className="dept">{dept.name}</span>
-          {!minimal && menuButton}
+          {showMenu && menuButton}
           {menu}
         </header>
         {showWait && <WaitLine />}
@@ -156,6 +183,7 @@ export default function NaviShell({ children }: NaviShellProps) {
   return (
     <div className={showWait ? 'sp has-wait' : 'sp'}>
       {band}
+      {task}
       <header className="bar">
         {back === null ? (
           <span className="brand">コースナビ</span>
@@ -165,7 +193,7 @@ export default function NaviShell({ children }: NaviShellProps) {
             <span>{back.label}</span>
           </button>
         )}
-        {!minimal && (
+        {showMenu && (
           <div className="bar-actions">
             {menuButton}
           </div>

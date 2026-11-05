@@ -10,16 +10,18 @@ interface CourseRowProps {
   linkState: PaneState
   /** PC の一覧で、中央に出している科目 */
   current?: boolean
+  /** 行を押して詳細へ進むとき（研究のログ result_click など） */
+  onOpen?: () => void
 }
 
 /**
  * 科目の一覧の1行（E1 0章・4章）。左に曜限・単位（いまの学期と違えば学期）、右に科目名・授業でやること・重なり・なぜ。
  * 行を押すと詳細、右の＋で候補に入れる。
  */
-export default function CourseRow({ row, linkState, current = false }: CourseRowProps) {
+export default function CourseRow({ row, linkState, current = false, onOpen }: CourseRowProps) {
   return (
     <li className="row" aria-current={current ? 'true' : undefined}>
-      <Link className="row-link" to={row.href} state={linkState}>
+      <Link className="row-link" to={row.href} state={linkState} onClick={onOpen}>
         <span className="slot">
           {row.slotLines.map((s) => (
             <span key={s} className={row.clash !== null ? 'slot-time is-clash' : 'slot-time'}>

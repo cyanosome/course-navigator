@@ -111,7 +111,9 @@ function useSyllabusViewLog(syllabusId: string) {
   useEffect(() => {
     const opened = performance.now()
     log('syllabus_open', { syllabus_id: syllabusId })
-    return () => log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
+    return () => {
+      log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
+    }
   }, [log, syllabusId])
 }
 
