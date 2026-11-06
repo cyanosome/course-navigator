@@ -49,6 +49,7 @@ class SimilarityVerifier:
     def close(self):
         if self._owned_driver and self.driver:
             self.driver.close()
+            self.driver = None
 
     def __enter__(self):
         return self
@@ -166,7 +167,22 @@ class SimilarityVerifier:
 
     def test_vector_query(self, query_text: str, top_k: int = 5):
         """Execute dynamic vector query using Vector Index and Gemini Embedding."""
-        # Convert query_text to embedding vector using official SDK
+        # 1. Check if Vector Index exists and is ONLINE
+        with self.driver.session() as session:
+            idx_records = list(session.run("SHOW VECTOR INDEXES YIELD name, state;"))
+            vector_index_online = any(
+                r["name"] == INDEX_NAME and r["state"] == "ONLINE" for r in idx_records
+            )
+
+        if not vector_index_online:
+            print("=" * 65)
+            print(f"[ERROR] Vector Index '{INDEX_NAME}' が存在しないか、ONLINE 状態ではありません。")
+            print("        先に以下のコマンドを実行して Embedding の投入と Index 構築を行ってください:")
+            print("        docker compose --profile tools run --rm ingestion uv run python -m src.loaders.graph.vector_index_loader")
+            print("=" * 65)
+            return
+
+        # 2. Convert query_text to embedding vector using official SDK
         vec = embed_text(query_text)
 
         with self.driver.session() as session:
