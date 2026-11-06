@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>書体の見本（スマホ 14〜16px）</title>
+<style>
+  /* 審査用の見本ページ。飾りは付けない。候補の書体だけが目立つように、地は白・文字は黒 */
+  :root { --ink: #111; --paper: #fff; --rule: #ccc; --ng: #b00020; --ok: #0a6b2e; }
+  body { margin: 0; padding: 16px; background: var(--paper); color: var(--ink); font-family: system-ui, sans-serif; }
+  .status { font: 12px/1.5 system-ui, sans-serif; padding: 8px; border: 1px solid var(--rule); margin-bottom: 12px; }
+  .status.ng { color: var(--ng); border-color: var(--ng); }
+  .status.ok { color: var(--ok); border-color: var(--ok); }
+  .row { border-top: 1px solid var(--rule); padding: 8px 0 12px; }
+  .size { font: 11px/1.4 system-ui, sans-serif; color: #555; margin: 0 0 4px; }
+  .sample { margin: 0; line-height: 1.7; font-family: var(--candidate), system-ui, sans-serif; }
+  .sample.bold { font-weight: 700; }
+  label { font: 12px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="status" class="status">書体を読み込んでいない。?font=URL&family=名前&weight=400 を付けて開くか、下でファイルを選ぶ。</div>
+<label>フォントファイルを選ぶ: <input id="file" type="file" accept=".woff2,.woff,.ttf,.otf"></label>
+<div id="rows"></div>
+<script>
+  // 見本の文（コースナビで実際に出そうな文字の組み合わせ）
+  const TEXTS = [
+    "履修登録の締め切りは4月12日（金）17:00。必修「線形代数Ⅰ」と選択「データサイエンス入門」は同じ2限に重なっています。",
+    "単位数 2／前提科目：微分積分学A → 応用数学B　担当：齋藤・髙橋・渡邉（教員名の異体字）",
+    "あいうえお かきくけこ ぱぴぷぺぽ ァィゥェォ ッャュョ ー 「」『』【】（）、。・！？％＆＃＠",
+    "0123456789 ABCDEFGHIJKLM abcdefghijklm GPA 3.45 / 124単位 Il1| O0o",
+    "鬱 鑑 齟齬 薔薇 曖昧 憂鬱 驚愕 繊細（画数の多い字のつぶれ）",
+  ];
+  const SIZES = [14, 15, 16];
+  const params = new URLSearchParams(location.search);
+  const status = document.getElementById("status");
+
+  function render(family, weight) {
+    document.documentElement.style.setProperty("--candidate", `"${family}"`);
+    const rows = document.getElementById("rows");
+    rows.innerHTML = "";
+    for (const px of SIZES) {
+      for (const bold of [false, true]) {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `<p class="size">${px}px・${bold ? "太字 700" : "標準 " + weight}・行間 1.7</p>`;
+        for (const t of TEXTS) {
+          const p = document.createElement("p");
+          p.className = "sample" + (bold ? " bold" : "");
+          p.style.fontSize = px + "px";
+          p.textContent = t;
+          row.appendChild(p);
+        }
+        rows.appendChild(row);
+      }
+    }
+  }
+
+  async function load(family, source, weight) {
+    try {
+      const face = new FontFace(family, source, { weight: String(weight) });
+      await face.load();
+      document.fonts.add(face);
+      status.className = "status ok";
+      status.textContent = `読み込み成功: ${family}（weight ${weight}）。太字の行は、太字のファイルを読んでいなければブラウザの擬似太字になる。`;
+      render(family, weight);
+    } catch (e) {
+      status.className = "status ng";
+      status.textContent = `読み込み失敗: ${family}（${e}）。代わりの書体で表示しているので、この画面で判断しない。`;
+    }
+  }
+
+  // ?width=375 で本文の幅を固定する（ヘッドレスの Chrome は窓を約500px より狭くできないため、スマホ幅はこれで再現する）
+  const width = params.get("width");
+  if (width) { document.body.style.width = `${Number(width) - 32}px`; }
+  const url = params.get("font");
+  const family = params.get("family") || "Candidate";
+  const weight = params.get("weight") || "400";
+  if (url) load(family, `url(${JSON.stringify(url)})`, weight);
+  document.getElementById("file").addEventListener("change", async (ev) => {
+    const f = ev.target.files[0];
+    if (!f) return;
+    load(f.name.replace(/\.\w+$/, ""), await f.arrayBuffer(), weight);
+  });
+</script>
+</body>
+</html>
