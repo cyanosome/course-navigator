@@ -13,7 +13,7 @@ import os
 from typing import Any, Dict, List, Optional
 from neo4j import GraphDatabase, Driver
 
-from src.transformers.kansai.embedding_generator import generate_deterministic_mock_embedding, DEFAULT_DIMENSION
+from src.services.embedding import embed_text
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,9 +165,9 @@ class SimilarityVerifier:
             print("=" * 65)
 
     def test_vector_query(self, query_text: str, top_k: int = 5):
-        """Execute dynamic vector query using Vector Index."""
-        # Convert query_text to deterministic embedding vector
-        vec = generate_deterministic_mock_embedding(query_text, dimension=DEFAULT_DIMENSION)
+        """Execute dynamic vector query using Vector Index and Gemini Embedding."""
+        # Convert query_text to embedding vector using official SDK
+        vec = embed_text(query_text)
 
         with self.driver.session() as session:
             query = f"""

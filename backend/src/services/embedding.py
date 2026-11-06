@@ -1,18 +1,18 @@
-"""Embedding Service using Google Gemini API (Fail-Fast, No Mock Fallback)."""
+"""Embedding Service using Official Google GenAI SDK (Fail-Fast, No Mock Fallback).
 
+Provides async embedding retrieval functions for search and agent components,
+and integrates standalone CLI diagnostics.
+"""
+
+import argparse
 import asyncio
 import logging
 import os
-from typing import List, Optional
+import sys
+from typing import Any, Dict, List, Optional
 
-import httpx
-
-try:
-    from google import genai
-    GENAI_AVAILABLE = True
-except ImportError:
-    genai = None
-    GENAI_AVAILABLE = False
+from google import genai
+from google.genai import types
 
 from course_core import config
 
@@ -34,13 +34,64 @@ def sanitize_key(key: Optional[str]) -> str:
     return key.strip().strip("'\"").strip()
 
 
-def _clean_model_name(model: str) -> str:
-    """Strip models/ prefix if present."""
-    return model.removeprefix("models/")
+def mask_key(key: str) -> str:
+    """Safely mask API key showing only prefix and length."""
+    if not key:
+        return "<EMPTY>"
+    if len(key) <= 8:
+        return f"{key[:2]}*** (len={len(key)})"
+    return f"{key[:6]}...{key[-4:]} (len={len(key)})"
+
+
+def inspect_key_properties(key: str) -> Dict[str, Any]:
+    """Diagnose basic structure of the key without leaking contents."""
+    sanitized = sanitize_key(key)
+    return {
+        "raw_length": len(key),
+        "sanitized_length": len(sanitized),
+        "starts_with_aq": sanitized.startswith("AQ."),
+        "starts_with_aiza": sanitized.startswith("AIza"),
+        "is_ascii": sanitized.isascii(),
+        "has_outer_quotes": len(key) != len(key.strip("'\"")),
+        "has_internal_whitespace": any(c in sanitized for c in " \t\r\n"),
+        "masked": mask_key(sanitized),
+    }
+
+
+def analyze_error_reason(error_text: str) -> List[str]:
+    """Analyze error response and produce actionable suggestions."""
+    suggestions = []
+    text_lower = error_text.lower()
+
+    if "access_token_type_unsupported" in text_lower or "401" in error_text:
+        suggestions.append(
+            "[原因 1] Google Cloud 側で「Generative Language API」が有効化されていない可能性があります。\n"
+            "  -> 対策: Google Cloud Console > [API とサービス] > [有効な API とサービス] を開き、\n"
+            "     「Generative Language API」を検索して「有効にする」をクリックしてください。"
+        )
+        suggestions.append(
+            "[原因 2] API キーの制限（API Restrictions）で Generative Language API が除外されている可能性があります。\n"
+            "  -> 対策: Google Cloud Console > [認証情報] で当該キーの「API の制限」を確認し、\n"
+            "     「Generative Language API」を許可するか、「キーを制限しない」を選択してください。"
+        )
+        suggestions.append(
+            "[原因 3] Google AI Studio の別プロジェクトでの新規キー再発行をお試しください。\n"
+            "  -> 対策: https://aistudio.google.com/app/apikey から新しいプロジェクトを作成してキーを取得してください。"
+        )
+    elif "403" in error_text or "permission_denied" in text_lower:
+        suggestions.append("アクセス権限エラー（403 PERMISSION_DENIED）です。プロジェクトの利用規約同意や課金設定状況をご確認ください。")
+    elif "404" in error_text or "not_found" in text_lower:
+        suggestions.append(f"モデルが見つかりません。モデル名 ({DEFAULT_EMBEDDING_MODEL}) をご確認ください。")
+    elif "429" in error_text or "resource_exhausted" in text_lower:
+        suggestions.append("レート制限超過（429 RESOURCE_EXHAUSTED）です。少し時間をおいてから再試行してください。")
+    else:
+        suggestions.append(f"エラー詳細: {error_text}\nネットワーク環境やプロキシ、APIキーの有効性を確認してください。")
+
+    return suggestions
 
 
 class EmbeddingService:
-    """Async embedding generator strictly using Gemini API (Fail-Fast)."""
+    """Async embedding generator strictly using official Google GenAI SDK (Fail-Fast)."""
 
     def __init__(
         self,
@@ -53,135 +104,86 @@ class EmbeddingService:
         else:
             raw_key = os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", "")
         self.api_key = sanitize_key(raw_key)
-        self.model = model
+        self.model = model.removeprefix("models/")
         self.dimension = dimension
+        self._client: Optional[genai.Client] = None
+
+    @property
+    def client(self) -> genai.Client:
+        if self._client is None:
+            if not self.api_key:
+                raise GeminiApiUnavailableError(
+                    "GEMINI_API_KEY が未設定です。環境変数を確認するか、"
+                    "python -m src.services.embedding で疎通を確認してください。"
+                )
+            self._client = genai.Client(api_key=self.api_key)
+        return self._client
+
+    def _get_embed_config(self) -> Any:
+        """Create EmbedContentConfig enforcing output dimension."""
+        if hasattr(types, "EmbedContentConfig"):
+            return types.EmbedContentConfig(output_dimensionality=self.dimension)
+        return {"output_dimensionality": self.dimension}
 
     async def get_embedding(self, text: str) -> List[float]:
-        """Generate embedding vector for a single query text (SDK primary, REST fallback)."""
+        """Generate embedding vector for a single query text asynchronously."""
         if not text or not text.strip():
             return [0.0] * self.dimension
 
-        if not self.api_key:
-            raise GeminiApiUnavailableError(
-                "GEMINI_API_KEY が未設定です。環境変数を確認するか、"
-                "python -m src.tools.verify_gemini で疎通を確認してください。"
+        def _call_sdk() -> List[float]:
+            res = self.client.models.embed_content(
+                model=self.model,
+                contents=text,
+                config=self._get_embed_config(),
             )
-
-        last_error = "Unknown error"
-
-        # 1. Try Google Official GenAI SDK first
-        if GENAI_AVAILABLE and self.api_key:
-            try:
-                loop = asyncio.get_running_loop()
-                raw_model = _clean_model_name(self.model)
-                client = genai.Client(api_key=self.api_key)
-                res = await loop.run_in_executor(
-                    None,
-                    lambda: client.models.embed_content(model=raw_model, contents=text),
+            if not res.embeddings or not res.embeddings[0].values:
+                raise GeminiApiUnavailableError("Empty embedding returned by GenAI SDK")
+            values = res.embeddings[0].values
+            if len(values) != self.dimension:
+                raise GeminiApiUnavailableError(
+                    f"Unexpected embedding dimension: expected {self.dimension}, got {len(values)}"
                 )
-                if res.embeddings and len(res.embeddings[0].values) == self.dimension:
-                    return res.embeddings[0].values
-            except Exception as e:
-                last_error = f"Official GenAI SDK failed: {e}"
-                logger.warning("Official GenAI SDK embed failed (%s), falling back to REST.", e)
-
-        # 2. Try REST with x-goog-api-key header
-        clean_model = _clean_model_name(self.model)
-        url = f"https://generativelanguage.googleapis.com/v1beta/{clean_model}:embedContent"
-        payload = {
-            "model": clean_model,
-            "content": {"parts": [{"text": text}]},
-            "taskType": "RETRIEVAL_QUERY",
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": self.api_key,
-        }
+            return values
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    embedding_data = data.get("embedding", {})
-                    values = embedding_data.get("values", [])
-                    if values and len(values) == self.dimension:
-                        return values
-                last_error = f"REST API error ({resp.status_code}): {resp.text[:200]}"
-                logger.warning("Gemini Embedding API returned status %s: %s", resp.status_code, resp.text[:200])
+            return await asyncio.to_thread(_call_sdk)
         except Exception as e:
-            last_error = f"REST API call failed: {e}"
-            logger.warning("Gemini Embedding REST call failed (%s)", e)
-
-        # Fail-Fast: Never fabricate mock vectors!
-        raise GeminiApiUnavailableError(
-            f"Gemini Embedding API ({self.model}) との通信に失敗しました。詳細: {last_error}"
-        )
+            logger.error("Gemini Embedding API call failed: %s", e)
+            raise GeminiApiUnavailableError(
+                f"Gemini Embedding API ({self.model}) との通信に失敗しました: {e}"
+            ) from e
 
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embedding vectors for multiple texts (SDK primary, REST fallback)."""
+        """Generate embedding vectors for multiple texts asynchronously."""
         if not texts:
             return []
 
-        if not self.api_key:
-            raise GeminiApiUnavailableError(
-                "GEMINI_API_KEY が未設定です。環境変数を確認するか、"
-                "python -m src.tools.verify_gemini で疎通を確認してください。"
+        def _call_sdk() -> List[List[float]]:
+            res = self.client.models.embed_content(
+                model=self.model,
+                contents=texts,
+                config=self._get_embed_config(),
             )
-
-        last_error = "Unknown error"
-
-        # 1. Try Google Official GenAI SDK first
-        if GENAI_AVAILABLE and self.api_key:
-            try:
-                loop = asyncio.get_running_loop()
-                raw_model = _clean_model_name(self.model)
-                client = genai.Client(api_key=self.api_key)
-                res = await loop.run_in_executor(
-                    None,
-                    lambda: client.models.embed_content(model=raw_model, contents=texts),
+            if not res.embeddings or len(res.embeddings) != len(texts):
+                raise GeminiApiUnavailableError(
+                    f"Expected {len(texts)} embeddings, received {len(res.embeddings) if res.embeddings else 0}"
                 )
-                if res.embeddings and len(res.embeddings) == len(texts):
-                    return [emb.values for emb in res.embeddings]
-            except Exception as e:
-                last_error = f"Official GenAI SDK batch failed: {e}"
-                logger.warning("Official GenAI SDK batch embed failed (%s), falling back to REST.", e)
-
-        # 2. Try REST with x-goog-api-key header
-        clean_model = _clean_model_name(self.model)
-        url = f"https://generativelanguage.googleapis.com/v1beta/{clean_model}:batchEmbedContents"
-        requests = [
-            {
-                "model": clean_model,
-                "content": {"parts": [{"text": t}]},
-                "taskType": "RETRIEVAL_DOCUMENT",
-            }
-            for t in texts
-        ]
-        payload = {"requests": requests}
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": self.api_key,
-        }
+            results = []
+            for emb in res.embeddings:
+                if len(emb.values) != self.dimension:
+                    raise GeminiApiUnavailableError(
+                        f"Unexpected embedding dimension: expected {self.dimension}, got {len(emb.values)}"
+                    )
+                results.append(emb.values)
+            return results
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    embeddings = data.get("embeddings", [])
-                    if embeddings and len(embeddings) == len(texts):
-                        return [e["values"] for e in embeddings]
-                last_error = f"REST Batch API error ({resp.status_code}): {resp.text[:200]}"
-                logger.warning("Gemini Batch Embedding API returned status %s: %s", resp.status_code, resp.text[:200])
+            return await asyncio.to_thread(_call_sdk)
         except Exception as e:
-            last_error = f"REST Batch call failed: {e}"
-            logger.warning("Gemini Batch Embedding API call failed (%s)", e)
-
-        # Fail-Fast: Never fabricate mock vectors!
-        raise GeminiApiUnavailableError(
-            f"Gemini Batch Embedding API ({self.model}) との通信に失敗しました。詳細: {last_error}"
-        )
+            logger.error("Gemini Batch Embedding API call failed: %s", e)
+            raise GeminiApiUnavailableError(
+                f"Gemini Batch Embedding API ({self.model}) との通信に失敗しました: {e}"
+            ) from e
 
 
 default_embedding_service = EmbeddingService()
@@ -193,3 +195,78 @@ async def get_embedding(text: str) -> List[float]:
 
 async def get_embeddings(texts: List[str]) -> List[List[float]]:
     return await default_embedding_service.get_embeddings(texts)
+
+
+def run_diagnostics(raw_key: Optional[str], model: str = DEFAULT_EMBEDDING_MODEL) -> int:
+    """Run full diagnostic suite via official Google GenAI SDK and print report."""
+    print("=" * 70)
+    print("  [Backend] Gemini API Diagnostic Tool (Official Google GenAI SDK)")
+    print("=" * 70)
+
+    target_key = sanitize_key(raw_key or os.getenv("GEMINI_API_KEY") or getattr(config, "GEMINI_API_KEY", ""))
+    if not target_key:
+        print("[!] API キーが指定されていません。")
+        print("    --key 引数で直接渡すか、環境変数 GEMINI_API_KEY を設定してください。")
+        print("=" * 70)
+        return 1
+
+    props = inspect_key_properties(raw_key or target_key)
+
+    print("[*] キー形式チェック:")
+    print(f"    - マスク表示:           {props['masked']}")
+    print(f"    - 文字長:               {props['sanitized_length']} 文字")
+    print(f"    - AQ. プレフィックス:   {'はい (新形式 Auth Key)' if props['starts_with_aq'] else 'いいえ'}")
+    print(f"    - AIza プレフィックス:  {'はい (従来形式 Standard Key)' if props['starts_with_aiza'] else 'いいえ'}")
+    print(f"    - ASCII 文字列:         {'はい' if props['is_ascii'] else 'いいえ (不正な非ASCII文字あり)'}")
+    print(f"    - 外側のクォート混入:   {'あり (自動除去済み)' if props['has_outer_quotes'] else 'なし'}")
+
+    print("\n[*] 公式 Google GenAI SDK による疎通テスト実行中...")
+    try:
+        service = EmbeddingService(api_key=target_key, model=model)
+        dim = len(asyncio.run(service.get_embedding("健康・スポーツ科学実習")))
+        print("\n[*] 診断結果一覧:")
+        print(f"    - 公式 SDK - Embedding ({model}):")
+        print(f"      [SUCCESS] 成功 (取得次元: {dim}次元)")
+        print("\n" + "=" * 70)
+        print("  【判定】 PERFECT: Gemini Embedding API が正常に動作しています！")
+        print("=" * 70)
+        return 0
+    except Exception as e:
+        error_msg = str(e)
+        print("\n[*] 診断結果一覧:")
+        print(f"    - 公式 SDK - Embedding ({model}):")
+        print(f"      [FAILED] 失敗: {error_msg}")
+        print("\n" + "=" * 70)
+        print("  【判定】 FAILED: API 呼び出しが拒否されました。")
+        print("\n【トラブルシューティング処方箋】")
+        suggestions = analyze_error_reason(error_msg)
+        for sug in suggestions:
+            print(f"\n{sug}")
+        print("\n" + "=" * 70)
+        return 1
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Gemini Embedding Diagnostic Tool for Backend (Official SDK)")
+    parser.add_argument(
+        "--key",
+        "-k",
+        type=str,
+        default=None,
+        help="Test a specific API key directly.",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        type=str,
+        default=DEFAULT_EMBEDDING_MODEL,
+        help=f"Target embedding model (default: {DEFAULT_EMBEDDING_MODEL})",
+    )
+    args = parser.parse_args()
+
+    exit_code = run_diagnostics(args.key, model=args.model)
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

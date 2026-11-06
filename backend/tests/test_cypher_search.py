@@ -42,42 +42,39 @@ def test_embedding_service_missing_key_raises_error(monkeypatch):
 def test_embedding_service_api_failure_raises_error(monkeypatch):
     """Verify EmbeddingService fails fast with explicit error on API failure."""
     import asyncio
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock
 
     monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
     service = EmbeddingService()
 
-    with patch("httpx.AsyncClient.post") as mock_post:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 401
-        mock_resp.text = "API key not valid"
-        mock_post.return_value = mock_resp
+    mock_client = MagicMock()
+    mock_client.models.embed_content.side_effect = Exception("API key not valid")
+    service._client = mock_client
 
-        # Patch SDK to raise as well so it tests REST fallback
-        with patch("services.embedding.GENAI_AVAILABLE", False):
-            with pytest.raises(GeminiApiUnavailableError, match="通信に失敗しました"):
-                asyncio.run(service.get_embedding("プログラミング基礎"))
+    with pytest.raises(GeminiApiUnavailableError, match="通信に失敗しました"):
+        asyncio.run(service.get_embedding("プログラミング基礎"))
 
 
 def test_embedding_service_successful_api_with_mocked_http(monkeypatch):
     """Verify EmbeddingService returns dimension vector on successful response."""
     import asyncio
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock
 
     monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
     service = EmbeddingService(dimension=768)
     dummy_vec = [0.05] * 768
 
-    with patch("httpx.AsyncClient.post") as mock_post:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {"embedding": {"values": dummy_vec}}
-        mock_post.return_value = mock_resp
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_emb = MagicMock()
+    mock_emb.values = dummy_vec
+    mock_resp.embeddings = [mock_emb]
+    mock_client.models.embed_content.return_value = mock_resp
+    service._client = mock_client
 
-        with patch("services.embedding.GENAI_AVAILABLE", False):
-            res = asyncio.run(service.get_embedding("データ構造"))
-            assert len(res) == 768
-            assert res == dummy_vec
+    res = asyncio.run(service.get_embedding("データ構造"))
+    assert len(res) == 768
+    assert res == dummy_vec
 
 
 # =====================================================================
