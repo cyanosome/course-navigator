@@ -291,13 +291,13 @@ def _check_scope(scope: Any) -> list[ConfigIssue]:
             year, name = term.get("year"), term.get("term")
             if "year" in term and not (_is_int(year) and 1 <= year <= 4):
                 issues.append(_shape(f"{here}.year", "year は 1〜4 の整数にしてください"))
-            if "term" in term and name not in TERM_ORDER:
+            if "term" in term and not (isinstance(name, str) and name in TERM_ORDER):
                 issues.append(_shape(f"{here}.term", "term は 春 か 秋 にしてください"))
-            key = (year, name)
-            if key in seen and _is_int(year) and isinstance(name, str):
+            if not (_is_int(year) and isinstance(name, str)):
+                continue  # 型の誤りは上で数えた（配列などは集合で照らせない）
+            if (year, name) in seen:
                 issues.append(_shape(here, f"同じ学期が2回あります: {year}年{name}"))
-            if _is_int(year) and isinstance(name, str):
-                seen.add(key)
+            seen.add((year, name))
     if "credit_cap_per_term" in scope:
         cap = scope["credit_cap_per_term"]
         if cap is not None and not (_is_number(cap) and cap > 0):

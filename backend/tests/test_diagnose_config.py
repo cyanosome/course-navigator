@@ -99,6 +99,8 @@ def test_more_than_eight_questions_is_one_issue():
         (lambda raw: raw["scope"]["terms"].append({"year": 1, "term": "春"}), "scope.terms[2]"),
         (lambda raw: raw["scope"]["terms"].append({"year": 5, "term": "春"}), "scope.terms[2].year"),
         (lambda raw: raw["scope"]["terms"].append({"year": 2, "term": "通年"}), "scope.terms[2].term"),
+        (lambda raw: raw["scope"]["terms"].append({"year": [1], "term": "春"}), "scope.terms[2].year"),
+        (lambda raw: raw["scope"]["terms"].append({"year": 2, "term": {"x": 1}}), "scope.terms[2].term"),
         (lambda raw: raw["questions"][0].pop("max_select"), "questions[0].max_select"),
         (lambda raw: raw["questions"][0].update(max_select=4), "questions[0].max_select"),
         (lambda raw: raw["questions"][1].update(max_select=1), "questions[1].max_select"),
@@ -165,3 +167,25 @@ def test_parse_config_sorts_terms_and_scale5_options():
     assert config.credit_cap_per_term == 6.0
     assert config.question("scale").option_ids() == ("s1", "s2", "s3", "s4", "s5")
     assert config.question("nope") is None
+
+
+def _positions(node, path=()):
+    """設定の JSON のすべての位置（鍵か添字の並び）。"""
+    yield path
+    children = node.items() if isinstance(node, dict) else enumerate(node) if isinstance(node, list) else ()
+    for key, child in children:
+        yield from _positions(child, (*path, key))
+
+
+@pytest.mark.parametrize("junk", [None, True, 1.5, "x", [], {}, [[1]], {"a": [1]}])
+def test_validation_never_raises_on_junk_values(junk):
+    """どの位置にどんな値が来ても、例外にせず誤りの一覧を返す（M1 を数えられる）。"""
+    base = config_dict()
+    for path in list(_positions(base))[1:]:
+        raw = config_dict()
+        parent = raw
+        for key in path[:-1]:
+            parent = parent[key]
+        parent[path[-1]] = junk
+        issues = _issues(raw)
+        assert isinstance(issues, list), path
