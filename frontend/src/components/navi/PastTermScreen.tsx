@@ -3,6 +3,7 @@ import '../../navi/plan.css'
 import '../../navi/term.css'
 import type { WorkingPlan } from '../../navi/diagnose'
 import { creditsOf, historyHref, recordOf, takenFromPlan } from '../../navi/history'
+import { slotOrder } from '../../navi/ledger'
 import { useNavi } from '../../navi/state'
 import { termLabel } from '../../navi/timetable'
 import { useHistory } from '../../navi/useHistory'
@@ -48,13 +49,15 @@ export default function PastTermScreen({ plan }: { plan: WorkingPlan }) {
         <p className="pl-empty">この学期は取っていません。</p>
       ) : (
         <ul className="hc-list" data-role="history">
-          {rec.courses.map((c) => (
-            <li key={c.name} className="hc is-plain">
-              <span className="hc-slot">{c.slots?.join('・') ?? ''}</span>
-              <span>{c.name}</span>
-              <span className="hc-cr">{c.credits === null ? '' : `${c.credits}単位`}</span>
-            </li>
-          ))}
+          {[...rec.courses]
+            .sort((a, b) => slotOrder(a.slots) - slotOrder(b.slots))
+            .map((c) => (
+              <li key={c.name} className="hc is-plain">
+                <span className="hc-slot">{c.slots?.join('・') ?? ''}</span>
+                <span>{c.name}</span>
+                <span className="hc-cr">{c.credits === null ? '' : `${c.credits}単位`}</span>
+              </li>
+            ))}
         </ul>
       )}
     </div>

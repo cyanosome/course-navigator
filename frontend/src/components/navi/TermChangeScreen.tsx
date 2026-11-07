@@ -3,6 +3,7 @@ import '../../navi/plan.css'
 import '../../navi/term.css'
 import { creditsOf, graphCoursesIn, takenFromGraph, takenFromPlan } from '../../navi/history'
 import type { TakenCourse } from '../../navi/history'
+import { slotOrder } from '../../navi/ledger'
 import { useNavi } from '../../navi/state'
 import type { TermKey } from '../../navi/timetable'
 import { resolveCourse, termLabel } from '../../navi/timetable'
@@ -31,7 +32,10 @@ export default function TermChangeScreen({ from, to }: TermChangeScreenProps) {
   const history = useHistory()
   const { working, retake, moveInPlan } = useDiagnose()
   const titleId = useId()
-  const planned = (working?.terms.find((t) => t.year === from.year && t.term === from.half)?.courses ?? []).map(takenFromPlan)
+  // 曜限の順（プランの画面と同じ並び）
+  const planned = (working?.terms.find((t) => t.year === from.year && t.term === from.half)?.courses ?? [])
+    .map(takenFromPlan)
+    .sort((a, b) => slotOrder(a.slots) - slotOrder(b.slots))
   const plannedNames = new Set(planned.map((c) => c.name))
   const graph = graphCoursesIn(dept, from)
     .map(takenFromGraph)
