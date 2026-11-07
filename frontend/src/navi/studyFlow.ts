@@ -177,13 +177,38 @@ export interface TaskAnswer {
 }
 
 export function submitTask(answer: TaskAnswer): void {
+  const texts: Record<string, JsonValue> = answer.texts
+  submitTaskPayload({ selected: answer.selected, ...texts })
+}
+
+/** 課題の答え（task_submit）を payload のまま記録して、質問票か次の課題へ（診断の課題の［これで出す］は最終プラン） */
+export function submitTaskPayload(answer: EventPayload): void {
   const study = need()
   if (study.phase.kind !== 'task') return
   const { block, taskIndex } = study.phase
-  const texts: Record<string, JsonValue> = answer.texts
-  logEvent('task_submit', { block, task_index: taskIndex, selected: answer.selected, ...texts }, currentTaskId(study))
+  logEvent('task_submit', { block, task_index: taskIndex, ...answer }, currentTaskId(study))
   const asks = !isPracticeBlock(block) && activeQuestionnaires().task.length > 0
   setStudy({ ...study, phase: asks ? { kind: 'taskQuestions', block, taskIndex } : afterTask(study, block, taskIndex) })
+}
+
+/**
+ * 診断の課題 a の終わり（事前登録 study1 の 3.1）。プランが出た時点で task_submit（初期プラン）を記録し、画面の状態を
+ * 消さずに、同じ画面のまま次の課題（課題 b）の task_start を記録する。taskIndex がいまの課題でなければ何もしない
+ * （同じプランで2回呼ばれても進みすぎない）。次の課題が無ければ、ふつうの課題の終わりと同じに進める
+ */
+export function continueAfterPlan(taskIndex: number, answer: EventPayload): void {
+  const study = getStudy()
+  if (study === null || study.phase.kind !== 'task' || study.phase.taskIndex !== taskIndex) return
+  const { block } = study.phase
+  const count = study.plan?.task_ids.length ?? 0
+  if (taskIndex + 1 >= count) {
+    submitTaskPayload(answer)
+    return
+  }
+  logEvent('task_submit', { block, task_index: taskIndex, ...answer }, currentTaskId(study))
+  const next: StudyState = { ...study, phase: { kind: 'task', block, taskIndex: taskIndex + 1 } }
+  setStudy(next)
+  logEvent('task_start', { block, task_index: taskIndex + 1, continued: true }, currentTaskId(next))
 }
 
 function afterTask(study: StudyState, block: number, taskIndex: number): StudyPhase {

@@ -1,8 +1,9 @@
 /**
  * 調査（/navi/s/<トークン>）の文と質問票の設定。文や項目を差し替えるときは、このファイルだけを直す。
  * - draft: true の文は〈仮〉。出どころの文が手元に無いか、まだ決まっていない。画面にも〈仮〉と出るので、確定したら外す。
- * - 質問票は2組を定義し、ACTIVE_QUESTIONNAIRE_SET で選ぶ（どちらにするかは Ibuki に確認中。2026-11-05）。
- *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。
+ * - 質問票は2組を定義し、ACTIVE_QUESTIONNAIRE_SET で選ぶ。Study 1（事前登録 2026-11-07 の 4.5）は ibuki_sus。
+ *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。最後に画面1/2 の二択と理由。
+ *   Q11 はペルソナの形に言い換えた文（事前登録 4.5）。
  *   plan_seq_ueq: 計画 4.1 の SEQ と自信（課題ごと）、UEQ-S（画面ごと）、最後に画面1/2 の二択と理由。
  *   Q11・Q12・Q13・自由記述の文は「Ibuki の評価 PDF の要点」ノートの文（問いの形を言い切りにした）。それ以外は〈仮〉。
  */
@@ -65,7 +66,7 @@ export interface QuestionnaireSet {
 export type QuestionnaireSetId = 'ibuki_sus' | 'plan_seq_ueq'
 
 /** ログに残す質問票の版（項目の文を変えたら上げる） */
-export const QUESTIONNAIRE_VERSION = '2026-11-05-draft'
+export const QUESTIONNAIRE_VERSION = '2026-11-07-draft'
 
 const AGREE_5 = { points: 5, low: '全くそう思わない', high: 'とてもそう思う' } as const
 
@@ -90,13 +91,16 @@ const SUS: Questionnaire = {
   items: SUS_TEXTS.map((text, i): LikertItem => ({ kind: 'likert', id: `sus${i + 1}`, text, ...AGREE_5, required: true, draft: true })),
 }
 
-/** Q11・Q12（Ibuki の PDF の独自項目。検証済みの尺度ではない）と任意の自由記述。ペルソナの形にするなら Q11 の言い換えが要る（要点ノート 6章） */
+/**
+ * Q11・Q12（Ibuki の PDF の独自項目。検証済みの尺度ではない）と任意の自由記述。Q11 はペルソナの形に言い換えた
+ * （事前登録 4.5。元の文は「見つけた科目は、探していた内容に合っていた」）
+ */
 const IBUKI_FIT: Questionnaire = {
   id: 'ibuki_q11_q12',
   scale: 'Q11-Q12',
   intro: null,
   items: [
-    { kind: 'likert', id: 'q11', text: '見つけた科目は、探していた内容に合っていた', ...AGREE_5, required: true, draft: false },
+    { kind: 'likert', id: 'q11', text: 'できたプランは、カードの人の希望に合っていた', ...AGREE_5, required: true, draft: false },
     { kind: 'likert', id: 'q12', text: '判断に要る情報は十分だった', ...AGREE_5, required: true, draft: false },
     { kind: 'text', id: 'free', text: '困った点、分かりにくかった点、足りない情報（任意）', required: false, draft: false },
   ],
@@ -181,21 +185,21 @@ const PREFERENCE: Questionnaire = {
         { value: '2', label: '画面2' },
       ],
       required: true,
-      draft: true,
+      draft: false,
     },
-    { kind: 'text', id: 'reason', text: '選んだ理由', required: false, draft: true },
+    { kind: 'text', id: 'reason', text: '選んだ理由', required: false, draft: false },
   ],
 }
 
 export const QUESTIONNAIRE_SETS: Record<QuestionnaireSetId, QuestionnaireSet> = {
-  // ログの questionnaire_submit は尺度ごとに1件: ibuki_sus はブロックごとに2件（SUS、Q11・Q12＋自由記述）、
+  // ログの questionnaire_submit は尺度ごとに1件: ibuki_sus はブロックごとに2件（SUS、Q11・Q12＋自由記述）と最後に二択1件、
   // plan_seq_ueq はブロックごとに5件（課題ごとに SEQ と自信を2課題分、UEQ-S を1つ）と最後に二択1件
-  ibuki_sus: { id: 'ibuki_sus', task: [], block: [SUS, IBUKI_FIT], final: [] },
+  ibuki_sus: { id: 'ibuki_sus', task: [], block: [SUS, IBUKI_FIT], final: [PREFERENCE] },
   plan_seq_ueq: { id: 'plan_seq_ueq', task: [SEQ, CONFIDENCE], block: [UEQ_S], final: [PREFERENCE] },
 }
 
 /** いまの調査で使う質問票の組 */
-export const ACTIVE_QUESTIONNAIRE_SET: QuestionnaireSetId = 'plan_seq_ueq'
+export const ACTIVE_QUESTIONNAIRE_SET: QuestionnaireSetId = 'ibuki_sus'
 
 /* ---------- 同意（計画 4.2、Ibuki の PDF の②: 任意・途中でやめられる・取得する情報・ログとの連結・保存・問い合わせ先） ---------- */
 
@@ -238,7 +242,7 @@ export const CONSENT: ConsentText = {
   formSerialLabel: '同意書の番号（研究者が書きます）',
 }
 
-/* ---------- 課題（ペルソナの文と課題の文。サーバーの BlockPlan.task_ids と同じ ID） ---------- */
+/* ---------- 課題（ペルソナのカードと課題の文。サーバーの BlockPlan.task_ids と同じ ID） ---------- */
 
 export interface TaskTextAnswer {
   /** task_submit の payload の欄の名前（課題 a は reason、課題 b は grading） */
@@ -246,7 +250,9 @@ export interface TaskTextAnswer {
   label: string
 }
 
-export interface TaskDef {
+/** 科目を候補から選んで答える課題（前の調査の形。今の TASKS には無い） */
+export interface PickTaskDef {
+  kind: 'pick'
   /** 「あなたは〇〇な1年生です」（その人になったつもりで探してもらう） */
   persona: string
   prompt: string
@@ -257,46 +263,139 @@ export interface TaskDef {
   draft: boolean
 }
 
-const REASON: TaskTextAnswer = { id: 'reason', label: '選んだ理由' }
-const GRADING: TaskTextAnswer = { id: 'grading', label: '成績のつけ方' }
+/** カードの裏の「守ること」 */
+export interface CardRules {
+  items: readonly string[]
+  /** 学期ごとの、入れておく系統図の科目 */
+  keep: readonly { term: string; names: string }[]
+  draft: boolean
+}
+
+/** ペルソナのカード（事前登録 study1 の 3.2） */
+export interface PersonaCard {
+  /** カードの名前（例 A さん） */
+  name: string
+  intro: string
+  traits: readonly string[]
+  /** 条件（出す前に全部を満たす） */
+  conditions: readonly string[]
+  /** 守ること（カードの裏。練習のカードには無い） */
+  rules: CardRules | null
+  draft: boolean
+}
+
+/**
+ * 診断の課題（事前登録 study1 の 3.1）。diagnose（課題 a）: 診断に答えてプランを出す。プランが出たら画面が task_submit を
+ * 記録し、同じ画面のまま次の課題に続ける。fix（課題 b・練習）: プランを直して［これで出す］で出す
+ */
+export interface PlanTaskDef {
+  kind: 'diagnose' | 'fix'
+  card: PersonaCard
+  prompt: string
+  draft: boolean
+}
+
+export type TaskDef = PickTaskDef | PlanTaskDef
+
+/** カードの条件の見出しと、カードの下に添える1文（事前登録 3.1・3.2: アプリで確かめてから出す、目安10分） */
+export const CARD_TEXT = {
+  conditionsTitle: '条件（出す前に全部を満たしてください）',
+  rulesTitle: '守ること',
+  note: 'アプリで確かめてから出してください（目安10分）',
+} as const
+
+/** 守ること（両セット共通。事前登録 3.1 の K5・K6。カードの裏の文は事前登録に無いので〈仮〉） */
+const RULES: CardRules = {
+  items: ['下の科目を、1年春・1年秋とも全部入れておく（同じ名前の別のクラスへ移すのはよい）', '同じ学期の同じ曜限に2つ入れない'],
+  keep: [
+    {
+      term: '1年春',
+      names:
+        '化学工学量論及び演習、入門エネルギー環境学、物理を学ぶ（力学１）、基礎からの情報処理、線形代数１、情報処理演習、化学を学ぶ（基礎化学）、フレッシュマンゼミナール',
+    },
+    { term: '1年秋', names: 'プロセス量論及び演習、無機化学、線形代数２、入門化学結合論、化学実験、物理学実験' },
+  ],
+  draft: true,
+}
+
+const CARD_A: PersonaCard = {
+  name: 'A さん',
+  intro: 'あなたは、エネルギー環境・化学工学科の1年生の A さんです。1年春から3年秋までの履修のプランを作ります。',
+  traits: [
+    '電池や新しい材料でエネルギーを扱うことに興味があります',
+    '実験で手を動かす授業が好きです',
+    '高校の数学に少し不安があります',
+    '専門のほかに、天気・災害・宇宙・生き物の授業をのぞいてみたいです',
+    '月曜は一日アルバイトがあります',
+  ],
+  conditions: [
+    '3年春・3年秋で、材料・エネルギー系の科目を4つすべて入れる',
+    '1年春・1年秋とも、月曜には授業を入れない',
+    '1年春・1年秋とも、1学期の単位を16以上18以下にする',
+    '先輩に言われたので、1年秋に「物理を学ぶ（電磁気学１）」を入れる（クラスはどれでもよい）',
+  ],
+  rules: RULES,
+  draft: false,
+}
+
+const CARD_B: PersonaCard = {
+  name: 'B さん',
+  intro: 'あなたは、エネルギー環境・化学工学科の1年生の B さんです。1年春から3年秋までの履修のプランを作ります。',
+  traits: [
+    '薬や樹脂のもとになる物質を、反応でつくることに興味があります',
+    '話し合いや発表をする授業が好きです',
+    '高校の化学に少し不安があります',
+    '専門のほかに、歴史・文化・芸術の授業をのぞいてみたいです',
+    '火曜の3限から5限は、毎週通院があります',
+  ],
+  conditions: [
+    '3年春・3年秋で、有機・触媒系の科目を3つすべて入れる',
+    '1年春・1年秋とも、火曜の3限・4限・5限には授業を入れない',
+    '1年春・1年秋とも、1学期の単位を16以上18以下にする',
+    '先輩に言われたので、1年秋に「基礎からの数学２」を入れる',
+  ],
+  rules: RULES,
+  draft: false,
+}
+
+const CARD_C: PersonaCard = {
+  name: 'C さん',
+  intro:
+    '工場の装置や生産の流れを設計することに興味があり、計算やプログラムで考える授業が好きです。不安な科目は特にありません。データ・AI・統計の授業をのぞいてみたいです。',
+  traits: [],
+  conditions: ['1年春の木曜2限は空ける（部活のミーティング）', '1年春は20単位以下にする'],
+  rules: null,
+  draft: false,
+}
+
+/** 課題 a・b の文（事前登録 3.1 の文を、参加者に向けた形にした） */
+const PROMPT_A = 'カードの人になって診断に答え、プランを出してください。'
+const PROMPT_B = '出たプランを、カードの条件をすべて満たすように直して出してください。答え直してもかまいません。'
 
 export const TASKS: Record<string, TaskDef> = {
+  // 練習は1つの課題で、診断からプランを出して直して出すまで（事前登録に文が無いので〈仮〉）
   practice: {
-    persona: 'あなたは、この学科の1年生です。',
-    prompt: '練習です。気になった科目を1つ候補に入れて、答えてください。',
-    picks: 1,
-    text: null,
+    kind: 'fix',
+    card: CARD_C,
+    prompt: '練習です。カードの人になって診断に答えてプランを出し、条件を満たすように直して出してください。',
     draft: true,
   },
-  'P1-a': {
-    persona: 'あなたは、3年で材料やエネルギーの分野に進みたいと考えている1年生です。',
-    prompt: '1年の春に取れて、月曜に授業が無い科目を2つ選んでください。選んだ理由も書いてください。',
-    picks: 2,
-    text: REASON,
-    draft: true,
-  },
-  'P1-b': {
-    persona: 'あなたは、環境の測り方に関心がある1年生です。',
-    prompt: '授業で「分析」を扱う2年の科目を1つ探して、成績のつけ方を答えてください。',
-    picks: 1,
-    text: GRADING,
-    draft: true,
-  },
-  'P2-a': {
-    persona: 'あなたは、3年で有機化学や触媒の分野に進みたいと考えている1年生です。',
-    prompt: '1年の春に取れて、金曜に授業が無い科目を2つ選んでください。選んだ理由も書いてください。',
-    picks: 2,
-    text: REASON,
-    draft: true,
-  },
-  'P2-b': {
-    persona: 'あなたは、プログラミングに関心がある1年生です。',
-    prompt: '授業で「データ」を扱う2年の科目を1つ探して、成績のつけ方を答えてください。',
-    picks: 1,
-    text: GRADING,
-    draft: true,
-  },
+  'P1-a': { kind: 'diagnose', card: CARD_A, prompt: PROMPT_A, draft: false },
+  'P1-b': { kind: 'fix', card: CARD_A, prompt: PROMPT_B, draft: false },
+  'P2-a': { kind: 'diagnose', card: CARD_B, prompt: PROMPT_A, draft: false },
+  'P2-b': { kind: 'fix', card: CARD_B, prompt: PROMPT_B, draft: false },
 }
+
+/**
+ * ブロック2の初めの画面の案内（事前登録 2.5。V31 を2番目に受ける人は AI の欄を練習しないので、その手当て）。
+ * 文は両条件で同じにし、AI の欄がある画面（assistant=on）のときだけ ai の段落を足す。文は事前登録に無いので〈仮〉
+ */
+export const BLOCK_GUIDE = {
+  common:
+    'この画面でも、カードの人になって診断に答えてプランを出し、条件に合うように直して出します。単位・時間割・チェックは、右の列（スマホは上の帯）で確かめられます。',
+  ai: 'この画面には AI の欄があります。プランの下の「AIに直しを頼む」で直したいことを書いて送ると、外す科目と入れる科目の案が出ます。案は1行ずつ選んで入れられます。さがすの欄からも AI に聞けます。',
+  draft: true,
+} as const
 
 /** 参加者には条件を伏せ、ブロックの順で「画面1／画面2」とだけ呼ぶ（計画 4.1） */
 export function blockLabel(block: number): string {

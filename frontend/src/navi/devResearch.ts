@@ -4,7 +4,7 @@
  *   （/navi?variant=V02 で R9 に届かないとき）。
  * - 偽の研究 API（R1〜R7）: /navi/s/dev-a1 のように dev- で始まるトークンで開くと、backend なしで調査の流れを通せる。
  *   a は分岐 A（N=V01 記号 K、A=V00 記号 M）、b は分岐 B（N=V02 J、A=V01 L）、c は H3（N=V02 J、A=V03 H）、
- *   d は診断の A/B（N=V30 診断のみ 記号 Q、A=V31 診断＋対話 記号 R。記号は開発用の仮）。
+ *   d は診断の A/B（N=V30 診断のみ 記号 W、A=V31 診断＋対話 記号 Y。事前登録 study1 の 2.1 の記号）。
  *   数字は系列（1: N+P1→A+P2、2: A+P1→N+P2、3: N+P2→A+P1、4: A+P2→N+P1）。練習（ブロック0）は1つ目のブロックの旗。
  *   受け取ったイベントは sessionStorage の navi.devResearch.events に積み、console.debug にも出す。
  */
@@ -85,7 +85,7 @@ const ARMS: Record<string, Record<Role, [string, string]>> = {
   a: { N: ['V01', 'K'], A: ['V00', 'M'] },
   b: { N: ['V02', 'J'], A: ['V01', 'L'] },
   c: { N: ['V02', 'J'], A: ['V03', 'H'] },
-  d: { N: ['V30', 'Q'], A: ['V31', 'R'] },
+  d: { N: ['V30', 'W'], A: ['V31', 'Y'] },
 }
 
 /** 系列（計画 4.1 の Q1〜Q4）: ブロック1・2の役割と課題セット */

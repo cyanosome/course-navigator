@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import '../../navi/study.css'
 import { isAbortError } from '../../navi/api'
 import { mappedCourseName, useNaviData } from '../../navi/dataSource'
+import { planCodes, planPayload } from '../../navi/diagnose'
 import { findCourse } from '../../navi/graph'
 import { currentTaskId, useStudy } from '../../navi/research'
 import { useNavi } from '../../navi/state'
-import { blockLabel, DRAFT_MARK, TASKS } from '../../navi/studyConfig'
-import type { TaskDef } from '../../navi/studyConfig'
-import { submitTask } from '../../navi/studyFlow'
+import { checkpointPayload } from '../../navi/status'
+import { blockLabel, CARD_TEXT, DRAFT_MARK, TASKS } from '../../navi/studyConfig'
+import type { PersonaCard, PickTaskDef, PlanTaskDef, TaskDef } from '../../navi/studyConfig'
+import { continueAfterPlan, submitTask, submitTaskPayload } from '../../navi/studyFlow'
+import { useDiagnose } from '../../navi/useDiagnose'
+import { useCheckpoints } from '../../navi/useStatus'
 import { WIDE_SPACE } from '../../navi/views'
 import Icon from './Icon'
 
@@ -22,6 +26,17 @@ export function TaskBrief({ taskId, task }: TaskBriefProps) {
   if (task === undefined) {
     return <p className="text">課題「{taskId}」の文が設定にありません。研究者に知らせてください。</p>
   }
+  if (task.kind !== 'pick') {
+    return (
+      <>
+        <CardView card={task.card} />
+        <p className="task-prompt">
+          {task.prompt}
+          {task.draft && <span className="draft">{DRAFT_MARK}</span>}
+        </p>
+      </>
+    )
+  }
   return (
     <>
       <p className="task-persona">
@@ -33,12 +48,158 @@ export function TaskBrief({ taskId, task }: TaskBriefProps) {
   )
 }
 
+/** ペルソナのカード（事前登録 study1 の 3.2。人物・条件・守ること） */
+function CardView({ card }: { card: PersonaCard }) {
+  return (
+    <div className="task-card" role="group" aria-label={'カード（' + card.name + '）'}>
+      <p className="task-persona">
+        {card.intro}
+        {card.draft && <span className="draft">{DRAFT_MARK}</span>}
+      </p>
+      {card.traits.length > 0 && (
+        <ul className="task-list">
+          {card.traits.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+      )}
+      <p className="task-sub">{CARD_TEXT.conditionsTitle}</p>
+      <ol className="task-list is-num">
+        {card.conditions.map((c) => (
+          <li key={c}>{c}</li>
+        ))}
+      </ol>
+      {card.rules !== null && (
+        <>
+          <p className="task-sub">
+            {CARD_TEXT.rulesTitle}
+            {card.rules.draft && <span className="draft">{DRAFT_MARK}</span>}
+          </p>
+          <ul className="task-list">
+            {card.rules.items.map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+          <dl className="task-keep">
+            {card.rules.keep.map((k) => (
+              <div key={k.term}>
+                <dt>{k.term}</dt>
+                <dd>{k.names}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+      <p className="task-sub">{CARD_TEXT.note}</p>
+    </div>
+  )
+}
+
 /**
- * 課題の帯（調査中、画面の上の帯の場所に出す）。ペルソナと課題の文、［答える］で答えの欄を開く。
- * 答えは候補（＋で入れた科目）から選び、課題によって文も書く。送ると task_submit を記録して調査の入口へ戻る。
+ * 課題の帯（調査中、画面の上の帯の場所に出す）。診断の課題はカードと［これで出す］（PlanTaskBand）、
+ * 前の調査の形の課題（pick）は PickTaskBand。
  */
 export default function TaskCard() {
   const study = useStudy()
+  if (study === null || study.phase.kind !== 'task' || study.plan === null) return null
+  const taskId = currentTaskId(study) ?? ''
+  const task = TASKS[taskId]
+  const head = { block: study.phase.block, taskIndex: study.phase.taskIndex, count: study.plan.task_ids.length, gatePath: study.gatePath }
+  if (task !== undefined && task.kind !== 'pick') return <PlanTaskBand key={taskId} taskId={taskId} task={task} {...head} />
+  return <PickTaskBand key={taskId} taskId={taskId} task={task} {...head} />
+}
+
+interface BandProps<T> {
+  taskId: string
+  task: T
+  block: number
+  taskIndex: number
+  count: number
+  gatePath: string
+}
+
+/**
+ * 診断の課題の帯。カードは閉じられる。課題 a（diagnose）はプランが出たら画面が記録し、同じ画面のまま課題 b へ続ける。
+ * 課題 b と練習（fix）は［これで出す］で、最終プラン（学期ごとの syllabus_id）とチェックの一覧を task_submit に入れて
+ * 調査の入口へ戻る（事前登録 study1 の 3.1・6.2）
+ */
+function PlanTaskBand({ taskId, task, block, taskIndex, count, gatePath }: BandProps<PlanTaskDef>) {
+  const { working, plan, phase } = useDiagnose()
+  const { checkpoints } = useCheckpoints()
+  const navigate = useNavigate()
+  const [cardOpen, setCardOpen] = useState(true)
+  const [confirming, setConfirming] = useState(false)
+  const cardId = useId()
+
+  // 課題 a: プランが出た時点で記録して、課題 b へ（初期プランと、それを作った答えの版・指紋）
+  const shown = task.kind === 'diagnose' && phase === 'plan' && plan !== null && working !== null
+  useEffect(() => {
+    if (!shown || plan === null || working === null) return
+    continueAfterPlan(taskIndex, {
+      plan: planPayload(working),
+      course_count: planCodes(working).length,
+      config_version: plan.config_version,
+      answers_digest: plan.answers_digest,
+    })
+  }, [plan, shown, taskIndex, working])
+
+  const submit = () => {
+    if (working === null) return
+    submitTaskPayload({
+      plan: planPayload(working),
+      course_count: planCodes(working).length,
+      checkpoints: checkpoints.map(checkpointPayload),
+      config_version: plan?.config_version ?? null,
+      answers_digest: plan?.answers_digest ?? null,
+    })
+    navigate(gatePath)
+  }
+
+  return (
+    <section className="task-band" aria-label="課題">
+      <div className="task-head">
+        <p className="task-label">
+          {blockLabel(block)}
+          {WIDE_SPACE}課題{taskIndex + 1}/{count}
+        </p>
+        <button className="band-btn" type="button" aria-expanded={cardOpen} aria-controls={cardId} onClick={() => setCardOpen((o) => !o)}>
+          {cardOpen ? 'カードを閉じる' : 'カードを見る'}
+        </button>
+      </div>
+      <div id={cardId} hidden={!cardOpen} className="task-brief">
+        <TaskBrief taskId={taskId} task={task} />
+      </div>
+      {task.kind === 'fix' &&
+        (working === null ? (
+          <p className="task-sub">質問に答えてプランを出すと、ここから出せます。</p>
+        ) : confirming ? (
+          <div className="task-confirm">
+            <p className="task-prompt">このプランで出しますか。出したあとは直せません。</p>
+            <div className="page-acts">
+              <button className="primary" type="button" onClick={submit}>
+                出す
+              </button>
+              <button className="text-btn" type="button" onClick={() => setConfirming(false)}>
+                戻る
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="page-acts task-acts">
+            <button className="primary" type="button" onClick={() => setConfirming(true)}>
+              これで出す
+            </button>
+          </div>
+        ))}
+    </section>
+  )
+}
+
+/**
+ * 前の調査の形の課題の帯。ペルソナと課題の文、［答える］で答えの欄を開く。
+ * 答えは候補（＋で入れた科目）から選び、課題によって文も書く。送ると task_submit を記録して調査の入口へ戻る。
+ */
+function PickTaskBand({ taskId, task, block, taskIndex, count, gatePath }: BandProps<PickTaskDef | undefined>) {
   const { dept, shortlist } = useNavi()
   const { loadCourse, peekCourse } = useNaviData()
   const navigate = useNavigate()
@@ -65,13 +226,8 @@ export default function TaskCard() {
     return () => control.abort()
   }, [dept, shortlist, loadCourse, peekCourse])
 
-  if (study === null || study.phase.kind !== 'task' || study.plan === null) return null
-  const { block, taskIndex } = study.phase
-  const taskId = currentTaskId(study) ?? ''
-  const task = TASKS[taskId]
   const picks = task?.picks ?? 0
   const textAnswer = task?.text ?? null
-  const gatePath = study.gatePath
   const chosen = selected.filter((code) => shortlist.includes(code))
 
   const nameOf = (code: string) => findCourse(dept, code)?.name ?? mappedCourseName(peekCourse(code)) ?? code
@@ -105,7 +261,7 @@ export default function TaskCard() {
     <section className="task-band" aria-label="課題">
       <div className="task-head">
         <p className="task-label">
-          {blockLabel(block)}{WIDE_SPACE}課題{taskIndex + 1}/{study.plan.task_ids.length}
+          {blockLabel(block)}{WIDE_SPACE}課題{taskIndex + 1}/{count}
         </p>
         <button className="band-btn" type="button" aria-expanded={open} aria-controls={formId} onClick={() => setOpen((o) => !o)}>
           {open ? '答えを閉じる' : '答える'}
