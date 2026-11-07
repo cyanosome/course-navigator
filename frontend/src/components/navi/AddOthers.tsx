@@ -18,6 +18,8 @@ const ROWS_SHOWN = 8
 /** その学期に無い名前を全学期から引くのは、この字数から */
 const GLOBAL_MIN_CHARS = 2
 const GLOBAL_LIMIT = 50
+/** 英数字で始まる科目名（英語で開く科目。並びの後ろに回す） */
+const LATIN_HEAD = /^[A-Za-z0-9]/
 
 /** 科目名ごとの1行（同じ名前の別クラスはまとめる。クラスは問わない） */
 interface OfferRow {
@@ -40,7 +42,8 @@ function groupByName(items: readonly CourseSummary[]): OfferRow[] {
     }
     rows.set(c.name, { ...row, classes: row.classes + 1, slots: null })
   }
-  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+  // 日本語の名前を先に（英語で開く科目は後ろ）、それぞれ五十音・アルファベットの順
+  return [...rows.values()].sort((a, b) => Number(LATIN_HEAD.test(a.name)) - Number(LATIN_HEAD.test(b.name)) || a.name.localeCompare(b.name, 'ja'))
 }
 
 /** その学期の配当の科目（D4 の year・term を全部のページ）。term が null なら読まない */
