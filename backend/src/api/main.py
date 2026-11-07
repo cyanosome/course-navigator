@@ -17,7 +17,7 @@ from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
 from api.routers import agent, integrated, neo4j, postgres
-from api.routers import assist, catalog, research
+from api.routers import assist, catalog, diagnose, research
 
 
 @asynccontextmanager
@@ -83,4 +83,5 @@ app.include_router(agent.router)
 app.include_router(catalog.router)
 app.include_router(research.router)
 app.include_router(assist.router)
+app.include_router(diagnose.router)
 
