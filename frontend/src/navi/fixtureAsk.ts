@@ -6,6 +6,7 @@
  * 本文の書式は backend/src/agent/prompts/compose_answer.md の「科目名 [コード]」の見出しに合わせた。
  * 確認できなかった科目名1件（unverified_codes）は、W5-3 の「確認できなかった科目名が1件あります」を出すため。
  */
+import type { PlanContextIn, PlanSuggestions } from './apiTypes'
 import type { McpAgentRunResult } from './types'
 
 export const FIXTURE_ASK_RESULT: McpAgentRunResult = {
@@ -66,4 +67,20 @@ export const FIXTURE_ASK_RESULT: McpAgentRunResult = {
   node_sequence: [],
   model: 'mock',
   latency_ms: 0,
+}
+
+/**
+ * プランの微修正の見本の提案（A1 の plan_suggestions の形。照合の後のつもり）。出典のうちプランに無い科目を「足す」、
+ * プランの最後の科目を「外す」にし、DB に無い EC3999 は照合で外したことにする
+ */
+export function fixturePlanSuggestions(ctx: PlanContextIn): PlanSuggestions {
+  const inPlan = new Set(ctx.terms.flatMap((t) => t.syllabus_ids))
+  const last = ctx.terms.flatMap((t) => t.syllabus_ids).at(-1)
+  return {
+    add: FIXTURE_ASK_RESULT.sources
+      .filter((s) => !inPlan.has(s.code))
+      .map((s) => ({ syllabus_id: s.code, title: s.title, reason: '環境の対策に近い内容です（見本）' })),
+    remove: last === undefined ? [] : [{ syllabus_id: last, title: null, reason: '頼みから遠い科目です（見本）' }],
+    dropped: [{ action: 'add', syllabus_id: 'EC3999', reason: 'not_in_db' }],
+  }
 }

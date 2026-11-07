@@ -5,7 +5,7 @@ import type { CourseSummary } from './apiTypes'
 import { extractReasons } from './ask'
 import { courseIndex, findCourse, findFrame, findInterest, hasEdge, interestGroups, reachedInterests, realInterests } from './graph'
 import type { AskSession, Origin, TrailEntry } from './state'
-import { courseHref, groupHref, listHref, TIMETABLE_HREF } from './state'
+import { courseHref, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
 import type { TermKey } from './timetable'
 import {
   clashesOf,
@@ -134,6 +134,30 @@ export function sourceRowView(source: AgentSource, origin: Origin, why: string):
     why,
     source: 'AIの判断',
     href: courseHref(source.code, origin),
+    required: false,
+  }
+}
+
+/** 診断のプランの科目のうち、学科の系統図に無い科目の行（プランの項目だけで作る。学期はプランの見出しに出す） */
+export function planRowView(
+  c: { syllabus_id: string; name: string; credits: number | null; slots: string[]; slot_note: string | null },
+  origin: Origin,
+  why: string | null,
+  source: string | null,
+): RowView {
+  return {
+    code: c.syllabus_id,
+    name: c.name,
+    faculty: null,
+    slotLines: c.slots.length > 0 ? c.slots : [c.slot_note === 'オンデマンド' ? '随時' : 'なし'],
+    credits: c.credits,
+    termNote: null,
+    learn: '',
+    learnMissing: false,
+    clash: null,
+    why,
+    source,
+    href: courseHref(c.syllabus_id, origin),
     required: false,
   }
 }
@@ -350,6 +374,7 @@ export function detailWhy(ctx: ListContext, course: Course, origin: Origin, ask:
       if (isRequired(course)) return { text: `学科で${courseTermLabel(course)}に取ると決まっている科目です`, source: `${dept.syllabusYear}年度シラバスの区分より`, ai: false }
       return { ...frameFact(dept, course), text: `あなたが候補に入れた科目です。${frameFact(dept, course).text}` }
     case 'group':
+    case 'plan':
     case 'none':
       return frameFact(dept, course)
   }
@@ -392,6 +417,8 @@ export function rootEntry(dept: Department, origin: Origin): TrailEntry {
       return { label: '探した結果', href: `/navi/ask/${encodeURIComponent(origin.localId)}` }
     case 'tt':
       return { label: '時間割', href: TIMETABLE_HREF }
+    case 'plan':
+      return { label: 'プラン', href: DIAGNOSE_HREF }
     case 'course': {
       const from = findCourse(dept, origin.code)
       return { label: from?.name ?? 'さがす', href: courseHref(origin.code, { kind: 'none' }) }

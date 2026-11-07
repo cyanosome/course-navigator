@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import type { ShortlistFrom } from '../../navi/research'
 import { useNavi } from '../../navi/state'
 import type { PaneState } from '../../navi/state'
 import type { RowView } from '../../navi/views'
@@ -12,13 +13,15 @@ interface CourseRowProps {
   current?: boolean
   /** 行を押して詳細へ進むとき（研究のログ result_click など） */
   onOpen?: () => void
+  /** ＋で候補に入れたときの「どこから」（研究のログ。省くと unknown） */
+  keepFrom?: ShortlistFrom
 }
 
 /**
  * 科目の一覧の1行（E1 0章・4章）。左に曜限・単位（いまの学期と違えば学期）、右に科目名・授業でやること・重なり・なぜ。
  * 行を押すと詳細、右の＋で候補に入れる。
  */
-export default function CourseRow({ row, linkState, current = false, onOpen }: CourseRowProps) {
+export default function CourseRow({ row, linkState, current = false, onOpen, keepFrom }: CourseRowProps) {
   return (
     <li className="row" aria-current={current ? 'true' : undefined}>
       <Link className="row-link" to={row.href} state={linkState} onClick={onOpen}>
@@ -77,7 +80,7 @@ export default function CourseRow({ row, linkState, current = false, onOpen }: C
           <span className="vh">必修なので、時間割に入れてあります</span>
         </span>
       ) : (
-        <AddButton code={row.code} name={row.name} />
+        <AddButton code={row.code} name={row.name} from={keepFrom} />
       )}
     </li>
   )
@@ -86,10 +89,11 @@ export default function CourseRow({ row, linkState, current = false, onOpen }: C
 interface AddButtonProps {
   code: string
   name: string
+  from?: ShortlistFrom
 }
 
 /** 一覧の＋（読み上げは「無機化学を候補に入れる」）。押すとすぐ緑の輪とチェックに変わり、もう一度押すと外れる */
-function AddButton({ code, name }: AddButtonProps) {
+function AddButton({ code, name, from }: AddButtonProps) {
   const { isKept, toggleKeep } = useNavi()
   const kept = isKept(code)
   return (
@@ -98,7 +102,7 @@ function AddButton({ code, name }: AddButtonProps) {
       type="button"
       aria-pressed={kept}
       aria-label={kept ? `${name}を候補に入れた（もう一度押すと外す）` : `${name}を候補に入れる`}
-      onClick={() => toggleKeep(code)}
+      onClick={() => toggleKeep(code, from)}
     >
       <Icon name={kept ? 'check' : 'plus'} />
     </button>

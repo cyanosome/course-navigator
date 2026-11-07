@@ -303,6 +303,19 @@ export const CLIENT_EVENT_TYPES = [
   'page_hidden',
   'page_visible',
   'client_error',
+  /* 診断（diagnose=quiz）と、プランの微修正 */
+  'diag_start',
+  'diag_answer',
+  'diag_submit',
+  'diag_retake',
+  'plan_shown',
+  'plan_course_add',
+  'plan_course_remove',
+  'plan_refine_send',
+  /* 履修状況のチェック */
+  'checkpoint_add',
+  'checkpoint_remove',
+  'status_open',
 ] as const
 
 export type ClientEventType = (typeof CLIENT_EVENT_TYPES)[number]
@@ -344,16 +357,50 @@ export interface AssistOptions {
   citations: 'cards' | 'text'
 }
 
+/** A1 の plan_context の上限（backend の agent/route_options.py の PlanContext。超えると 422） */
+export const PLAN_CONTEXT_LIMITS = { summaryChars: 1000, terms: 16, idsPerTerm: 40, yearMax: 8 } as const
+
+/** A1 に添える、いまのプラン（プランの微修正のときだけ。backend は科目名などを DB で引いて相談に付ける） */
+export interface PlanContextIn {
+  /** 診断の答えの短いまとめ（PLAN_CONTEXT_LIMITS.summaryChars 字まで） */
+  answers_summary: string
+  /** いまのプランの科目（学期ごと。微修正で足し外しした後） */
+  terms: { year: number; term: DiagnoseTerm; syllabus_ids: string[] }[]
+}
+
+/** 照合を通った提案1件（title は DB の科目名。外す科目が DB に無いときは null） */
+export interface PlanSuggestion {
+  syllabus_id: string
+  title: string | null
+  reason: string
+}
+
+/** 照合で外した提案 */
+export interface DroppedSuggestion {
+  action: 'add' | 'remove'
+  syllabus_id: string
+  reason: 'not_in_db' | 'already_in_plan' | 'not_in_plan'
+}
+
+/** プランの微修正の提案（照合の後）。足す科目は DB にありプランに無いもの、外す科目はプランにあるもの */
+export interface PlanSuggestions {
+  add: PlanSuggestion[]
+  remove: PlanSuggestion[]
+  dropped: DroppedSuggestion[]
+}
+
 /** A1 POST /api/assist/ask の入力 */
 export interface AssistIn {
   /** composeQuestion の後の文 */
   question: string
   /** 利用者が打った文（記録用） */
   raw_input?: string
-  /** 対応する chat_send の event_id */
+  /** 対応する chat_send（プランの微修正は plan_refine_send）の event_id */
   client_event_id?: string
   /** 開発のときだけ効く */
   options?: AssistOptions
+  /** プランの微修正のときだけ */
+  plan_context?: PlanContextIn
 }
 
 export interface UnverifiedItem {
@@ -369,4 +416,92 @@ export interface AssistOut extends McpAgentRunResult {
   options_ignored: boolean
   route_requested: 'mcp_grounded' | 'static'
   unverified_items: UnverifiedItem[]
+  /**
+   * plan_context を送り、mcp の経路で照合まで通ったときだけ埋まる（ほかは null）。
+   * plan_context を知らないサーバー（E1 より前）は項目ごと無い
+   */
+  plan_suggestions?: PlanSuggestions | null
+}
+
+/* ---------- 診断（diagnose=quiz。設定の形は診断のコンペの事前登録 protocol.md） ---------- */
+
+export type DiagnoseQuestionKind = 'single' | 'multi' | 'scale5'
+
+/** 点の付け方の1つ（primitive の名前と引数はエンジンの決まり。画面は中身を使わない） */
+export interface DiagnoseEffect {
+  primitive: string
+  args: Record<string, unknown>
+  weight: number
+}
+
+export interface DiagnoseOption {
+  id: string
+  label: string
+  effects: DiagnoseEffect[]
+}
+
+export interface DiagnoseQuestion {
+  id: string
+  text: string
+  kind: DiagnoseQuestionKind
+  /** multi のとき選べる数の上限 */
+  max_select?: number
+  options: DiagnoseOption[]
+}
+
+export type DiagnoseTerm = '春' | '秋'
+
+export interface DiagnoseScopeTerm {
+  year: number
+  term: DiagnoseTerm
+}
+
+/** GET /api/diagnose/config?department_id= */
+export interface DiagnoseConfig {
+  version: string
+  department_id: string
+  scope: { terms: DiagnoseScopeTerm[]; credit_cap_per_term: number | null }
+  questions: DiagnoseQuestion[]
+  base_effects: DiagnoseEffect[]
+  tie_break: string
+  reason_templates: Record<string, string>
+}
+
+/** 答え（multi・single は選んだ選択肢の ID、scale5 は 1〜5） */
+export type DiagnoseAnswers = Record<string, string[] | number>
+
+/** POST /api/diagnose/plan の入力 */
+export interface DiagnosePlanIn {
+  department_id: string
+  config_version: string
+  answers: DiagnoseAnswers
+}
+
+export interface PlanReason {
+  primitive: string
+  text: string
+}
+
+export interface PlanCourse {
+  syllabus_id: string
+  name: string
+  credits: number | null
+  slots: string[]
+  slot_note: string | null
+  score: number
+  reasons: PlanReason[]
+}
+
+export interface PlanTerm {
+  year: number
+  term: DiagnoseTerm
+  credits_total: number
+  courses: PlanCourse[]
+}
+
+/** POST /api/diagnose/plan の応答。422 は答えの誤り、409 は設定の版の違い */
+export interface DiagnosePlanOut {
+  config_version: string
+  answers_digest: string
+  terms: PlanTerm[]
 }

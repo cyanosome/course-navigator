@@ -19,11 +19,13 @@ import {
 import type { Course } from '../../navi/types'
 import Accordion from './Accordion'
 import Icon from './Icon'
+import StatusPanel from './StatusPanel'
 import TimetableGrid from './TimetableGrid'
 
 /**
  * 時間割（W4。PC は W12 の左の段）。E1 4章・5章: 「＜ 1年春 ＞」と「13単位 上限 24」、凡例、表、重なりの知らせ、
  * 曜限なし、開閉2つ（卒業に要る単位・ほかの学期の候補）、注意書き。外したときは［元に戻す］を5秒出す（NaviApp）。
+ * 履修状況のチェック（StatusPanel。仮の置き方）は、どの変種でも同じものを出す。
  */
 export default function TimetablePanel() {
   const { dept, shortlist, focusTerm, setFocusTerm, removeKeep, isPc, lastDir } = useNavi()
@@ -171,6 +173,8 @@ export default function TimetablePanel() {
           </ul>
         </section>
       )}
+
+      <StatusPanel target={{ kind: 'shortlist' }} heading="チェック" frame="block" />
 
       <div className="tt-accs accs">
         <Accordion label="卒業に要る単位" hint={req === null ? '準備中' : `${total} / ${req.total}`}>

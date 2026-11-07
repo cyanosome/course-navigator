@@ -77,6 +77,13 @@ export const KEYS = {
   askSent: 'navi.askSent',
   wait: 'navi.wait',
   keyword: 'navi.keyword',
+  /** 診断の答えとプラン（学科ごと） */
+  diagnose: 'navi.diagnose',
+  /** プランの微修正の質問と回答（sessionStorage） */
+  refine: 'navi.refine',
+  refineSeq: 'navi.refineSeq',
+  /** 履修状況のチェックの一覧 */
+  checkpoints: 'navi.checkpoints',
 } as const
 
 /** 研究のログの欄（画面の状態とは別に持ち、clearAppState では消さない） */

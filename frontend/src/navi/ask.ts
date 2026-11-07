@@ -4,6 +4,7 @@
  * 本物は POST /api/assist/ask（askAdapter.ts の createHttpAskAdapter）。開発ビルドで ?wait= を付けたときだけ、
  * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。見本の回答は本番の束に入れないよう、使うときに読み込む。
  */
+import type { PlanContextIn, PlanSuggestions } from './apiTypes'
 import type { Department, McpAgentRunResult } from './types'
 
 /** AI に送るもの（A1 の AssistIn の画面側の形） */
@@ -14,6 +15,8 @@ export interface AskRequest {
   rawInput: string
   /** 対応する chat_send の event_id（調査のセッションが無ければ null）。サーバーの chat_response と結ぶ */
   clientEventId: string | null
+  /** プランの微修正のときだけ、いまのプラン（A1 の plan_context） */
+  planContext?: PlanContextIn
 }
 
 export interface AskAdapter {
@@ -55,7 +58,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
   return {
-    async ask(_request, signal) {
+    async ask(request, signal) {
       const started = Date.now()
       if (mode === 'timeout') {
         // 返らない。呼び出し側の上限（3分）で W6-3 になる
@@ -82,6 +85,16 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
           notes: [],
           latency_ms: latency,
         }
+      }
+      if (request.planContext !== undefined) {
+        // プランの微修正には、A1 と同じく照合の後の提案（plan_suggestions）を付ける
+        const { fixturePlanSuggestions } = await import('./fixtureAsk')
+        const withPlan: McpAgentRunResult & { plan_suggestions: PlanSuggestions } = {
+          ...FIXTURE_ASK_RESULT,
+          latency_ms: latency,
+          plan_suggestions: fixturePlanSuggestions(request.planContext),
+        }
+        return withPlan
       }
       return { ...FIXTURE_ASK_RESULT, latency_ms: latency }
     },

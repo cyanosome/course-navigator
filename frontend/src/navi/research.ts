@@ -26,8 +26,8 @@ import { isNumber, isRecord, isString, isStringArray, readJson, RESEARCH_KEYS, s
 import { DEFAULT_VARIANT, flagsDigest, isVariantFlags, toVariantState } from './variant'
 import type { VariantFlags, VariantState } from './variant'
 
-/** result_click の「どの一覧か」 */
-export type ListSource = 'search' | 'recommend' | 'interest' | 'ask' | 'group' | 'similar'
+/** result_click の「どの一覧か」（plan は診断のプラン、refine はプランの微修正の AI の回答） */
+export type ListSource = 'search' | 'recommend' | 'interest' | 'ask' | 'group' | 'similar' | 'plan' | 'refine'
 
 /** shortlist_add・shortlist_remove の「どこから」 */
 export type ShortlistFrom = ListSource | 'detail' | 'timetable' | 'undo' | 'unknown'

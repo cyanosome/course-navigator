@@ -7,8 +7,16 @@ import type { AskAdapter } from './ask'
 
 export function createHttpAskAdapter(): AskAdapter {
   return {
-    ask({ question, rawInput, clientEventId }, signal) {
-      return ask({ question, raw_input: rawInput, ...(clientEventId === null ? {} : { client_event_id: clientEventId }) }, signal)
+    ask({ question, rawInput, clientEventId, planContext }, signal) {
+      return ask(
+        {
+          question,
+          raw_input: rawInput,
+          ...(clientEventId === null ? {} : { client_event_id: clientEventId }),
+          ...(planContext === undefined ? {} : { plan_context: planContext }),
+        },
+        signal,
+      )
     },
   }
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { markVariantApplied, useResearchLog } from '../../navi/research'
-import { listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
+import { DIAGNOSE_HREF, listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
 import { termCredits, termLabel } from '../../navi/timetable'
 import { useFlags } from '../../navi/variant'
@@ -17,7 +17,9 @@ interface NaviShellProps {
   children: ReactNode
 }
 
-type Place = 'search' | 'tt' | 'detail' | 'page' | 'study'
+type Place = 'search' | 'tt' | 'detail' | 'page' | 'study' | 'plan'
+/** 行き先のタブ（プランは旗 diagnose=quiz のときだけ） */
+type NavTab = PcTab | 'plan'
 type Pop = 'menu'
 
 const MENU_ID = 'navi-menu'
@@ -27,6 +29,7 @@ function placeOf(pathname: string): Place {
   if (pathname.startsWith('/navi/timetable')) return 'tt'
   if (pathname.startsWith('/navi/course/') || pathname.startsWith('/navi/group/')) return 'detail'
   if (pathname.startsWith('/navi/study')) return 'study'
+  if (pathname.startsWith(DIAGNOSE_HREF)) return 'plan'
   return 'page'
 }
 
@@ -100,8 +103,17 @@ export default function NaviShell({ children }: NaviShellProps) {
 
   const pane = readPaneState(location.state)
   const origin = parseOrigin(new URLSearchParams(location.search).get('from'))
-  const tab: PcTab | null =
-    place === 'search' ? 'search' : place === 'tt' ? 'tt' : place === 'detail' ? (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search')) : null
+  const tab: NavTab | null =
+    place === 'plan'
+      ? 'plan'
+      : place === 'search'
+        ? 'search'
+        : place === 'tt'
+          ? 'tt'
+          : place === 'detail'
+            ? (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search'))
+            : null
+  const showPlanTab = flags.diagnose === 'quiz'
   const searchHref = listHref(lastDir)
   const credits = termCredits(dept, shortlist, focusTerm)
 
@@ -157,6 +169,11 @@ export default function NaviShell({ children }: NaviShellProps) {
           <span className="brand">コースナビ</span>
           {!minimal && (
             <nav className="pc-tabs" aria-label="行き先">
+              {showPlanTab && (
+                <Link to={DIAGNOSE_HREF} aria-current={tab === 'plan' ? 'page' : undefined}>
+                  プラン
+                </Link>
+              )}
               <Link to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
                 さがす
               </Link>
@@ -203,7 +220,13 @@ export default function NaviShell({ children }: NaviShellProps) {
       {children}
       {showWait && <WaitLine />}
       {!minimal && (
-        <nav className="tabs" aria-label="行き先">
+        <nav className={showPlanTab ? 'tabs is-3' : 'tabs'} aria-label="行き先">
+          {showPlanTab && (
+            <Link className="tab" to={DIAGNOSE_HREF} aria-current={tab === 'plan' ? 'page' : undefined}>
+              <Icon name="check" />
+              <span>プラン</span>
+            </Link>
+          )}
           <Link className="tab" to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
             <Icon name="list" />
             <span>さがす</span>

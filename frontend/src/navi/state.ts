@@ -97,6 +97,8 @@ export type Origin =
   | { kind: 'group'; frameId: string }
   | { kind: 'ask'; localId: string }
   | { kind: 'tt' }
+  /** 診断のプラン（微修正の AI の回答から来たときも） */
+  | { kind: 'plan' }
   | { kind: 'none' }
 
 export function parseOrigin(value: string | null): Origin {
@@ -104,6 +106,7 @@ export function parseOrigin(value: string | null): Origin {
   if (value === 'default') return { kind: 'default' }
   // 'shortlist' は改訂前の候補の画面のリンク（時間割に置き換えた）
   if (value === 'tt' || value === 'shortlist') return { kind: 'tt' }
+  if (value === 'plan') return { kind: 'plan' }
   const [kind, id] = value.split(':')
   if (id === undefined || id === '') return { kind: 'none' }
   if (kind === 'dir') return { kind: 'dir', dirId: id }
@@ -119,6 +122,8 @@ function originParam(origin: Origin): string | null {
       return 'default'
     case 'tt':
       return 'tt'
+    case 'plan':
+      return 'plan'
     case 'dir':
       return `dir:${origin.dirId}`
     case 'course':
@@ -150,6 +155,9 @@ export function listHref(dirId: string): string {
 }
 
 export const TIMETABLE_HREF = '/navi/timetable'
+
+/** 診断とプラン（diagnose=quiz のときだけ開く） */
+export const DIAGNOSE_HREF = '/navi/diagnose'
 
 /* ---------- たどった道筋（PC のパンくず、スマホの戻る。UX 仕様 C03、E1 6章） ---------- */
 
@@ -198,6 +206,8 @@ export interface NaviContextValue {
   isKept: (code: string) => boolean
   /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す。from は研究のログの「どこから」 */
   toggleKeep: (code: string, from?: ShortlistFrom) => void
+  /** まとめて候補に入れる（プランの［まとめて候補に入れる］）。入っていない科目だけ足し、1件ずつ shortlist_add を記録する */
+  keepAll: (codes: string[], from: ShortlistFrom) => void
   /** 時間割の［外す］。［元に戻す］つきの知らせを出す */
   removeKeep: (code: string) => void
   undoRemove: (toast: ToastState) => void
