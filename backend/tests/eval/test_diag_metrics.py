@@ -178,8 +178,8 @@ def test_main_with_snapshot_writes_table_json_and_plans(tmp_path, capsys):
 
     assert code == 0
     printed = capsys.readouterr().out
-    assert "| good.json | test-1 | 0 |" in printed
-    assert "| plan.md | — | 1 |" in printed
+    assert f"| {tmp_path.name}/good.json | test-1 | 0 |" in printed
+    assert f"| {tmp_path.name}/plan.md | — | 1 |" in printed
     report = json.loads(out.read_text(encoding="utf-8"))
     assert report["git_sha"] == "abc"
     assert report["data"]["source"] == "snapshot" and report["data"]["course_count"] == 5

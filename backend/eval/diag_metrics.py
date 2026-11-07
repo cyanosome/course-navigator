@@ -333,6 +333,12 @@ def _number(value: float | None, digits: int = 3) -> str:
     return "—" if value is None else f"{value:.{digits}f}"
 
 
+def _label(path: str) -> str:
+    """表の見出し（応募作は plan.md が並ぶので、親のフォルダ名も付ける）。"""
+    parts = Path(path).parts
+    return "/".join(parts[-2:]) if len(parts) >= 2 else path
+
+
 def render_table(results: Sequence[dict[str, Any]]) -> str:
     lines = [
         "| 入力 | 版 | M1 誤り | M2 Jaccard 距離の平均 | M3 HHI | M4 埋まった割合 | 組み合わせ（流した/全部） | 違うプラン | 平均科目数 |",
@@ -343,7 +349,7 @@ def render_table(results: Sequence[dict[str, Any]]) -> str:
         plans = result["plans"]
         lines.append(
             "| {input} | {version} | {m1} | {m2} | {m3} | {m4} | {combos} | {distinct} | {mean} |".format(
-                input=Path(result["input"]).name if result["input"] else "",
+                input=_label(result["input"]),
                 version=result["config_version"] or "—",
                 m1=result["M1"]["count"],
                 m2=_number(result["M2"]),
@@ -355,7 +361,7 @@ def render_table(results: Sequence[dict[str, Any]]) -> str:
             )
         )
     for result in results:
-        name = Path(result["input"]).name if result["input"] else ""
+        name = _label(result["input"])
         if result["M4"]:
             per_term = "、".join(
                 f"{row['year']}年{row['term']} {row['rate']:.3f}（平均 {row['mean_credits']:.1f} 単位・{row['mean_courses']:.1f} 科目）"

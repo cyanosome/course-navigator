@@ -10,7 +10,8 @@
 - single と multi は選択肢が1つ以上。multi は max_select（1〜選択肢の数）が要り、ほかの kind には書かない
 - scale5 は選択肢をちょうど5つ書く（答えの 1〜5 が選択肢の 1〜5 番目に当たる）
 - 埋める学期は {year: 1〜4, term: 春|秋}、重ならない。credit_cap_per_term は正の数か null
-- weight は -3〜+3 の数。tie_break は syllabus_id・year_then_syllabus_id か、引数の要らない primitive の名前
+- weight は選択肢の effect なら -3〜+3 の数、base_effects なら有限の数（設定の形の `<数>` のとおり範囲は無い）
+- tie_break は syllabus_id・year_then_syllabus_id か、引数の要らない primitive の名前
 - reason_templates の鍵は primitive の名前、値は空でない文字列。{ } の書き方が読めない文は形の違反。
   知らない差し込みは誤りに数えない（文を作るときに空にする。変更記録 2026-11-07 (3)）
 """
@@ -181,7 +182,10 @@ def _keys(obj: Mapping[str, Any], path: str, required: Sequence[str], optional: 
     return issues
 
 
-def _check_effects(value: Any, path: str, known_groups: frozenset[str] | None) -> list[ConfigIssue]:
+def _check_effects(
+    value: Any, path: str, known_groups: frozenset[str] | None, *, weight_limit: float | None
+) -> list[ConfigIssue]:
+    """effect の配列。weight_limit が None なら重みは有限の数であればよい（base_effects）。"""
     if not isinstance(value, list):
         return [_shape(path, "effects は配列にしてください")]
     issues: list[ConfigIssue] = []
@@ -191,8 +195,12 @@ def _check_effects(value: Any, path: str, known_groups: frozenset[str] | None) -
             issues.append(_shape(here, "effect はオブジェクトにしてください"))
             continue
         issues += _keys(effect, here, required=("primitive", "args", "weight"))
-        if "weight" in effect and not (_is_number(effect["weight"]) and abs(effect["weight"]) <= WEIGHT_LIMIT):
-            issues.append(_shape(f"{here}.weight", f"weight は -{WEIGHT_LIMIT:g}〜+{WEIGHT_LIMIT:g} の数にしてください"))
+        if "weight" in effect:
+            weight = effect["weight"]
+            if not _is_number(weight):
+                issues.append(_shape(f"{here}.weight", "weight は数にしてください"))
+            elif weight_limit is not None and abs(weight) > weight_limit:
+                issues.append(_shape(f"{here}.weight", f"weight は -{weight_limit:g}〜+{weight_limit:g} の数にしてください"))
         name = effect.get("primitive")
         if "primitive" not in effect:
             continue
@@ -232,7 +240,7 @@ def _check_options(question: Mapping[str, Any], path: str, known_groups: frozens
         if "label" in option and not _non_empty_str(option["label"]):
             issues.append(_shape(f"{here}.label", "label は空でない文字列にしてください"))
         if "effects" in option:
-            issues += _check_effects(option["effects"], f"{here}.effects", known_groups)
+            issues += _check_effects(option["effects"], f"{here}.effects", known_groups, weight_limit=WEIGHT_LIMIT)
     return issues
 
 
@@ -364,7 +372,7 @@ def validate_config(raw: Any, *, department_id: str, known_groups: frozenset[str
                         issues.append(_shape(f"questions[{index}].id", f"質問の id が重なっています: {question_id}"))
                     seen.add(question_id)
     if "base_effects" in raw:
-        issues += _check_effects(raw["base_effects"], "base_effects", known_groups)
+        issues += _check_effects(raw["base_effects"], "base_effects", known_groups, weight_limit=None)
     if "tie_break" in raw:
         issues += _check_tie_break(raw["tie_break"])
     if "reason_templates" in raw:

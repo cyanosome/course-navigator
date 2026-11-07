@@ -128,6 +128,15 @@ def test_shape_violation_is_one_shape_issue(mutate, path):
     assert [(issue.kind, issue.path) for issue in issues] == [("shape", path)], issues
 
 
+def test_base_effects_weight_has_no_range_but_must_be_a_number():
+    """設定の形では選択肢の weight だけが -3〜+3。base_effects の weight は `<数>`。"""
+    raw = config_dict()
+    raw["base_effects"][0]["weight"] = 20
+    assert _issues(raw) == []
+    raw["base_effects"][0]["weight"] = "20"
+    assert [(issue.kind, issue.path) for issue in _issues(raw)] == [("shape", "base_effects[0].weight")]
+
+
 def test_unknown_tie_break_and_template_keys_are_primitive_issues():
     raw = config_dict(tie_break="random")
     raw["reason_templates"]["similar_to"] = "近い"
