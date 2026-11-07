@@ -1,7 +1,7 @@
 /**
  * プランの微修正（旗 diagnose=quiz かつ assistant=on）。「このプランを〇〇に変えたい」を A1 に送り、回答と提案を持つ。
- * - いまのプランは plan_context（answers_summary と学期ごとの syllabus_id）で送る。サーバーが科目名などを DB で引いて
- *   相談に付け、足す・外すの提案（plan_suggestions、照合の後）を返す。文にはプランを入れない。
+ * - いまのプランは plan_context（answers_summary と学期ごとの syllabus_id、プランを作った設定の版と答え）で送る。
+ *   サーバーが科目名などを DB で引いて相談に付け、足す・外すの提案（plan_suggestions、照合の後）を返す。文にはプランを入れない。
  * - plan_context が届かないとき:
  *   - サーバーが plan_context を断った（422）: plan_context を外し、プランと答えの要約を文に入れて聞き直す（text_only）
  *   - サーバーが plan_context を知らない（応答に plan_suggestions の項目が無い。E1 より前）: 回答はそのまま出し、
@@ -13,7 +13,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { ApiError, isPlanSuggestions } from './api'
-import type { PlanSuggestions } from './apiTypes'
+import type { DiagnoseAnswers, PlanSuggestions } from './apiTypes'
 import type { AskAdapter } from './ask'
 import { composeRefineQuestion, planContext, planPayload } from './diagnose'
 import type { AnswerSummaryItem, WorkingPlan } from './diagnose'
@@ -78,6 +78,8 @@ function suggestionsOf(result: McpAgentRunResult): { known: boolean; suggestions
 export interface RefineTarget {
   configVersion: string
   answersDigest: string
+  /** プランを作った答え（plan_context の answers） */
+  answers: DiagnoseAnswers
   plan: WorkingPlan
   summary: AnswerSummaryItem[]
 }
@@ -108,7 +110,7 @@ export function usePlanRefineState({ adapter, dept, log, target }: RefineDeps): 
       const seq = (readJson('session', KEYS.refineSeq, isNumber) ?? 0) + 1
       writeJson('session', KEYS.refineSeq, seq)
       const localId = String(seq)
-      const { context, clamped } = planContext(target.plan, target.summary)
+      const { context, clamped } = planContext(target.plan, target.summary, { configVersion: target.configVersion, answers: target.answers })
       setSession({
         localId,
         request,

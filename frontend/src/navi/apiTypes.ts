@@ -367,6 +367,12 @@ export interface PlanContextIn {
   answers_summary: string
   /** いまのプランの科目（学期ごと。微修正で足し外しした後） */
   terms: { year: number; term: DiagnoseTerm; syllabus_ids: string[] }[]
+  /**
+   * プランを作った診断の設定の版と答え（POST /diagnose/plan と同じ形）。backend はこれで足す科目の候補を作る。
+   * 知らない backend は読み捨てる（任意の項目）
+   */
+  config_version?: string
+  answers?: DiagnoseAnswers
 }
 
 /** 照合を通った提案1件（title は DB の科目名。外す科目が DB に無いときは null） */
@@ -376,11 +382,11 @@ export interface PlanSuggestion {
   reason: string
 }
 
-/** 照合で外した提案 */
+/** 照合で外した提案（not_candidate: 足す案が候補に無い、locked: 外す案が系統図の科目） */
 export interface DroppedSuggestion {
   action: 'add' | 'remove'
   syllabus_id: string
-  reason: 'not_in_db' | 'already_in_plan' | 'not_in_plan'
+  reason: 'not_in_db' | 'already_in_plan' | 'not_in_plan' | 'not_candidate' | 'locked'
 }
 
 /** プランの微修正の提案（照合の後）。足す科目は DB にありプランに無いもの、外す科目はプランにあるもの */

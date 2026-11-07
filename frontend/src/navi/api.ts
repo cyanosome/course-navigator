@@ -298,7 +298,7 @@ export const isPlanSuggestions = shape<PlanSuggestions>({
     shape({
       action: oneOf(['add', 'remove']),
       syllabus_id: isString,
-      reason: oneOf(['not_in_db', 'already_in_plan', 'not_in_plan']),
+      reason: oneOf(['not_in_db', 'already_in_plan', 'not_in_plan', 'not_candidate', 'locked']),
     }),
   ),
 })

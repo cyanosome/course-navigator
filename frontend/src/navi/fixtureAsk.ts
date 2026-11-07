@@ -71,16 +71,23 @@ export const FIXTURE_ASK_RESULT: McpAgentRunResult = {
 
 /**
  * プランの微修正の見本の提案（A1 の plan_suggestions の形。照合の後のつもり）。出典のうちプランに無い科目を「足す」、
- * プランの最後の科目を「外す」にし、DB に無い EC3999 は照合で外したことにする
+ * プランの最後の科目を「外す」にし、DB に無い EC3999 と候補に無い EC3998 は照合で外したことにする。
+ * プランの最初の科目は系統図の科目として、外す案を照合で外したことにする（locked）
  */
 export function fixturePlanSuggestions(ctx: PlanContextIn): PlanSuggestions {
-  const inPlan = new Set(ctx.terms.flatMap((t) => t.syllabus_ids))
-  const last = ctx.terms.flatMap((t) => t.syllabus_ids).at(-1)
+  const codes = ctx.terms.flatMap((t) => t.syllabus_ids)
+  const inPlan = new Set(codes)
+  const first = codes.at(0)
+  const last = codes.at(-1)
   return {
     add: FIXTURE_ASK_RESULT.sources
       .filter((s) => !inPlan.has(s.code))
       .map((s) => ({ syllabus_id: s.code, title: s.title, reason: '環境の対策に近い内容です（見本）' })),
     remove: last === undefined ? [] : [{ syllabus_id: last, title: null, reason: '頼みから遠い科目です（見本）' }],
-    dropped: [{ action: 'add', syllabus_id: 'EC3999', reason: 'not_in_db' }],
+    dropped: [
+      { action: 'add', syllabus_id: 'EC3999', reason: 'not_in_db' },
+      { action: 'add', syllabus_id: 'EC3998', reason: 'not_candidate' },
+      ...(first === undefined || first === last ? [] : [{ action: 'remove' as const, syllabus_id: first, reason: 'locked' as const }]),
+    ],
   }
 }

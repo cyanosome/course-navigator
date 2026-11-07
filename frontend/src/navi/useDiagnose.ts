@@ -101,6 +101,8 @@ export interface DiagnoseState {
   /** いま出している質問の番号（設定の質問の数の中に収める） */
   index: number
   plan: DiagnosePlanOut | null
+  /** プランを作った答え（プランが無ければ null。答え直しの途中でも変わらない） */
+  planAnswers: DiagnoseAnswers | null
   working: WorkingPlan | null
   /** 答えの要約（設定が読めるまでは空） */
   summary: AnswerSummaryItem[]
@@ -302,6 +304,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
     answers,
     index,
     plan: cur.plan,
+    planAnswers: cur.plan === null ? null : (cur.planAnswers ?? cur.answers),
     working,
     summary,
     notice,

@@ -223,7 +223,10 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
   })()
 
   const paragraphs = (result?.answer ?? '').split(/\n{2,}/).filter((p) => p.trim() !== '')
-  const dropped = suggestions?.dropped.length ?? 0
+  // 照合で落ちた案。系統図の科目を外す案（locked）だけ分けて出す
+  const droppedAll = suggestions?.dropped ?? []
+  const locked = droppedAll.filter((d) => d.reason === 'locked' && d.action === 'remove').length
+  const dropped = droppedAll.length - locked
 
   const toggle = (r: ProposalRow) => {
     setMessage(null)
@@ -353,6 +356,7 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
       )}
       <p className="ai-src">AIの判断です。間違うことがあります。</p>
       {dropped > 0 && <p className="ai-src">確かめられなかった案が{dropped}件あり、出していません。</p>}
+      {locked > 0 && <p className="ai-src">系統図の科目を外す案が{locked}件あり、出していません。</p>}
       {message !== null && (
         <p className="ai-msg-line" role="alert">
           <Icon name="warn" small />

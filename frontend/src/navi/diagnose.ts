@@ -328,9 +328,14 @@ export function summaryText(summary: AnswerSummaryItem[]): string {
 
 /**
  * A1 の plan_context。サーバーの上限（学期の数・学期ごとの科目の数・学年・要約の字数）に収める。
- * 収めるために落としたものがあれば clamped を true にする（記録に残す）
+ * 収めるために落としたものがあれば clamped を true にする（記録に残す）。
+ * diagnosis はプランを作った設定の版と答え（POST /diagnose/plan と同じ形。backend が足す科目の候補を作るのに使う）
  */
-export function planContext(plan: WorkingPlan, summary: AnswerSummaryItem[]): { context: PlanContextIn; clamped: boolean } {
+export function planContext(
+  plan: WorkingPlan,
+  summary: AnswerSummaryItem[],
+  diagnosis: { configVersion: string; answers: DiagnoseAnswers },
+): { context: PlanContextIn; clamped: boolean } {
   const inRange = plan.terms.filter((t) => t.year >= 1 && t.year <= PLAN_CONTEXT_LIMITS.yearMax)
   const terms = inRange.slice(0, PLAN_CONTEXT_LIMITS.terms).map((t) => ({
     year: t.year,
@@ -343,7 +348,10 @@ export function planContext(plan: WorkingPlan, summary: AnswerSummaryItem[]): { 
     inRange.length > PLAN_CONTEXT_LIMITS.terms ||
     inRange.some((t) => t.courses.length > PLAN_CONTEXT_LIMITS.idsPerTerm) ||
     fullSummary.length > PLAN_CONTEXT_LIMITS.summaryChars
-  return { context: { answers_summary: summaryText(summary), terms }, clamped }
+  return {
+    context: { answers_summary: summaryText(summary), terms, config_version: diagnosis.configVersion, answers: diagnosis.answers },
+    clamped,
+  }
 }
 
 /** A1 の question の上限（backend の AssistIn の max_length） */

@@ -651,18 +651,19 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   const [lastDir, setLastDir] = useState('default')
 
   /* ---------- 診断・プランの微修正・履修状況のチェック（状態は navi/useDiagnose・usePlanRefine・useStatus） ---------- */
-  // 微修正は、いまのプラン（足し外しの後）と、プランを作った答えの版・指紋・要約を送る
+  // 微修正は、いまのプラン（足し外しの後）と、プランを作った答え・その版・指紋・要約を送る
   const refineTarget = useMemo<RefineTarget | null>(
     () =>
-      diagnose.plan === null || diagnose.working === null
+      diagnose.plan === null || diagnose.planAnswers === null || diagnose.working === null
         ? null
         : {
             configVersion: diagnose.plan.config_version,
             answersDigest: diagnose.plan.answers_digest,
+            answers: diagnose.planAnswers,
             plan: diagnose.working,
             summary: diagnose.summary,
           },
-    [diagnose.plan, diagnose.working, diagnose.summary],
+    [diagnose.plan, diagnose.planAnswers, diagnose.working, diagnose.summary],
   )
   const refine = usePlanRefineState({ adapter, dept, log, target: refineTarget })
   const checkpoints = useCheckpointsState(log)
