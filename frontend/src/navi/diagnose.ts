@@ -401,11 +401,6 @@ export function planContext(
 
 /* ---------- 履修の状況（今の学期より前の学期） ---------- */
 
-/** 学期の順の比べ（a が先なら負） */
-export function comparePlace(a: PlanPlace, b: PlanPlace): number {
-  return compareTerm(a, b)
-}
-
 /** start から先の学期だけのプラン（AI に送る・再診断で置き換える範囲） */
 export function plansFrom(plan: WorkingPlan, start: PlanPlace): WorkingPlan {
   return { terms: plan.terms.filter((t) => compareTerm(t, start) >= 0) }
