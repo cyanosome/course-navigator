@@ -85,8 +85,10 @@ export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
       }
     })
 
+  // 同じ名前の別のクラスがこの学期のプランにある科目（［移す］で移したものなど）は、入れると二重になるので出さない
+  const namesHere = new Set(here.courses.map((c) => c.name))
   const candidates = dept.courses
-    .filter((c) => inTerm(c, term) && !inPlan(plan, c.code))
+    .filter((c) => inTerm(c, term) && !inPlan(plan, c.code) && !namesHere.has(c.name))
     .map((c) => ({ course: c, clash: clashesOf(dept, codes, c, placement).filter((x) => sameTerm(x.term, term)) }))
     .sort((a, b) => Number(a.clash.length > 0) - Number(b.clash.length > 0) || courseIndex(dept, a.course.code) - courseIndex(dept, b.course.code))
     .map(({ course, clash }): RowData => ({
@@ -196,7 +198,7 @@ interface CandidatesProps {
   onAct: (code: string) => void
 }
 
-/** その学期の系統図の科目でプランに無いもの（重ならない科目を先に、次に系統図の記載順） */
+/** その学期の系統図の科目でプランに無いもの（同じ名前のクラスがあるものは除く。重ならない科目を先に、次に系統図の記載順） */
 function Candidates({ rows, onAct }: CandidatesProps) {
   const { log } = useResearchLog()
   const [open, setOpen] = useState(false)
