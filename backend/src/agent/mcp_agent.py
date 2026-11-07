@@ -19,7 +19,7 @@ from agent.rdb_tools import get_course_details
 from agent.schemas import AnswerPayload
 from course_core import config
 
-__all__ = ["build_grounded_mcp_agent", "build_mcp_agent"]
+__all__ = ["build_grounded_mcp_agent", "build_mcp_agent", "build_neo4j_toolset"]
 
 # RDB ツールを持つ grounded 版だけに連結する追補プロンプト。共有プロンプト（compose_answer.md）に
 # 書くと、ツールを持たない adk web の mcp_agent / compose_agent が未宣言ツールを呼んで落ちうる。
@@ -53,6 +53,31 @@ def _load_instruction() -> str:
     )
 
 
+def build_neo4j_toolset() -> McpToolset:
+    """neo4j-mcp-server を stdio で起動する McpToolset を作る（ADR-0011）。
+
+    作るだけで接続はしない（最初の get_tools() でサブプロセスが起動する）。
+    """
+    env = os.environ.copy()
+    env.update({
+        "NEO4J_URI": config.NEO4J_URI,
+        "NEO4J_USERNAME": config.NEO4J_USER,
+        "NEO4J_USER": config.NEO4J_USER,
+        "NEO4J_PASSWORD": config.NEO4J_PASSWORD or "secure_password_please_change",
+        "NEO4J_READ_ONLY": "true",
+        "NEO4J_TELEMETRY": "false",
+    })
+    server_params = StdioServerParameters(
+        command="uv",
+        args=["run", "neo4j-mcp-server"],
+        env=env,
+    )
+    connection_params = StdioConnectionParams(
+        server_params=server_params, timeout=_MCP_SESSION_TIMEOUT_SECONDS
+    )
+    return McpToolset(connection_params=connection_params)
+
+
 def build_mcp_agent(
     model: str | None = None,
     instruction: str | None = None,
@@ -76,24 +101,7 @@ def build_mcp_agent(
     tools: list[Any] = []
     if active_enable_mcp:
         # ADR-0011 に従い、stdio 経由で neo4j-mcp-server を起動する
-        env = os.environ.copy()
-        env.update({
-            "NEO4J_URI": config.NEO4J_URI,
-            "NEO4J_USERNAME": config.NEO4J_USER,
-            "NEO4J_USER": config.NEO4J_USER,
-            "NEO4J_PASSWORD": config.NEO4J_PASSWORD or "secure_password_please_change",
-            "NEO4J_READ_ONLY": "true",
-            "NEO4J_TELEMETRY": "false",
-        })
-        server_params = StdioServerParameters(
-            command="uv",
-            args=["run", "neo4j-mcp-server"],
-            env=env,
-        )
-        connection_params = StdioConnectionParams(
-            server_params=server_params, timeout=_MCP_SESSION_TIMEOUT_SECONDS
-        )
-        tools.append(McpToolset(connection_params=connection_params))
+        tools.append(build_neo4j_toolset())
     if extra_tools:
         tools.extend(extra_tools)
 

@@ -14,6 +14,7 @@ import logging
 import time
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -32,11 +33,13 @@ from agent.trace import TraceRecord
 from agent.workflow import build_mcp_grounded_workflow, workflow
 
 __all__ = [
+    "GroundedRun",
     "McpAgentRunResult",
     "ToolCallRecord",
     "build_runner",
     "extract_tool_calls",
     "run_course_navigator",
+    "run_grounded",
     "run_mcp_grounded",
 ]
 
@@ -251,6 +254,15 @@ async def _preflight_toolsets(agent: LlmAgent) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class GroundedRun:
+    """run_grounded の戻り値。result は /test/agent/mcp と同じ形、grounded は出典付与ノードの出力そのもの
+    （静的経路に倒れたときは None）。"""
+
+    result: McpAgentRunResult
+    grounded: GroundedAnswer | None
+
+
 async def run_mcp_grounded(
     question: str,
     *,
@@ -270,6 +282,15 @@ async def run_mcp_grounded(
     from agent.mcp_agent import build_grounded_mcp_agent
 
     active_agent = agent if agent is not None else build_grounded_mcp_agent()
+    return (await run_grounded(question, agent=active_agent)).result
+
+
+async def run_grounded(question: str, *, agent: LlmAgent) -> GroundedRun:
+    """run_mcp_grounded の中身（振る舞いは run_mcp_grounded の説明のとおり）。
+
+    出典付与ノードの出力（GroundedAnswer）も一緒に返す。
+    """
+    active_agent = agent
     # MCP の事前接続（従来は LLM フロー内で行われていた）も latency に含める。
     started = time.perf_counter()
 
@@ -307,7 +328,7 @@ async def run_mcp_grounded(
         None,
     )
     if grounded is not None:
-        return McpAgentRunResult(
+        result = McpAgentRunResult(
             route="mcp",
             answer=grounded.answer,
             cited_codes=grounded.cited_codes,
@@ -319,6 +340,7 @@ async def run_mcp_grounded(
             model=_model_name(active_agent),
             latency_ms=latency_ms,
         )
+        return GroundedRun(result=result, grounded=grounded)
 
     payload = next(
         (event.output for event in reversed(events) if isinstance(event.output, AnswerPayload)),
@@ -329,7 +351,7 @@ async def run_mcp_grounded(
             "Workflow が GroundedAnswer / AnswerPayload を返しませんでした: "
             f"node_sequence={node_sequence}"
         )
-    return McpAgentRunResult(
+    result = McpAgentRunResult(
         route="static",
         answer=payload.answer,
         cited_codes=payload.cited_codes,
@@ -337,3 +359,4 @@ async def run_mcp_grounded(
         node_sequence=node_sequence,
         latency_ms=latency_ms,
     )
+    return GroundedRun(result=result, grounded=None)
