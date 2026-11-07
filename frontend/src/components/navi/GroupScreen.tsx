@@ -1,9 +1,11 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { coursesInFrame, findFrame, nextFrames, prevFrames } from '../../navi/graph'
+import { useResearchLog } from '../../navi/research'
 import { groupHref, parseOrigin, readPaneState, useNavi } from '../../navi/state'
 import type { Origin } from '../../navi/state'
 import type { Frame } from '../../navi/types'
+import { useFlags } from '../../navi/variant'
 import { rootEntry, rowView } from '../../navi/views'
 import CourseRow from './CourseRow'
 import Crumbs from './Crumbs'
@@ -17,9 +19,12 @@ function framesText(frames: Frame[]): string {
 /**
  * まとまりの科目（W13。/navi/group/<まとまりID>?from=…）。スマホは別の画面、PC は中央の段。
  * 見出しはまとまりの名前だけ。行は一覧と同じ形。線のつながりと並びの決め方は灰の文で添える（UX 仕様 C24）。
+ * 系統図を出さない変種（graph=off）では、まとまりは無いものとして扱う（URL を直に開いても出さない）。
  */
 export default function GroupScreen() {
   const { dept, isPc, shortlist, focusTerm, assumedTerm } = useNavi()
+  const flags = useFlags()
+  const { log } = useResearchLog()
   const { frameId = '' } = useParams()
   const [params] = useSearchParams()
   const location = useLocation()
@@ -28,7 +33,16 @@ export default function GroupScreen() {
   const pane = readPaneState(location.state)
   const tab = pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search')
   const ancestors = pane !== null && pane.trail.length >= 2 ? pane.trail.slice(0, -1) : [rootEntry(dept, origin)]
-  const frame = findFrame(dept, frameId)
+  const frame = flags.graph === 'on' ? findFrame(dept, frameId) : undefined
+  const foundId = frame?.id ?? null
+
+  // 開いたまとまりを1回だけ記録する（開発の StrictMode で効果が2回走っても重ねない）
+  const loggedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (foundId === null || loggedRef.current === foundId) return
+    loggedRef.current = foundId
+    log('group_open', { group_id: foundId, from: origin.kind })
+  }, [foundId, origin.kind, log])
 
   if (frame === undefined) {
     const missing = (
@@ -62,13 +76,14 @@ export default function GroupScreen() {
       </p>
       <div className="group-list">
         <ul className="list">
-          {courses.map((c) => {
+          {courses.map((c, i) => {
             const r = rowView(ctx, c, rowOrigin, null, null)
             return (
               <CourseRow
                 key={c.code}
                 row={r}
                 linkState={{ trail: [...ancestors, { label: frame.name, href: here }, { label: c.name, href: r.href }], tab }}
+                onOpen={() => log('result_click', { syllabus_id: c.code, rank: i + 1, list: 'group', group_id: frame.id })}
               />
             )
           })}

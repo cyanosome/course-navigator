@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { findInterest } from '../../navi/graph'
+import { useKeywordQuery } from '../../navi/keyword'
 import { useNavi } from '../../navi/state'
 import type { Origin } from '../../navi/state'
-import { firstListCode, rootEntry } from '../../navi/views'
+import { useFlags } from '../../navi/variant'
+import { firstListCode, listInterest, rootEntry } from '../../navi/views'
 import CourseDetail from './CourseDetail'
 import SearchList from './SearchList'
 
@@ -13,10 +14,14 @@ import SearchList from './SearchList'
  */
 export default function SearchScreen() {
   const { dept, isPc, ask, lastDir, setLastDir, shortlist, focusTerm, assumedTerm } = useNavi()
+  const flags = useFlags()
+  const [keyword] = useKeywordQuery()
   const { localId } = useParams()
   const [params] = useSearchParams()
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags }
   const dirParam = params.get('dir')
-  const validDir = dirParam !== null && findInterest(dept, dirParam) !== undefined ? dirParam : 'default'
+  // 系統図を出さない変種（graph=off）では ?dir= を使わない
+  const validDir = dirParam !== null && listInterest(ctx, dirParam) !== undefined ? dirParam : 'default'
   const dirId = localId !== undefined ? lastDir : validDir
 
   useEffect(() => {
@@ -31,10 +36,10 @@ export default function SearchScreen() {
     )
   }
 
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
-  const code = firstListCode(ctx, dirId, ask, true)
+  const showAsk = flags.assistant === 'on'
+  const code = firstListCode(ctx, dirId, ask, showAsk, flags.search !== 'off' && keyword !== '')
   if (code === null) return <p className="hint">左の一覧から科目を選ぶと、ここに詳細が出ます。</p>
-  const fromAsk = ask !== null && ask.status === 'done' && ask.result?.sources.some((s) => s.code === code) === true
+  const fromAsk = showAsk && ask !== null && ask.status === 'done' && ask.result?.sources.some((s) => s.code === code) === true
   const origin: Origin = fromAsk
     ? { kind: 'ask', localId: ask.localId }
     : dirId === 'default'

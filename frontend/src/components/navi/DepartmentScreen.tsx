@@ -1,10 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import type { Department } from '../../navi/types'
+import type { DepartmentSummary } from '../../navi/apiTypes'
 import Icon from './Icon'
 import PageFrame from './PageFrame'
 
 interface DepartmentScreenProps {
-  departments: Department[]
+  /** データのある学科の一覧（API の D1） */
+  departments: DepartmentSummary[]
   onChoose: (id: string) => void
 }
 

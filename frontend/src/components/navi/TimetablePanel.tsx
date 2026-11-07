@@ -88,7 +88,7 @@ export default function TimetablePanel() {
           <span>
             <span className="num">{credits}</span>単位
           </span>
-          {req !== null && <span>上限 {req.termCap}</span>}
+          {req !== null && req.termCap !== null && <span>上限 {req.termCap}</span>}
           {unknown > 0 && <span>単位の分からない科目 {unknown}</span>}
         </p>
       </div>
@@ -173,9 +173,9 @@ export default function TimetablePanel() {
       )}
 
       <div className="tt-accs accs">
-        <Accordion label="卒業に要る単位" hint={req === null ? 'まだ入っていません' : `${total} / ${req.total}`}>
+        <Accordion label="卒業に要る単位" hint={req === null ? '準備中' : `${total} / ${req.total}`}>
           {req === null || progress === null ? (
-            <p className="seq-note">学科の卒業要件はまだ入っていません。</p>
+            <p className="seq-note">学科の卒業要件は準備中です。</p>
           ) : (
             <>
               <div className="grad">
@@ -187,7 +187,9 @@ export default function TimetablePanel() {
                 ))}
                 <GradRow label="合計" placed={total} need={req.total} />
               </div>
-              <p className="src">全学期の必修と候補を足しています。卒業に要る単位と上限は見本の数です。</p>
+              <p className="src">
+                全学期の必修と候補を足しています。{req.sample && '卒業に要る単位と上限は見本の数です。'}
+              </p>
             </>
           )}
         </Accordion>

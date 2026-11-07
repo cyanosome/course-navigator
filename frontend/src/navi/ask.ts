@@ -1,16 +1,24 @@
 /**
  * 「自分の言葉で探す」（W5）の送信と、回答の読み取り。
  *
- * 本物は POST /api/test/agent/mcp（McpAgentRunResult を返す）。このモックは本物を呼ばず、
- * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。本物に差し替えるときは、
- * AskAdapter を満たす関数を作って NaviApp に渡すだけでよい。
+ * 本物は POST /api/assist/ask（askAdapter.ts の createHttpAskAdapter）。開発ビルドで ?wait= を付けたときだけ、
+ * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。見本の回答は本番の束に入れないよう、使うときに読み込む。
  */
 import type { Department, McpAgentRunResult } from './types'
-import { FIXTURE_ASK_RESULT } from './fixtureAsk'
+
+/** AI に送るもの（A1 の AssistIn の画面側の形） */
+export interface AskRequest {
+  /** 送る文（composeQuestion で作ったもの） */
+  question: string
+  /** 利用者が打った文（記録用） */
+  rawInput: string
+  /** 対応する chat_send の event_id（調査のセッションが無ければ null）。サーバーの chat_response と結ぶ */
+  clientEventId: string | null
+}
 
 export interface AskAdapter {
-  /** 送る文（composeQuestion で作ったもの）を受けて、回答を返す。signal で中断できる */
-  ask(question: string, signal: AbortSignal): Promise<McpAgentRunResult>
+  /** 送るものを受けて、回答を返す。signal で中断できる */
+  ask(request: AskRequest, signal: AbortSignal): Promise<McpAgentRunResult>
 }
 
 /** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long） */
@@ -47,7 +55,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
   return {
-    async ask(_question, signal) {
+    async ask(_request, signal) {
       const started = Date.now()
       if (mode === 'timeout') {
         // 返らない。呼び出し側の上限（3分）で W6-3 になる
@@ -62,6 +70,7 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
         throw new TypeError('Failed to fetch（モック: サーバーにつながらない状態を真似ています）')
       }
       await delay(mode === 'long' ? LONG_WAIT_MS : SHORT_WAIT_MS, signal)
+      const { FIXTURE_ASK_RESULT } = await import('./fixtureAsk')
       const latency = Date.now() - started
       if (mode === 'empty') {
         return {

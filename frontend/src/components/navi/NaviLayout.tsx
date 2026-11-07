@@ -1,9 +1,10 @@
 import type { KeyboardEvent } from 'react'
 import { Outlet, useLocation, useMatch, useSearchParams } from 'react-router-dom'
-import { findInterest } from '../../navi/graph'
+import { useKeywordQuery } from '../../navi/keyword'
 import { parseOrigin, readPaneState, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
-import { firstListCode } from '../../navi/views'
+import { useFlags } from '../../navi/variant'
+import { firstListCode, listInterest } from '../../navi/views'
 import SearchList from './SearchList'
 import TimetablePanel from './TimetablePanel'
 import TimetableSide from './TimetableSide'
@@ -17,6 +18,8 @@ const COURSE_IN_HREF = /\/navi\/course\/([^?]+)/
  */
 export default function NaviLayout() {
   const { dept, isPc, lastDir, ask, shortlist, focusTerm, assumedTerm } = useNavi()
+  const flags = useFlags()
+  const [keyword] = useKeywordQuery()
   const location = useLocation()
   const [params] = useSearchParams()
   const courseMatch = useMatch('/navi/course/:code')
@@ -27,7 +30,7 @@ export default function NaviLayout() {
   const pane = readPaneState(location.state)
   const origin = parseOrigin(params.get('from'))
   const tab: PcTab = ttMatch !== null ? 'tt' : (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search'))
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags }
 
   if (tab === 'tt') {
     return (
@@ -44,18 +47,19 @@ export default function NaviLayout() {
 
   const dirParam = params.get('dir')
   const onList = location.pathname === '/navi' || location.pathname === '/navi/' || askMatch !== null
-  const validParam = dirParam !== null && findInterest(dept, dirParam) !== undefined ? dirParam : null
+  const validParam = dirParam !== null && listInterest(ctx, dirParam) !== undefined ? dirParam : null
   // 左の一覧の興味関心: 一覧の URL の指定 → 詳細の来た一覧（?from=dir:…）→ 最後に選んだもの
   const dirId =
     askMatch !== null
       ? lastDir
       : onList
         ? (validParam ?? 'default')
-        : origin.kind === 'dir' && findInterest(dept, origin.dirId) !== undefined
+        : origin.kind === 'dir' && listInterest(ctx, origin.dirId) !== undefined
           ? origin.dirId
           : lastDir
   // 中央に出している科目（一覧の印と、右の時間割の下見に使う）
-  const centerCode = courseMatch?.params.code ?? (onList ? firstListCode(ctx, dirId, ask, true) : null)
+  const keywordActive = flags.search !== 'off' && keyword !== ''
+  const centerCode = courseMatch?.params.code ?? (onList ? firstListCode(ctx, dirId, ask, flags.assistant === 'on', keywordActive) : null)
   // 一覧で選んだ科目（中央で前後の科目へ移っても、一覧の印は選んだ行に残す）
   const rootHref = pane?.trail[1]?.href
   const picked = rootHref === undefined ? undefined : COURSE_IN_HREF.exec(rootHref)?.[1]

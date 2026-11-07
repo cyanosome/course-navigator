@@ -28,7 +28,7 @@ export default function TimetableSide({ previewCode }: TimetableSideProps) {
           <span>
             <span className="num">{credits}</span>単位
           </span>
-          {dept.requirements !== null && <span>上限 {dept.requirements.termCap}</span>}
+          {dept.requirements !== null && dept.requirements.termCap !== null && <span>上限 {dept.requirements.termCap}</span>}
         </p>
       </div>
       <ul className="legend" aria-hidden="true">

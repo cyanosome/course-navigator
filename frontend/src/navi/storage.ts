@@ -3,12 +3,21 @@
  * - 候補・学科・調査の記録は localStorage（この端末のこのブラウザ。タブを閉じても残る）。
  * - 自由記述の質問と回答は sessionStorage（タブを閉じると消える。UX 仕様 C06、requirements.md R1-3・R2-6）。
  * 保存できない環境（プライベートブラウズなど）でも画面は動くようにし、失敗は console.error で知らせる。
+ * - 調査のセッション中は localStorage を使わず、'local' も sessionStorage に置く（計画 4.2。同じ端末を次の人が使うときに
+ *   前の人の候補が残らないように）。調査の開始時とブロックの開始時に、画面の状態を消す（clearAppState）。
  */
 
 type Area = 'local' | 'session'
 
+/** 調査のセッション中か（research.ts が切り替える） */
+let studyStorage = false
+
+export function setStudyStorage(on: boolean): void {
+  studyStorage = on
+}
+
 function area(kind: Area): Storage {
-  return kind === 'local' ? window.localStorage : window.sessionStorage
+  return kind === 'local' && !studyStorage ? window.localStorage : window.sessionStorage
 }
 
 /** 読めなければ null。中身の形は呼び出し側の guard で確かめる */
@@ -67,4 +76,18 @@ export const KEYS = {
   askDraft: 'navi.askDraft',
   askSent: 'navi.askSent',
   wait: 'navi.wait',
+  keyword: 'navi.keyword',
 } as const
+
+/** 研究のログの欄（画面の状態とは別に持ち、clearAppState では消さない） */
+export const RESEARCH_KEYS = {
+  study: 'navi.research.study',
+  queue: 'navi.research.queue',
+  seq: 'navi.research.seq',
+  devVariant: 'navi.research.devVariant',
+} as const
+
+/** 調査の開始時・ブロックの開始時に、画面の状態（学科・候補・質問・検索の語など）を sessionStorage から消す */
+export function clearAppState(): void {
+  for (const key of Object.values(KEYS)) writeJson('session', key, null)
+}

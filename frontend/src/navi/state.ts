@@ -3,6 +3,7 @@
  * 状態そのものは components/navi/NaviApp.tsx が持つ。
  */
 import { createContext, useContext } from 'react'
+import type { ShortlistFrom } from './research'
 import type { TermKey } from './timetable'
 import type { Department, McpAgentRunResult } from './types'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
@@ -195,8 +196,8 @@ export interface NaviContextValue {
 
   shortlist: string[]
   isKept: (code: string) => boolean
-  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す */
-  toggleKeep: (code: string) => void
+  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す。from は研究のログの「どこから」 */
+  toggleKeep: (code: string, from?: ShortlistFrom) => void
   /** 時間割の［外す］。［元に戻す］つきの知らせを出す */
   removeKeep: (code: string) => void
   undoRemove: (toast: ToastState) => void
@@ -217,8 +218,11 @@ export interface NaviContextValue {
   setAskDraft: (text: string) => void
   /** 欄に送っていない文が入っているか（空でなく、最後に送った文とも違う）。入っているあいだは興味関心のチップを隠す */
   askDraftUnsent: boolean
-  /** 送れたら端末内の番号、前の質問を待っているときは null */
-  sendAsk: (interest: string, withGuardrail: boolean) => string | null
+  /**
+   * 送れたら端末内の番号、前の質問を待っているときは null。送るときに chat_send を記録し、その event_id を
+   * A1 の client_event_id に渡す（retry は結果の画面の［もう一度］から送り直したとき）
+   */
+  sendAsk: (interest: string, withGuardrail: boolean, opts?: { retry?: boolean }) => string | null
   cancelAsk: () => void
   closeAsk: () => void
   markAskSeen: () => void

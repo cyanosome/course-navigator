@@ -1,0 +1,68 @@
+/*
+ * 調査（/navi/s/<トークン>）の画面と、調査中の画面の上の課題の帯の見た目。navi.css と同じトークンと同じ規則
+ * （強調は文字の濃さと大きさだけ、太字なし、余白は 8 の倍数、区切りは rule の 1px の線、角丸 8px）で足した。
+ */
+.navi-app {
+  :where(textarea) { font: inherit; color: inherit; letter-spacing: 0; background: none; }
+  textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* 〈仮〉の印（文が確定していない） */
+  .draft { margin-left: 8px; font-size: 14px; color: var(--muted); }
+
+  /* ---------- 課題の帯（調査中、上の帯の上に全幅で出す） ---------- */
+  .task-band {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px;
+    background: var(--sunk);
+    border-bottom: 1px solid var(--rule);
+  }
+  .pc > .task-band { flex: none; max-height: 50vh; overflow-y: auto; padding: 16px 24px; }
+  .task-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .task-label { font-size: 14px; color: var(--muted); }
+  .task-persona { font-size: 14px; color: var(--ink); }
+  .task-prompt { font-size: 16px; color: var(--ink); }
+  .task-answer { display: flex; flex-direction: column; gap: 16px; padding-top: 8px; }
+  .task-answer[hidden] { display: none; }
+  .task-answer .page-acts { padding-top: 0; }
+
+  /* ---------- 質問票・同意 ---------- */
+  .q-form { display: flex; flex-direction: column; }
+  .q-sec { display: flex; flex-direction: column; padding-top: 24px; }
+  .q-item { min-width: 0; padding: 16px 0 0; border: 0; }
+  .q-item:focus { outline: none; }
+  .q-legend { display: block; padding-bottom: 8px; font-size: 16px; color: var(--ink); }
+  .q-missing { display: block; padding-bottom: 8px; font-size: 14px; color: var(--error); }
+  .q-scale { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; }
+  .q-opt {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    min-height: 48px;
+    font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+  .q-ends { display: flex; justify-content: space-between; gap: 16px; padding-top: 8px; font-size: 14px; color: var(--muted); }
+  :where(.q-opt, .pick-list) input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+  .q-text { display: flex; flex-direction: column; }
+  .q-text textarea {
+    width: 100%; min-height: 96px; padding: 8px 16px;
+    border: 1px solid var(--line); border-radius: 8px;
+    font-size: 16px; line-height: 1.5; resize: vertical;
+  }
+  .q-problem { padding-top: 16px; font-size: 14px; }
+  .q-field { display: block; padding-bottom: 8px; font-size: 14px; color: var(--muted); }
+  .q-input {
+    width: 100%; max-width: 240px; height: 48px; padding: 0 16px;
+    border: 1px solid var(--line); border-radius: 8px;
+    font-size: 16px;
+  }
+  .q-form .page-acts { padding-top: 32px; }
+  .primary:disabled, .text-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* 候補から選ぶ・二択 */
+  .pick-list li label {
+    display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 16px;
+    min-height: 48px;
+    border-top: 1px solid var(--rule);
+    font-size: 16px; cursor: pointer;
+  }
+  .pick-list li:last-child label { border-bottom: 1px solid var(--rule); }
+}
