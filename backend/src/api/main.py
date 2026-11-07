@@ -12,11 +12,12 @@ from fastapi import FastAPI
 from neo4j import AsyncGraphDatabase
 
 from agent import deps as agent_deps
+from agent.nodes import mcp_route_enabled
 from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
 from api.routers import agent, integrated, neo4j, postgres
-from api.routers import assist, catalog, research
+from api.routers import assist, catalog, diagnose, research
 
 
 @asynccontextmanager
@@ -51,9 +52,21 @@ async def lifespan(app: FastAPI):
     # --- 初期シードデータの自動投入（DBが空の場合のみ） ---
     await seeder.seed_initial_data_if_empty(pool, neo4j_driver)
 
+    # --- AI の口（A1）で使い回す Neo4j の McpToolset（起動に約6秒かかるので1回だけ繋ぐ） ---
+    mcp_toolset = None
+    if mcp_route_enabled():
+        # mcp_agent は mcp パッケージを読み込むので遅延 import（`import api.main` を mcp に依存させない）
+        from agent.mcp_agent import open_shared_mcp_toolset
+
+        mcp_toolset = await open_shared_mcp_toolset()
+    agent_deps.set_mcp_toolset(mcp_toolset)
+
     yield
 
     # --- シャットダウン処理 ---
+    agent_deps.set_mcp_toolset(None)
+    if mcp_toolset is not None:
+        await mcp_toolset.close()
     agent_deps.set_backends(None, None)
     await pool.close()
     await neo4j_driver.close()
@@ -70,4 +83,5 @@ app.include_router(agent.router)
 app.include_router(catalog.router)
 app.include_router(research.router)
 app.include_router(assist.router)
+app.include_router(diagnose.router)
 

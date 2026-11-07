@@ -1,0 +1,163 @@
+{
+  "version": "2026-11-07-2",
+  "department_id": "kansai-enechem-2026",
+  "scope": {
+    "terms": [
+      {"year": 1, "term": "春"},
+      {"year": 1, "term": "秋"},
+      {"year": 2, "term": "春"},
+      {"year": 2, "term": "秋"},
+      {"year": 3, "term": "春"},
+      {"year": 3, "term": "秋"}
+    ],
+    "credit_cap_per_term": 21
+  },
+  "questions": [
+    {
+      "id": "future",
+      "text": "3年生で深く学ぶ分野を、今の気持ちで1つ選ぶなら？",
+      "kind": "single",
+      "options": [
+        {"id": "plant", "label": "工場の装置や生産の流れを設計する", "effects": [
+          {"primitive": "in_group", "args": {"groups": ["G_3Y_AppChemEng"]}, "weight": 3},
+          {"primitive": "reaches_group", "args": {"target": "G_3Y_AppChemEng"}, "weight": 2}
+        ]},
+        {"id": "energy", "label": "電池や新しい材料でエネルギーを扱う", "effects": [
+          {"primitive": "in_group", "args": {"groups": ["G_3Y_MatEnergy"]}, "weight": 3},
+          {"primitive": "reaches_group", "args": {"target": "G_3Y_MatEnergy"}, "weight": 2}
+        ]},
+        {"id": "organic", "label": "薬や樹脂のもとになる物質を反応でつくる", "effects": [
+          {"primitive": "in_group", "args": {"groups": ["G_3Y_OrgCatal"]}, "weight": 3},
+          {"primitive": "reaches_group", "args": {"target": "G_3Y_OrgCatal"}, "weight": 2}
+        ]},
+        {"id": "environ", "label": "空気や水をきれいにする、熱をむだなく使う", "effects": [
+          {"primitive": "keyword", "args": {"words": ["大気・水環境化学工学", "環境熱工学", "電気エネルギー化学", "エネルギー工学ディスカッション"], "fields": ["name"]}, "weight": 3},
+          {"primitive": "keyword", "args": {"words": ["人類紀の環境変動", "カーボンニュートラル入門"], "fields": ["name"]}, "weight": 2},
+          {"primitive": "reaches_group", "args": {"target": "G_3Y_AppChemEng"}, "weight": 1}
+        ]},
+        {"id": "undecided", "label": "まだ決めていない", "effects": []}
+      ]
+    },
+    {
+      "id": "style",
+      "text": "どんな授業なら楽しめそう？",
+      "kind": "single",
+      "options": [
+        {"id": "lab", "label": "実験で手を動かす", "effects": [
+          {"primitive": "keyword", "args": {"words": ["化学工学実験", "有機化学実験", "分析化学実験", "物理化学実験"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "calc", "label": "計算やプログラムで考える", "effects": [
+          {"primitive": "keyword", "args": {"words": ["物理化学演習", "ユニットオペレーション演習", "プロセス数理", "シミュレーション演習", "プロセス最適化工学", "プロセス制御工学"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "talk", "label": "話し合いや発表をする", "effects": [
+          {"primitive": "keyword", "args": {"words": ["化学技術の安全と倫理", "エネルギー工学ディスカッション", "フレッシュマンゼミナール"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "any", "label": "特にこだわらない", "effects": []}
+      ]
+    },
+    {
+      "id": "worry",
+      "text": "高校で習った科目のうち、大学でついていけるか不安なものは？",
+      "kind": "multi",
+      "max_select": 3,
+      "options": [
+        {"id": "math", "label": "数学", "effects": [
+          {"primitive": "keyword", "args": {"words": ["基礎からの数学", "数学を学ぶ（微分積分１）", "数学を学ぶ（微分積分２）"], "fields": ["name"]}, "weight": 3}
+        ]},
+        {"id": "phys", "label": "物理", "effects": [
+          {"primitive": "keyword", "args": {"words": ["基礎からの物理学"], "fields": ["name"]}, "weight": 3}
+        ]},
+        {"id": "chem", "label": "化学", "effects": [
+          {"primitive": "keyword", "args": {"words": ["基礎からの化学"], "fields": ["name"]}, "weight": 3}
+        ]},
+        {"id": "none", "label": "特にない", "effects": []}
+      ]
+    },
+    {
+      "id": "liberal",
+      "text": "専門の授業のほかに、のぞいてみたい分野は？（2つまで）",
+      "kind": "multi",
+      "max_select": 2,
+      "options": [
+        {"id": "society", "label": "経済・会社・仕事", "effects": [
+          {"primitive": "keyword", "args": {"words": ["企業と社会", "優良企業の見分け方", "ビジネスを学ぶ", "世界の中の日本経済", "生活の中の経済学", "大学生から始めるキャリア形成", "起業に学ぶ「考動力」入門"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "culture", "label": "歴史・文化・芸術", "effects": [
+          {"primitive": "keyword", "args": {"words": ["世界の地域文化を知ろう", "日本の伝統文化", "アジアの文化と世界遺産", "西洋美術を味わう", "日本・東洋美術を味わう", "世界の文学を味わう", "世界史の中の平和と戦争", "考古学を学ぶ"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "mind", "label": "こころ・哲学・生き方", "effects": [
+          {"primitive": "keyword", "args": {"words": ["こころとからだを哲学する", "哲学を学ぶ", "自己と他者", "今日の道徳的ディレンマ", "生と死の倫理学", "文化・社会と心理学", "ことばと思考"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "nature", "label": "天気・災害・宇宙・生き物", "effects": [
+          {"primitive": "keyword", "args": {"words": ["気象と気候を学ぶ", "自然災害の科学", "宇宙のすがたと歴史", "生物と環境", "バイオサイエンス入門", "自然地理学を学ぶ"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "data", "label": "データ・AI・統計", "effects": [
+          {"primitive": "keyword", "args": {"words": ["統計学を学ぶ", "現代社会を支える電気電子情報技術", "Thinking Ethically in the Age of AI", "社会のためのデータサイエンス実践基礎", "AI・データエンジニアリング実践基礎"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "global", "label": "英語・海外", "effects": [
+          {"primitive": "in_group", "args": {"groups": ["ChemEnglish", "ForeignLit1", "ForeignLit2"]}, "weight": 2},
+          {"primitive": "keyword", "args": {"words": ["Foundation for Academic English", "Global Awareness", "国際協力の基礎を学ぶ", "異文化への理解を深める"], "fields": ["name"]}, "weight": 2}
+        ]},
+        {"id": "none", "label": "特にない", "effects": []}
+      ]
+    },
+    {
+      "id": "avoid",
+      "text": "できれば授業を入れたくない時間は？（いくつでも）",
+      "kind": "multi",
+      "max_select": 3,
+      "options": [
+        {"id": "morning", "label": "朝の1限（9時から）", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["月", "火", "水", "木", "金", "土"], "periods": [1]}, "weight": -2}
+        ]},
+        {"id": "evening", "label": "5限より後（夕方から）", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["月", "火", "水", "木", "金", "土"], "periods": [5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "saturday", "label": "土曜日", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["土"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "none", "label": "特にない", "effects": []}
+      ]
+    },
+    {
+      "id": "freeday",
+      "text": "バイトや部活のために、授業を少なくしたい平日は？",
+      "kind": "single",
+      "options": [
+        {"id": "none", "label": "特にない", "effects": []},
+        {"id": "mon", "label": "月曜", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["月"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "tue", "label": "火曜", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["火"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "wed", "label": "水曜", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["水"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "thu", "label": "木曜", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["木"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]},
+        {"id": "fri", "label": "金曜", "effects": [
+          {"primitive": "slot_avoid", "args": {"days": ["金"], "periods": [1, 2, 3, 4, 5, 6, 7]}, "weight": -2}
+        ]}
+      ]
+    }
+  ],
+  "base_effects": [
+    {"primitive": "year_fit", "args": {}, "weight": 20},
+    {"primitive": "term_fit", "args": {}, "weight": 20},
+    {"primitive": "on_curriculum", "args": {}, "weight": 8},
+    {"primitive": "keyword", "args": {"words": ["エネルギーと環境", "SDGs入門", "SDGsの実践", "技術と社会", "人を豊かにする科学技術", "近代科学の系譜", "地域社会の生活と資源", "大学教育論", "読書への誘い"], "fields": ["name"]}, "weight": 1},
+    {"primitive": "keyword", "args": {"words": ["Japanese (", "日本事情", "日本語１", "日本語２", "日本語３", "日本語４", "Contemporary Japan", "Communication in Japanese Society", "実践ビジネス日本語", "キャリアデザイン", "教職", "教育原理", "教育心理学", "教育制度論", "教育相談論", "教育実習", "教育の方法及び技術", "教育法", "人権教育論", "メディア教育論", "特別支援教育論", "道徳教育", "指導", "特別活動論", "カリキュラム開発論", "図書館", "博物館", "情報資源", "情報メディアの活用", "読書と豊かな人間性"], "fields": ["name"]}, "weight": -3},
+    {"primitive": "keyword", "args": {"words": ["健康・スポーツ科学実習"], "fields": ["name"]}, "weight": -1},
+    {"primitive": "keyword", "args": {"words": ["化学を学ぶ（基礎化学）", "物理を学ぶ（力学１）", "物理を学ぶ（電磁気学１）", "基礎からの情報処理", "化学実験", "物理学実験"], "fields": ["name"]}, "weight": -3},
+    {"primitive": "keyword", "args": {"words": ["分析化学実験", "有機化学実験", "物理化学実験"], "fields": ["name"]}, "weight": 3}
+  ],
+  "tie_break": "syllabus_id",
+  "reason_templates": {
+    "in_group": "答えに合わせて先に入れた{group}の科目",
+    "reaches_group": "3年の{target}につながる科目（系統図より）",
+    "on_curriculum": "学科の系統図に載る科目",
+    "keyword": "質問の答えに合わせて入れた"
+  }
+}
