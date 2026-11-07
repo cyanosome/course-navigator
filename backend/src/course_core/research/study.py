@@ -125,6 +125,8 @@ class Study(BaseModel):
     created_at: str
     task_sets: list[str] = Field(..., min_length=2, max_length=2)
     questionnaires_per_block: int = Field(..., ge=0)
+    # 最後のブロックの後の質問票（二択と理由など）の数。0 なら check で見ない（この項目の無い study は 0）
+    final_questionnaires: int = Field(0, ge=0)
     arms: dict[str, dict[Role, ArmCondition]]
     active_arm: str | None = None
     arm_activations: list[ArmActivation] = Field(default_factory=list)
@@ -263,6 +265,7 @@ def build_study(
     consent_version: str,
     questionnaires_per_block: int,
     now: datetime,
+    final_questionnaires: int = 0,
     token_factory: Callable[[], str] = new_token,
 ) -> tuple[Study, list[Card]]:
     """study とカードを作る。制約を外れたら StudyError（外れた理由をすべて並べる）。"""
@@ -304,6 +307,7 @@ def build_study(
         created_at=now.isoformat(timespec="seconds"),
         task_sets=list(task_sets),
         questionnaires_per_block=questionnaires_per_block,
+        final_questionnaires=final_questionnaires,
         arms={name: dict(conditions) for name, conditions in arms.items()},
         participants=participants,
     )

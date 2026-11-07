@@ -448,10 +448,12 @@ class ResearchStore:
             seen = set(state.event_ids)
             task_ids: set[str] = set()
             expected_digest: str | None = None
+            diagnose = False
             if state.current_block is not None:
                 task_ids = set(study.block_plan(state.sequence_id, state.arm, state.current_block).task_ids)
                 variant = study.variant_out(state.sequence_id, state.arm, state.current_block)
                 expected_digest = flags_digest(variant.flags.model_dump())
+                diagnose = variant.flags.diagnose == "quiz"
             lines: list[dict[str, Any]] = []
             duplicates = 0
             batch_warnings: list[str] = []
@@ -461,7 +463,7 @@ class ResearchStore:
                     duplicates += 1
                     continue
                 seen.add(event_id)
-                warnings = self._client_event_warnings(event, state, task_ids, expected_digest)
+                warnings = self._client_event_warnings(event, state, task_ids, expected_digest, diagnose=diagnose)
                 state.last_seq = max(state.last_seq, event.seq)
                 ts_client, ts_warnings = _client_ts(event.ts_client)
                 warnings += ts_warnings
@@ -580,7 +582,7 @@ class ResearchStore:
 
     @staticmethod
     def _client_event_warnings(
-        event: ClientEvent, state: SessionState, task_ids: set[str], expected_digest: str | None
+        event: ClientEvent, state: SessionState, task_ids: set[str], expected_digest: str | None, *, diagnose: bool
     ) -> list[str]:
         warnings: list[str] = []
         if event.seq > state.last_seq + 1:
@@ -589,7 +591,7 @@ class ResearchStore:
             warnings.append("seq_out_of_order")
         if event.task_id is not None and event.task_id not in task_ids:
             warnings.append("task_not_in_block")
-        warnings += payload_warnings(event.event_type, event.task_id, event.payload)
+        warnings += payload_warnings(event.event_type, event.task_id, event.payload, diagnose=diagnose)
         digest = event.payload.get("flags_digest")
         if event.event_type == "variant_applied" and isinstance(digest, str) and expected_digest is not None:
             if digest != expected_digest:
@@ -699,7 +701,8 @@ def _short_list(values: Sequence[int], limit: int = 20) -> str:
 
 
 def check_completeness(study: Study, events: Iterable[Mapping[str, Any]]) -> list[SessionCheck]:
-    """セッションごとの欠け: seq の連続、event_id の重なり、終えたブロックの task_start・task_submit の数と質問票の数。
+    """セッションごとの欠け: seq の連続、event_id の重なり、終えたブロックの task_start・task_submit の数と質問票の数、
+    最後のブロックの後の質問票の数（study.final_questionnaires。セッションを閉じた後だけ見る）。
 
     終えていないブロック（途中でやめた人）は欠けに数えず、status で分ける。
     """
@@ -745,6 +748,13 @@ def check_completeness(study: Study, events: Iterable[Mapping[str, Any]]) -> lis
                 defects.append(
                     f"ブロック {block} の questionnaire_submit が {questionnaires} 件"
                     f"（{study.questionnaires_per_block} 件以上のはず）"
+                )
+        if LAST_BLOCK in ended_blocks and SESSION_END in types and study.final_questionnaires > 0:
+            last_end = max(i for i, e in enumerate(items) if e["event_type"] == "block_end" and e["block"] == LAST_BLOCK)
+            finals = sum(e["event_type"] == "questionnaire_submit" for e in items[last_end + 1 :])
+            if finals < study.final_questionnaires:
+                defects.append(
+                    f"最後のブロックの後の questionnaire_submit が {finals} 件（{study.final_questionnaires} 件以上のはず）"
                 )
         if LAST_BLOCK in ended_blocks:
             status: Literal["complete", "ended_incomplete", "in_progress"] = "complete"

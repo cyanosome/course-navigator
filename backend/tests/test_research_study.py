@@ -251,3 +251,23 @@ def test_cli_refuses_cards_inside_a_git_worktree(tmp_path):
     assert cli.main(_create_args(tmp_path / "repo" / "cards.csv"), store=store) == 1
     assert not (tmp_path / "repo" / "cards.csv").exists()
     assert store.study_ids() == []
+
+
+def test_cli_creates_the_diag_study_with_the_ibuki_sus_counts(tmp_path):
+    """事前登録 Study 1 の 2.3 の例のとおりの腕（V30・V31）で作れ、check の質問票の数は ibuki_sus と二択の既定になる。"""
+    store = ResearchStore(tmp_path / "research")
+    args = [
+        "create-study", "--study-id", "S1109", "--department", "kansai-enechem-2026",
+        "--arm", "diag=N:W:V30,A:Y:V31", "--task-sets", "P1,P2", "--n", "12", "--spares", "4",
+        "--consent-version", "v1", "--cards-out", str(tmp_path / "private" / "cards.csv"),
+    ]  # fmt: skip
+
+    assert cli.main(args, store=store) == 0
+
+    study = store.load_study("S1109")
+    assert (study.flags_version, study.questionnaires_per_block, study.final_questionnaires) == ("2", 2, 1)
+    assert {role: (c.condition_id, c.variant_id) for role, c in study.arms["diag"].items()} == {
+        "N": ("W", "V30"),
+        "A": ("Y", "V31"),
+    }
+    assert study.variant_out("Q1", "diag", 1).flags.diagnose == "quiz"

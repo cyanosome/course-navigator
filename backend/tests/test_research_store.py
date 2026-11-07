@@ -6,11 +6,12 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from course_core.research import sink
-from course_core.research.events import CLIENT_EVENT_TYPES, flags_digest
+from course_core.research.events import CLIENT_EVENT_TYPES, ClientEventType, flags_digest, payload_warnings
 from course_core.research.store import (
     JST,
     JsonlResearchSink,
@@ -204,11 +205,163 @@ def test_flags_digest_matches_the_frontend():
     assert flags_digest(VARIANTS["V31"].model_dump()) == "fnv1a32:ef5b9837"
 
 
+# frontend/src/navi/apiTypes.ts の CLIENT_EVENT_TYPES（f3c866a。34 種）の写し
+_FRONTEND_CLIENT_EVENT_TYPES = (
+    "session_end", "variant_applied", "task_start", "task_submit", "search_query", "result_click",
+    "recommend_shown", "interest_select", "group_open", "sequence_click", "syllabus_open", "syllabus_close",
+    "original_open", "shortlist_add", "shortlist_remove", "timetable_open", "chat_send", "ai_full_open",
+    "citation_click", "questionnaire_submit", "page_hidden", "page_visible", "client_error",
+    "diag_start", "diag_answer", "diag_submit", "diag_retake", "plan_shown", "plan_course_add",
+    "plan_course_remove", "plan_refine_send", "checkpoint_add", "checkpoint_remove", "status_open",
+)  # fmt: skip
+
+
 def test_client_event_types_match_the_frontend_list():
-    """frontend/src/navi/apiTypes.ts の CLIENT_EVENT_TYPES（23 種）と同じ。"""
-    assert len(CLIENT_EVENT_TYPES) == 23
-    assert {"session_end", "variant_applied", "questionnaire_submit", "client_error"} <= CLIENT_EVENT_TYPES
+    """frontend の CLIENT_EVENT_TYPES と同じ並びに、frontend がまだ送らない plan_refine_decide を足したもの。"""
+    assert len(_FRONTEND_CLIENT_EVENT_TYPES) == 34
+    names = get_args(ClientEventType)
+    assert tuple(name for name in names if name != "plan_refine_decide") == _FRONTEND_CLIENT_EVENT_TYPES
+    assert CLIENT_EVENT_TYPES == {*_FRONTEND_CLIENT_EVENT_TYPES, "plan_refine_decide"}
     assert "chat_response" not in CLIENT_EVENT_TYPES  # サーバーが書く
+
+
+# --- 診断と微修正・履修状況のイベント（事前登録 Study 1 の 6.2）-------------------------------
+
+_PLAN = [{"year": 1, "term": "春", "syllabus_ids": ["160977", "161548"]}, {"year": 1, "term": "秋", "syllabus_ids": []}]
+
+
+@pytest.mark.parametrize(
+    ("event_type", "payload", "expected"),
+    [
+        # frontend（f3c866a）が送る形は印なし
+        ("diag_start", {"config_version": "2026-11-07-1", "question_count": 6}, []),
+        ("diag_answer", {"config_version": "v", "question_id": "worry", "value": ["math"], "index": 2}, []),
+        ("diag_submit", {"config_version": "v", "answers": {"future": ["energy"]}}, []),
+        ("diag_retake", {"config_version": "v", "answers_digest": None}, []),
+        ("plan_shown", {"config_version": "v", "answers_digest": "sha256:ab", "plan": _PLAN, "course_count": 2}, []),
+        ("plan_refine_send", {"input": "月曜を空けて", "refine_local_id": "r1", "plan": _PLAN, "plan_context": True}, []),
+        ("checkpoint_add", {"checkpoint": {"id": "credits-1", "kind": "credits"}, "checkpoint_ids": ["credits-1"]}, []),
+        ("status_open", {"target": "plan"}, []),
+        ("result_click", {"syllabus_id": "160977", "rank": 1, "list": "plan"}, []),
+        ("result_click", {"syllabus_id": "160977", "rank": 1, "list": "refine"}, []),
+        ("shortlist_add", {"syllabus_id": "160977", "from": "plan"}, []),
+        # 事前登録の 6.2 で足す形
+        ("plan_course_add", {"syllabus_id": "160977", "from": "check_fix", "year": 1, "term": "春"}, []),
+        ("plan_course_remove", {"syllabus_id": "160977", "from": "refine", "refine_local_id": "r1"}, []),
+        ("plan_refine_decide", {"refine_local_id": "r1", "accepted": [], "rejected": [{"action": "add"}]}, []),
+        ("task_submit", {"plan": _PLAN, "checkpoints": []}, []),
+        # 欠け・形の違い・決まった値の外
+        ("diag_answer", {"config_version": "v"}, ["payload_missing:question_id"]),
+        ("diag_submit", {"config_version": "v", "answers": ["energy"]}, ["payload_missing:answers"]),
+        ("plan_shown", {"config_version": "v", "answers_digest": "x", "plan": [{"year": 1, "term": "夏"}]},
+         ["payload_missing:plan"]),
+        ("plan_course_add", {"syllabus_id": "160977", "from": "detail"}, ["payload_unknown:from"]),
+        ("plan_course_remove", {"syllabus_id": "160977", "from": "refine"}, ["payload_missing:refine_local_id"]),
+        ("plan_refine_decide", {"refine_local_id": "r1"}, ["payload_missing:accepted", "payload_missing:rejected"]),
+        ("checkpoint_remove", {}, ["payload_missing:checkpoint"]),
+        ("result_click", {"syllabus_id": "160977", "list": "timetable"}, ["payload_unknown:list"]),
+        ("shortlist_remove", {"syllabus_id": "160977", "from": "nowhere"}, ["payload_unknown:from"]),
+        ("task_submit", {"plan": {"1春": []}, "checkpoints": {}}, ["payload_invalid:plan", "payload_invalid:checkpoints"]),
+    ],
+)  # fmt: skip
+def test_diag_and_plan_payloads(event_type, payload, expected):
+    task_id = "P1-b" if event_type == "task_submit" else None
+    assert payload_warnings(event_type, task_id, payload) == expected
+
+
+def test_task_submit_needs_the_final_plan_only_in_diagnose_blocks():
+    assert payload_warnings("task_submit", "P1-b", {}, diagnose=True) == ["payload_missing:plan"]
+    assert payload_warnings("task_submit", "P1-b", {}, diagnose=False) == []
+    assert payload_warnings("task_submit", "P1-b", {"plan": _PLAN}, diagnose=True) == []
+
+
+@pytest.fixture
+def diag_store(tmp_path: Path) -> ResearchStore:
+    """事前登録 Study 1 の study（腕 diag = N:W:V30・A:Y:V31、質問票はブロックごとに2件と最後に1件）。"""
+    counter = itertools.count(1)
+    study, _ = build_study(
+        study_id=_STUDY_ID,
+        department_id="kansai-enechem-2026",
+        arms=dict([parse_arm_spec("diag=N:W:V30,A:Y:V31")]),
+        task_sets=["P1", "P2"],
+        n=4,
+        spares=0,
+        consent_version="v1",
+        questionnaires_per_block=2,
+        final_questionnaires=1,
+        now=_NOW,
+        token_factory=lambda: f"token-{next(counter):010d}",
+    )
+    research_store = ResearchStore(tmp_path / "research")
+    research_store.create_study(study)
+    research_store.activate_arm(_STUDY_ID, "diag", "凍結の記録")
+    return research_store
+
+
+def test_diagnose_block_marks_a_task_submit_without_the_plan(diag_store):
+    session_id = _start(diag_store)
+    diag_store.start_block(session_id, 0, frontend_version=None)  # Q1 の練習は V30 の旗（diagnose=quiz）
+
+    result = diag_store.append_client_events(
+        session_id,
+        [_event("task_start", 1, "practice"), _event("task_submit", 2, "practice"), _event("diag_start", 3)],
+        frontend_version=None,
+    )
+
+    assert result.warnings == ["payload_missing:plan", "payload_missing:config_version"]
+    assert _lines(diag_store)[-1]["variant_id"] == "V30"
+
+
+def _run_diag_block(store: ResearchStore, session_id: str, block: int, first_seq: int) -> int:
+    """診断の study のブロックを1つ通す（課題 a・b の task_submit に最終プラン、質問票 SUS と Q11・Q12）。"""
+    store.start_block(session_id, block, frontend_version=None)
+    task_set = "P1" if block == 1 else "P2"
+    events = []
+    for offset, suffix in enumerate(("a", "b")):
+        task_id = f"{task_set}-{suffix}"
+        events += [
+            _event("task_start", first_seq + 2 * offset, task_id),
+            _event("task_submit", first_seq + 2 * offset + 1, task_id, plan=_PLAN),
+        ]
+    events += [
+        _event("questionnaire_submit", first_seq + 4, scale="SUS"),
+        _event("questionnaire_submit", first_seq + 5, scale="Q11-Q12"),
+    ]
+    result = store.append_client_events(session_id, events, frontend_version=None)
+    assert result.warnings == []
+    store.end_block(session_id, block, frontend_version=None)
+    return first_seq + len(events)
+
+
+def _diag_session(store: ResearchStore, *, final: bool) -> list:
+    session_id = _start(store)
+    store.start_block(session_id, 0, frontend_version=None)
+    store.append_client_events(
+        session_id,
+        [_event("task_start", 1, "practice"), _event("task_submit", 2, "practice", plan=_PLAN)],
+        frontend_version=None,
+    )
+    store.end_block(session_id, 0, frontend_version=None)
+    seq = _run_diag_block(store, session_id, 1, 3)
+    seq = _run_diag_block(store, session_id, 2, seq)
+    tail = [_event("questionnaire_submit", seq, scale="二択")] if final else []
+    tail.append(_event("session_end", seq + len(tail)))
+    store.append_client_events(session_id, tail, frontend_version=None)
+    store.end_session(session_id, frontend_version=None)
+    return check_completeness(store.load_study(_STUDY_ID), _lines(store))
+
+
+def test_check_passes_a_full_diag_session_with_the_final_choice(diag_store):
+    [result] = _diag_session(diag_store, final=True)
+
+    assert (result.status, result.defects) == ("complete", [])
+
+
+def test_check_reports_a_missing_final_choice(diag_store):
+    [result] = _diag_session(diag_store, final=False)
+
+    assert result.status == "complete"
+    assert result.defects == ["最後のブロックの後の questionnaire_submit が 0 件（1 件以上のはず）"]
 
 
 # --- 状態の遷移 ---------------------------------------------------------------------

@@ -30,7 +30,10 @@ from course_core.research.variants import VARIANT_NAMES, VARIANTS, human_study_v
 _EXIT_OK: Final = 0
 _EXIT_FAILED: Final = 1
 _CARD_FIELDS: Final = ("pid", "sequence_id", "spare", "token", "url")
-_DEFAULT_QUESTIONNAIRES_PER_BLOCK: Final = 2  # 計画 4.2 の完全性の検査「questionnaire_submit が2つ」
+# 質問票の組 ibuki_sus（事前登録 Study 1 の 4.5・6.2 の9）: ブロックごとに SUS と Q11・Q12（＋自由記述）の2件、
+# 最後のブロックの後に二択と理由の1件（questionnaire_submit は尺度ごとに1件）
+_DEFAULT_QUESTIONNAIRES_PER_BLOCK: Final = 2
+_DEFAULT_FINAL_QUESTIONNAIRES: Final = 1
 
 
 def _inside_git_worktree(path: Path) -> bool:
@@ -73,6 +76,7 @@ def _cmd_create_study(args: argparse.Namespace, store: ResearchStore) -> int:
         spares=args.spares,
         consent_version=args.consent_version,
         questionnaires_per_block=args.questionnaires_per_block,
+        final_questionnaires=args.final_questionnaires,
         now=datetime.now(JST),
     )
     cards_out.parent.mkdir(parents=True, exist_ok=True)
@@ -192,6 +196,12 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         default=_DEFAULT_QUESTIONNAIRES_PER_BLOCK,
         help="check でブロックごとに求める questionnaire_submit の数",
+    )
+    create.add_argument(
+        "--final-questionnaires",
+        type=int,
+        default=_DEFAULT_FINAL_QUESTIONNAIRES,
+        help="check で最後のブロックの後に求める questionnaire_submit の数（0 なら見ない）",
     )
 
     activate = commands.add_parser("activate-arm", help="腕を有効にする（最初のセッションの前だけ）")
