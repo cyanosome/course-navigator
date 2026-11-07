@@ -206,16 +206,29 @@ def test_same_name_is_placed_once_across_terms():
     assert _ids(plan) == [["10", "13"], []]
 
 
-def test_only_the_top_class_of_a_name_is_considered_in_a_term():
-    """同じ名前の別クラスは点の高い1つだけを残す。それが曜限で入らなくても、下のクラスで埋めない。"""
+def test_next_class_of_a_name_is_tried_when_the_top_class_collides():
+    """同じ名前の最上位のクラスが曜限で入らなければ、点の順に次のクラスを見る（P-a）。名前はプランに1つまで。"""
     courses = [
         course("10", group_id="G_C", slots=("月1",)),  # 3 点で月1 を取る
         course("11", name="同名", slots=("月1",)),  # 同名の中で最も上だが月1 が埋まっている
-        course("12", name="同名", slots=("火1",)),  # 同名の下のクラスは見ない
-        course("13", name="同名", term="秋", slots=("火1",)),  # 前の学期に入っていないので秋は入る
+        course("12", name="同名", slots=("火1",)),  # 次のクラスが入る
+        course("13", name="同名", slots=("水1",)),  # 名前が入ったので、その下のクラスは入らない
+        course("14", name="同名", term="秋", slots=("火1",)),  # 前の学期に入った名前なので秋も入らない
     ]
     plan = _plan(courses)
-    assert _ids(plan) == [["10"], ["13"]]
+    assert _ids(plan) == [["10", "12"], []]
+
+
+def test_next_class_of_a_name_is_tried_when_the_top_class_exceeds_the_cap():
+    """最上位のクラスが単位の上限で入らなければ、単位の小さい次のクラスを見る（P-a）。"""
+    courses = [
+        course("10", group_id="G_C", credits=4.0, slots=("月1",)),  # 4 単位（上限 6）
+        course("11", name="同名", credits=4.0, slots=("火1",)),  # 4 + 4 = 8 > 6
+        course("12", name="同名", credits=2.0, slots=("水1",)),  # 4 + 2 = 6 で入る
+    ]
+    plan = _plan(courses)
+    assert _ids(plan)[0] == ["10", "12"]
+    assert plan.terms[0].credits_total == 6.0
 
 
 def test_full_year_course_placed_in_spring_also_blocks_its_autumn_slot():

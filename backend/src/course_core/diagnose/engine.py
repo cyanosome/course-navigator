@@ -4,8 +4,8 @@
 変更記録 2026-11-07 の (2)（同じ科目名は1つまで。同じ名前の別クラスは点の高い1つだけを残す）に、ここで次を決めた:
 - 埋める学期は時系列の順（年 → 春 → 秋）に埋める。各学期で候補を点の高い順に見て、
   1) 点が 0 以下の科目は入れない（そこで打ち切る）
-  2) 同じ科目名の別クラスは、その学期で最も上の1つだけを見る（それが曜限・上限で入らなくても、下のクラスは見ない）。
-     前の学期までにプランに入った科目名も入れない
+  2) 同じ科目名はプランに1つまで（前の学期までにプランに入った科目名も入れない）。同じ名前の別クラスは点の順に見て、
+     上のクラスが曜限・上限で入らなければ次のクラスを見る（2026-11-07 の監査役の決定 P-a。前は最上位の1つだけを見た）
   3) 同じ曜限に2つ入れない
   4) 単位の上限（credit_cap_per_term）を超える科目は飛ばして次を見る。上限が null なら単位では止めない
 - 候補（その学期に入れてよい科目）: 単位・配当年次・学期が読めて、配当年次にその学年が入り、学期が同じか通年のもの
@@ -166,7 +166,6 @@ class DiagnoseEngine:
                 key=lambda index: (-scores[index], *self._tie_key(term, index), candidates[index].syllabus_id),
             )
             occupied = set(reserved.get(term, ()))
-            seen_names: set[str] = set()  # この学期で見た科目名（同じ名前の下のクラスは見ない）
             total = 0.0
             chosen: list[int] = []
             for index in order:
@@ -174,9 +173,8 @@ class DiagnoseEngine:
                     break
                 course = candidates[index]
                 credits = course.credits or 0.0
-                if course.name in seen_names or course.name in placed_names:
+                if course.name in placed_names:  # 入らなかったクラスの名前は残し、下のクラスを見る
                     continue
-                seen_names.add(course.name)
                 if occupied.intersection(course.slots):
                     continue
                 if cap is not None and total + credits > cap + _EPS:
