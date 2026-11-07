@@ -251,6 +251,7 @@ def test_study_session_uses_block_flags_and_ignores_options(client, sink, built_
     assert "result_summary" not in payload["tool_calls"][0]
     assert payload["plan_context_sha256"] is None
     assert payload["plan_suggestions"] is None
+    assert payload["plan_delivery"] is None  # plan_context の無い問い
     assert payload["toolset"] == "per_request"  # lifespan の McpToolset が無い
     assert payload["error"] is None
     assert payload["latency_ms"] >= 0
@@ -474,6 +475,36 @@ def test_plan_context_grounds_suggestions_and_is_recorded(client, sink, built_op
         "remove": [_PLAN_CODE],
         "dropped": body["plan_suggestions"]["dropped"],
     }
+    assert payload["plan_delivery"] == "delivered"
+
+
+def test_plan_context_on_the_static_fallback_is_recorded(client, sink, monkeypatch):
+    async def _fallback(question: str, options: AssistOptions, plan_context=None):
+        result = runner.McpAgentRunResult(route="static", answer="静的", notes=["MCP なし"], latency_ms=3)
+        return route_options.AssistRun(result=result, prompt_sha256=None)
+
+    monkeypatch.setattr(route_options, "run_with_options", _fallback)
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context=_PLAN).status_code == 200
+    payload = sink.events[0][2]
+    assert (payload["plan_delivery"], payload["plan_suggestions"], payload["error"]) == (
+        "static_fallback",
+        None,
+        "mcp_unavailable",
+    )
+
+
+def test_plan_context_without_an_answer_is_not_delivered(client, sink, monkeypatch):
+    async def _slow(question: str, options: AssistOptions, plan_context=None):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(route_options, "run_with_options", _slow)
+    monkeypatch.setattr(assist_router, "ASSIST_TIMEOUT_SECONDS", 0.05)
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context=_PLAN).status_code == 504
+    payload = sink.events[0][2]
+    assert (payload["plan_delivery"], payload["error"]) == ("not_delivered", "timeout")
+    assert payload["plan_context_sha256"] is not None
 
 
 def test_plan_context_digest_changes_with_the_plan():

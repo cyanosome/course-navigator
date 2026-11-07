@@ -34,6 +34,8 @@ ASSIST_TIMEOUT_SECONDS: Final = 170.0
 _ERROR_DETAIL_MAX_CHARS: Final = 300
 
 ErrorKind = Literal["timeout", "mcp_unavailable", "db", "llm", "other"]
+# plan_context（今のプラン）が AI に届いたか（事前登録 Study 1 の 6.2 の6）。plan_context の無い問いは null
+PlanDelivery = Literal["delivered", "not_delivered", "static_fallback"]
 
 # 例外の型の置き場所（モジュール）で失敗の種類を分ける。asyncpg は手元の環境に無いことがあるので
 # import せず名前で見る（記録のための分類で、HTTP の状態は共通ハンドラが決める）。
@@ -61,6 +63,20 @@ def options_from_flags(flags: VariantFlags) -> AssistOptions:
     return AssistOptions(route=flags.ai_route, style=flags.style, verify=flags.verify, citations=flags.citations)
 
 
+def plan_delivery(data: AssistIn, run: route_options.AssistRun | None) -> PlanDelivery | None:
+    """plan_context の配達の状態。plan_context の無い問い（AI に聞く、文にプランを入れて聞き直したもの）は None。
+
+    delivered: MCP の経路で、プランを付けた相談に LLM が答えた（照合の後の案は plan_suggestions）
+    static_fallback: MCP を使えず静的探索で答えた（プランは使われず、案も無い）
+    not_delivered: 時間切れ・失敗・未実装の水準で、答えが返らなかった
+    """
+    if data.plan_context is None:
+        return None
+    if run is None:
+        return "not_delivered"
+    return "delivered" if run.result.route == "mcp" else "static_fallback"
+
+
 def _unverified_items(codes: list[str]) -> list[UnverifiedItem]:
     reason = "lookup_failed" if deps.db_pool() is None else "not_in_db"
     return [UnverifiedItem(code=code, reason=reason) for code in codes]
@@ -80,7 +96,8 @@ def _chat_response_payload(
     """chat_response の payload（ab-variants.md 7.2）。トークン数は今の runner から取れないので null。
 
     7.2 に足した項目（E1）: plan_context_sha256（plan_context の指紋。診断のまとめの本文は書かない）、
-    plan_suggestions（照合の後の足す・外すの syllabus_id と外した理由）、toolset（McpToolset を使い回したか）。
+    plan_suggestions（照合の後の足す・外すの syllabus_id と外した理由）、toolset（McpToolset を使い回したか）、
+    plan_delivery（plan_context が AI に届いたか。plan_delivery を見る）。
     """
     result = run.result if run is not None else None
     suggestions = run.plan_suggestions if run is not None else None
@@ -111,6 +128,7 @@ def _chat_response_payload(
         }
         if suggestions is not None
         else None,
+        "plan_delivery": plan_delivery(data, run),
         "toolset": ("reused" if run.toolset_reused else "per_request") if run is not None else None,
         "tokens": None,
         "error": error,
