@@ -110,8 +110,8 @@ def test_client_event_gets_the_full_envelope_from_the_server(store, monkeypatch)
     assert (line["origin"], line["seq"], line["event_type"]) == ("client", 1, "syllabus_open")
     assert (line["pid"], line["sequence_id"], line["study_id"], line["arm"]) == ("P01", "Q1", _STUDY_ID, "branchA")
     assert (line["block"], line["condition_id"], line["variant_id"], line["task_id"]) == (1, "K", "V01", "P1-a")
-    assert line["flags"] == VARIANTS["V01"].model_dump() and len(line["flags"]) == 19
-    assert line["flags_version"] == "1"
+    assert line["flags"] == VARIANTS["V01"].model_dump() and len(line["flags"]) == 20
+    assert line["flags_version"] == "2"
     assert line["app_version"] == {"frontend": "fe67890", "backend": "be12345"}
     assert (line["consent_version"], line["mode"]) == ("v1", "onsite")
     assert line["ts_client"] == "2026-11-09T10:00:00.000+09:00"
@@ -197,9 +197,11 @@ def test_variant_applied_digest_is_compared_with_the_server_flags(store):
 
 
 def test_flags_digest_matches_the_frontend():
-    """frontend/src/navi/variant.ts の flagsDigest を node で回した値（2026-11-05）。"""
-    assert flags_digest(VARIANTS["V00"].model_dump()) == "fnv1a32:2bed77b2"
-    assert flags_digest(VARIANTS["V01"].model_dump()) == "fnv1a32:c0c90d0e"
+    """frontend/src/navi/variant.ts の flagsDigest を node で回した値（表の版 2。f3c866a の devVariantOut の旗）。"""
+    assert flags_digest(VARIANTS["V00"].model_dump()) == "fnv1a32:9dceb921"
+    assert flags_digest(VARIANTS["V01"].model_dump()) == "fnv1a32:ee6dfb25"
+    assert flags_digest(VARIANTS["V30"].model_dump()) == "fnv1a32:37a1f183"
+    assert flags_digest(VARIANTS["V31"].model_dump()) == "fnv1a32:ef5b9837"
 
 
 def test_client_event_types_match_the_frontend_list():

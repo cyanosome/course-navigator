@@ -307,7 +307,7 @@ def test_default_variant_follows_the_environment(data_dir, monkeypatch):
     switched = client.get("/research/variants/default").json()
 
     assert (default["variant_id"], default["condition_id"], default["flags"]["assistant"]) == ("V01", None, "off")
-    assert default["flags_version"] == "1"
+    assert default["flags_version"] == "2"
     assert switched["variant_id"] == "V00"
 
 
