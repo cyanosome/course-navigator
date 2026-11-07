@@ -270,9 +270,63 @@ def test_reasons_skip_primitives_without_templates_and_fill_placeholders():
     raw = config_dict()
     del raw["reason_templates"]["reaches_group"]
     plan = _plan([course("10", group_id="G_C")], raw_answers=answers(interest=["adv"]), raw_config=raw)
-    assert [reason.text for reason in plan.terms[0].courses[0].reasons] == ["1年春に取れる"]
+    assert plan.terms[0].courses[0].reasons == []
     plan = _plan([course("10", group_id="G_D")], raw_answers=answers(interest=["solo"]), raw_config=raw)
-    assert [reason.text for reason in plan.terms[0].courses[0].reasons] == ["架空独立系の科目", "1年春に取れる"]
+    assert [reason.text for reason in plan.terms[0].courses[0].reasons] == ["架空独立系の科目"]
+
+
+def test_reasons_never_use_year_fit_or_term_fit():
+    """year_fit・term_fit は候補の条件と同じ意味なので、base からでも選択肢からでも理由にしない。"""
+    raw = config_dict(
+        base_effects=[
+            {"primitive": "year_fit", "args": {}, "weight": 20},
+            {"primitive": "term_fit", "args": {}, "weight": 20},
+        ],
+        reason_templates={"year_fit": "{year}年に取れる", "term_fit": "{term}に開く", "on_curriculum": "系統図に載る"},
+    )
+    raw["questions"][2]["options"][4]["effects"].append({"primitive": "year_fit", "args": {}, "weight": 3})
+    plan = _plan([course("10", group_id="G_A")], raw_answers=answers(interest=["solo"], scale=5), raw_config=raw)
+    placed = plan.terms[0].courses[0]
+    assert placed.score == 45.0  # 20 + 20 + 3（選択肢の year_fit）+ 2（on_curriculum）
+    assert [(reason.primitive, reason.text) for reason in placed.reasons] == [("on_curriculum", "系統図に載る")]
+
+
+def test_reasons_use_chosen_options_and_only_curriculum_base_effects():
+    """理由に出すのは選んだ選択肢の effect と、base の in_group・reaches_group・on_curriculum だけ。"""
+    raw = config_dict(
+        base_effects=[
+            {"primitive": "year_fit", "args": {}, "weight": 1},
+            {"primitive": "on_curriculum", "args": {}, "weight": 8},
+            {"primitive": "in_group", "args": {"groups": ["G_B"]}, "weight": 1},
+            {"primitive": "reaches_group", "args": {"target": "G_C"}, "weight": 1},
+            {"primitive": "keyword", "args": {"words": ["基礎"], "fields": ["name"]}, "weight": 5},
+            {"primitive": "own_department", "args": {}, "weight": 4},
+        ],
+        reason_templates={
+            "on_curriculum": "系統図に載る",
+            "in_group": "{group}の科目",
+            "reaches_group": "{target}につながる",
+            "keyword": "「{words}」と答えた",
+            "own_department": "学科の科目",
+        },
+    )
+    courses = [
+        course("10", group_id="G_B", name="架空の基礎", slots=("月1",)),
+        course("11", name="架空の基礎と反応", slots=("火1",)),
+        course("12", name="架空の基礎演習", slots=("水1",)),
+    ]
+    plan = _plan(courses, raw_answers=answers(interest=["solo"]), raw_config=raw)
+    by_id = {placed.syllabus_id: placed for placed in plan.terms[0].courses}
+    # base の on_curriculum 8・in_group 1・reaches_group 1 は理由になる。base の keyword 5・own_department 4 はならない
+    assert [reason.primitive for reason in by_id["10"].reasons] == ["on_curriculum", "in_group"]
+    assert by_id["10"].score == 1 + 8 + 1 + 1 + 5 + 4
+    # 「反応」は選んでいない選択肢（word）の語。base の keyword だけで入った科目には理由が無い
+    assert by_id["11"].reasons == [] and by_id["12"].reasons == []
+    plan = _plan(courses, raw_answers=answers(interest=["word"]), raw_config=raw)
+    by_id = {placed.syllabus_id: placed for placed in plan.terms[0].courses}
+    # 選んだ選択肢の keyword の語だけを差し込む（base の keyword の「基礎」は入らない）
+    assert [reason.text for reason in by_id["11"].reasons] == ["「反応」と答えた"]
+    assert by_id["12"].reasons == []
 
 
 def test_plan_is_deterministic_and_ignores_answer_order():

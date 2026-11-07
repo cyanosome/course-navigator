@@ -99,10 +99,7 @@ def test_plan(client, loaders):
                     "slots": ["月1"],
                     "slot_note": None,
                     "score": 3.0,
-                    "reasons": [
-                        {"primitive": "reaches_group", "text": "架空発展系につながる"},
-                        {"primitive": "year_fit", "text": "1年春に取れる"},
-                    ],
+                    "reasons": [{"primitive": "reaches_group", "text": "架空発展系につながる"}],
                 },
                 {
                     "syllabus_id": "11",
@@ -111,7 +108,7 @@ def test_plan(client, loaders):
                     "slots": ["火2"],
                     "slot_note": None,
                     "score": 1.0,
-                    "reasons": [{"primitive": "year_fit", "text": "1年春に取れる"}],
+                    "reasons": [],  # year_fit（base）だけで入った科目には理由が無い
                 },
             ],
         },
@@ -127,7 +124,7 @@ def test_plan(client, loaders):
                     "slots": ["月1"],
                     "slot_note": None,
                     "score": 1.0,
-                    "reasons": [{"primitive": "year_fit", "text": "1年秋に取れる"}],
+                    "reasons": [],
                 }
             ],
         },

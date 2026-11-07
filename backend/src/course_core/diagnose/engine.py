@@ -16,9 +16,13 @@
 - 並び: 点（小数 9 桁で丸めたもの）の高い順 → tie_break → syllabus_id の昇順
   - tie_break "syllabus_id" は syllabus_id だけ、"year_then_syllabus_id" は配当年次の下限の小さい順、
     primitive の名前ならその値の大きい順
-- 理由の文: 正に寄与した primitive ごとに寄与を足し、大きい順（同点は primitive の一覧の順）に最大2つ。
+- 理由の文: 理由に使う effect（下）の寄与を primitive ごとに足し、正のものを大きい順（同点は primitive の一覧の順）に最大2つ。
   reason_templates に文の無い primitive は出さない。差し込みは TEMPLATE_PLACEHOLDERS の6つで、知らない名前は空。
-  {target}・{words} の値は、その primitive の中で寄与の最も大きい effect のもの
+  {target}・{words} の値は、理由に使う effect のうち、その primitive の中で寄与の最も大きい effect のもの
+  - 理由に使う effect は、利用者が選んだ選択肢の effect と、base_effects のうち REASON_BASE_PRIMITIVES
+    （in_group・reaches_group・on_curriculum。系統図の事実）のものだけ。答えに結びつかない base の keyword などは
+    点には効くが理由にしない（答えていない質問を理由にした文を出さないため）
+  - year_fit・term_fit は、どこから来ても理由にしない（候補の条件と同じ意味で、プランのどの科目にも当てはまる）
 """
 
 import string
@@ -31,9 +35,13 @@ from course_core.diagnose.model import Catalog, DiagCourse, PlanTerm
 from course_core.diagnose.primitives import PRIMITIVE_ORDER, PRIMITIVES, TEMPLATE_PLACEHOLDERS, Primitive
 from course_core.schemas.diagnose import DiagnosePlanOut, PlanCourseOut, PlanTermOut, ReasonOut
 
-__all__ = ["MAX_REASONS", "DiagnoseEngine", "build_plan", "is_candidate", "render_template"]
+__all__ = ["MAX_REASONS", "REASON_BASE_PRIMITIVES", "DiagnoseEngine", "build_plan", "is_candidate", "render_template"]
 
 MAX_REASONS: Final = 2
+# base_effects のうち理由の文に使う primitive（答えに結びつかないが、系統図の事実を言うもの）
+REASON_BASE_PRIMITIVES: Final = frozenset({"in_group", "reaches_group", "on_curriculum"})
+# どこから来ても理由の文に使わない primitive（候補の条件と同じ意味）
+_NO_REASON_PRIMITIVES: Final = frozenset({"year_fit", "term_fit"})
 _SCORE_DIGITS: Final = 9
 _OUT_DIGITS: Final = 6
 _EPS: Final = 1e-9
@@ -109,16 +117,29 @@ class DiagnoseEngine:
 
         return by_primitive
 
-    def effects_for(self, answers: Answers) -> list[Effect]:
-        """選んだ選択肢の effect（質問 → 選択肢 → effect の設定の並び）と base_effects。"""
+    def _answer_effects(self, answers: Answers) -> list[Effect]:
+        """選んだ選択肢の effect（質問 → 選択肢 → effect の設定の並び）。"""
         effects: list[Effect] = []
         for question in self._config.questions:
             chosen = set(answers.get(question.id, ()))
             for option in question.options:
                 if option.id in chosen:
                     effects.extend(option.effects)
-        effects.extend(self._config.base_effects)
         return effects
+
+    def effects_for(self, answers: Answers) -> list[Effect]:
+        """点に効く effect: 選んだ選択肢の effect と base_effects。"""
+        return [*self._answer_effects(answers), *self._config.base_effects]
+
+    def reason_effects_for(self, answers: Answers) -> list[Effect]:
+        """理由の文に使う effect: 選んだ選択肢の effect と、base_effects のうち REASON_BASE_PRIMITIVES のもの。
+        year_fit・term_fit はどちらからも除く。"""
+        base = [effect for effect in self._config.base_effects if effect.primitive.NAME in REASON_BASE_PRIMITIVES]
+        return [
+            effect
+            for effect in [*self._answer_effects(answers), *base]
+            if effect.primitive.NAME not in _NO_REASON_PRIMITIVES
+        ]
 
     def _scores(self, term: PlanTerm, effects: Sequence[Effect]) -> list[float]:
         scores = [0.0] * len(self._candidates[term])
@@ -132,6 +153,7 @@ class DiagnoseEngine:
     def plan(self, answers: Answers) -> DiagnosePlanOut:
         """検査を通った答え（answers.validate_answers の結果）からプランを作る。"""
         effects = self.effects_for(answers)
+        reason_effects = self.reason_effects_for(answers)
         cap = self._config.credit_cap_per_term
         placed_names: set[str] = set()  # プランに入った科目名（同じ科目名は1つまで）
         reserved: dict[PlanTerm, set[str]] = {}  # 通年の科目が先にふさいだ曜限
@@ -172,7 +194,7 @@ class DiagnoseEngine:
                     year=term.year,
                     term=term.term,
                     credits_total=round(total, _OUT_DIGITS),
-                    courses=[self._course_out(term, index, scores[index], effects) for index in chosen],
+                    courses=[self._course_out(term, index, scores[index], reason_effects) for index in chosen],
                 )
             )
         return DiagnosePlanOut(
@@ -181,7 +203,7 @@ class DiagnoseEngine:
             terms=terms,
         )
 
-    def _course_out(self, term: PlanTerm, index: int, score: float, effects: Sequence[Effect]) -> PlanCourseOut:
+    def _course_out(self, term: PlanTerm, index: int, score: float, reason_effects: Sequence[Effect]) -> PlanCourseOut:
         course = self._candidates[term][index]
         return PlanCourseOut(
             syllabus_id=course.syllabus_id,
@@ -190,7 +212,7 @@ class DiagnoseEngine:
             slots=list(course.slots),
             slot_note=course.slot_note,
             score=round(score, _OUT_DIGITS),
-            reasons=self._reasons(term, index, effects),
+            reasons=self._reasons(term, index, reason_effects),
         )
 
     def _template_values(self, course: DiagCourse, term: PlanTerm) -> dict[str, str]:
@@ -202,11 +224,12 @@ class DiagnoseEngine:
             "credits": _number_text(course.credits),
         }
 
-    def _reasons(self, term: PlanTerm, index: int, effects: Sequence[Effect]) -> list[ReasonOut]:
+    def _reasons(self, term: PlanTerm, index: int, reason_effects: Sequence[Effect]) -> list[ReasonOut]:
+        """reason_effects（reason_effects_for の結果）だけから理由の文を作る。"""
         templates: Mapping[str, str] = self._config.reason_templates
         totals: dict[str, float] = {}
         best: dict[str, tuple[float, Effect]] = {}
-        for effect in effects:
+        for effect in reason_effects:
             contribution = round(effect.weight * self._values(effect.primitive, term)[index], _SCORE_DIGITS)
             if contribution == 0:
                 continue
