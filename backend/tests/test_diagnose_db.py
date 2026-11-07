@@ -17,6 +17,7 @@ from api.routers import diagnose as diagnose_router  # noqa: E402
 from course_core import config  # noqa: E402
 from course_core.catalog.registry import load_departments  # noqa: E402
 from course_core.diagnose.config import load_config, validate_config  # noqa: E402
+from course_core.diagnose.model import TERM_ORDER  # noqa: E402
 from course_core.diagnose.source import load_catalog  # noqa: E402
 
 pytestmark = pytest.mark.db
@@ -117,3 +118,42 @@ def test_plan_on_real_data_is_valid_and_deterministic(client):
         ids = [course["syllabus_id"] for course in term["courses"]]
         assert not seen.intersection(ids)
         seen.update(ids)
+
+
+def _names(plan):
+    return {course["name"] for term in plan["terms"] for course in term["courses"]}
+
+
+def test_plan_from_second_autumn_with_first_year_completed(client):
+    """2年秋を start にし、1年のプランに入れた科目を履修済みにすると、2年秋から埋め、同じ名前の科目を入れない。
+
+    最初の選択肢のままの答えでは、start だけでも1年の名前が2年秋から先に入らない（履修済みが効くかを確かめられない）。
+    空ける曜日だけを月にした答えでは、1年に入れた名前（2026-11-07 のデータで「SDGsの実践」）が start だけのプランにも入る。
+    """
+    config_body = client.get("/diagnose/config", params={"department_id": _DEPT}).json()
+    answers = {**_first_answers(config_body["config"]), "freeday": ["mon"]}
+    body = {"department_id": _DEPT, "config_version": config_body["version"], "answers": answers}
+    full = client.post("/diagnose/plan", json=body).json()
+    first_year = [course for term in full["terms"] if term["year"] == 1 for course in term["courses"]]
+    first_year_names = {course["name"] for course in first_year}
+    start = {"year": 2, "term": "秋"}
+    start_only = client.post("/diagnose/plan", json={**body, "start": start}).json()
+    assert first_year and _names(start_only) & first_year_names
+
+    response = client.post(
+        "/diagnose/plan", json={**body, "start": start, "completed": [course["syllabus_id"] for course in first_year]}
+    )
+    assert response.status_code == 200, response.text
+    out = response.json()
+    later_terms = [
+        (term["year"], term["term"])
+        for term in full["terms"]
+        if (term["year"], TERM_ORDER[term["term"]]) >= (start["year"], TERM_ORDER[start["term"]])
+    ]
+    assert later_terms[0] == (2, "秋")
+    assert [(term["year"], term["term"]) for term in out["terms"]] == later_terms
+    assert not _names(out) & first_year_names
+    assert out["answers_digest"] == full["answers_digest"]
+    assert full["context_digest"] is None
+    assert None not in (out["context_digest"], start_only["context_digest"])
+    assert out["context_digest"] != start_only["context_digest"]

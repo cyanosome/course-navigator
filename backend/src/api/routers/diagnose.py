@@ -1,7 +1,9 @@
 """診断の API（navi-v1）: 質問に答えると履修プランを返す。LLM は使わない。
 
 - GET /diagnose/config?department_id= … いま有効な設定（JSON のまま）と version
-- POST /diagnose/plan … 答えからプラン。版が違えば 409、答えの誤り（知らない質問・選択肢、数の違い）は 422
+- POST /diagnose/plan … 答えからプラン。版が違えば 409、答えの誤り（知らない質問・選択肢、数の違い）は 422。
+  任意の履修の状況（start・completed・registered。course_core.diagnose.history）があれば、それを踏まえて埋める。
+  状況の誤り（scope に無い学期、知らない科目、同じ科目の重複など）も 422（科目の一覧を読んだ後に見る）
 外から見えるパスは `/api` の後ろ（Traefik が `/api` を剥がす）。成功の応答に X-Navi-Contract を付ける。
 設定とデータの読み方は依存（get_config_loader・get_catalog_loader）で差し替えられる（テストは偽物を渡す）。
 """
@@ -17,6 +19,7 @@ from course_core.catalog.registry import DepartmentEntry, load_departments
 from course_core.diagnose.answers import validate_answers
 from course_core.diagnose.config import ConfigError, ConfigNotFoundError, LoadedConfig, load_config, validate_config
 from course_core.diagnose.engine import build_plan
+from course_core.diagnose.history import validate_history
 from course_core.diagnose.model import Catalog
 from course_core.diagnose.source import load_catalog
 from course_core.schemas.diagnose import DiagnoseConfigOut, DiagnosePlanIn, DiagnosePlanOut
@@ -101,4 +104,9 @@ async def make_plan(
             "; ".join(f"{issue.path}: {issue.message}" for issue in issues),
         )
         raise HTTPException(status_code=500, detail="診断の設定に誤りがあります。")
-    return build_plan(loaded.config, catalog, answers)
+    history, history_errors = validate_history(
+        loaded.config, catalog, start=body.start, completed=body.completed, registered=body.registered
+    )
+    if history_errors:
+        raise HTTPException(status_code=422, detail="履修の状況に誤りがあります: " + "; ".join(history_errors))
+    return build_plan(loaded.config, catalog, answers, history)

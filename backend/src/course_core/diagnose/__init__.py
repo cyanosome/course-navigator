@@ -4,6 +4,7 @@
 - config: 設定の読み込みと検査（誤りは一覧で返す。数え方は事前登録の M1 と同じ）
 - primitives: 設定で使える primitive 9つ
 - answers: 答えの検査と指紋
+- history: 履修の状況（今の学期・履修済み・登録済み）の検査と指紋（任意。サーバーに保存しない）
 - engine: プランの組み立てと理由の文
 - source: DB の行から科目と系統図を作る（読み取りだけ）
 設定のファイルは configs/<department_id>.json。

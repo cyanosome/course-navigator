@@ -23,6 +23,13 @@
     （in_group・reaches_group・on_curriculum。系統図の事実）のものだけ。答えに結びつかない base の keyword などは
     点には効くが理由にしない（答えていない質問を理由にした文を出さないため）
   - year_fit・term_fit は、どこから来ても理由にしない（候補の条件と同じ意味で、プランのどの科目にも当てはまる）
+- 履修の状況（history.PlanHistory。送られなければ上のとおり）:
+  - start から先の学期だけを埋める（history.filled_terms）
+  - 履修済み・登録済みの科目名は、はじめから「プランに入った科目名」に入れる（同じ名前の科目を入れない）
+  - 登録済みの科目は、その学期のはじめに置き（曜限をふさぎ、単位に数える。通年なら春に置いたとき同じ年の秋の曜限もふさぐ）、
+    残りを上の決まりで埋める。登録済みで上限に達した学期には足さない。通年の科目を春に入れるときは、
+    同じ年の秋の登録済みの曜限と重なるものも飛ばす
+  - 登録済みの科目の点は同じ計算で付け、理由の文は付けない（診断が選んだ科目ではないので）
 """
 
 import string
@@ -31,6 +38,7 @@ from typing import Final
 
 from course_core.diagnose.answers import Answers, answers_digest
 from course_core.diagnose.config import DiagnoseConfig, Effect
+from course_core.diagnose.history import NO_HISTORY, PlanHistory, context_digest, filled_terms
 from course_core.diagnose.model import Catalog, DiagCourse, PlanTerm
 from course_core.diagnose.primitives import PRIMITIVE_ORDER, PRIMITIVES, TEMPLATE_PLACEHOLDERS, Primitive
 from course_core.schemas.diagnose import DiagnosePlanOut, PlanCourseOut, PlanTermOut, ReasonOut
@@ -169,22 +177,35 @@ class DiagnoseEngine:
         scores = self._scores(term, self.effects_for(answers))
         return [(candidates[index], scores[index]) for index in self._ranked(term, scores)]
 
-    def plan(self, answers: Answers) -> DiagnosePlanOut:
-        """検査を通った答え（answers.validate_answers の結果）からプランを作る。"""
+    def plan(self, answers: Answers, history: PlanHistory = NO_HISTORY) -> DiagnosePlanOut:
+        """検査を通った答え（answers.validate_answers の結果）と履修の状況（history.validate_history の結果）からプランを作る。"""
         effects = self.effects_for(answers)
         reason_effects = self.reason_effects_for(answers)
         cap = self._config.credit_cap_per_term
-        placed_names: set[str] = set()  # プランに入った科目名（同じ科目名は1つまで）
+        # プランに入った科目名（同じ科目名は1つまで）。履修済み・登録済みの科目名ははじめから入れる
+        placed_names: set[str] = set(history.taken_names)
         reserved: dict[PlanTerm, set[str]] = {}  # 通年の科目が先にふさいだ曜限
         terms: list[PlanTermOut] = []
-        for term in self._config.terms:
+        for term in filled_terms(self._config.terms, history.start):
             candidates = self._candidates[term]
             scores = self._scores(term, effects)
             order = self._ranked(term, scores)
             occupied = set(reserved.get(term, ()))
             total = 0.0
+            registered = history.registered.get(term, ())
+            for course in registered:  # 登録済みの科目はそのまま置く（重なり・上限は見ない）
+                occupied.update(course.slots)
+                total += course.credits or 0.0
+                if course.term == _FULL_YEAR and term.term == _SPRING:
+                    reserved.setdefault(PlanTerm(year=term.year, term=_AUTUMN), set()).update(course.slots)
+            # 春に入れる通年の科目は、同じ年の秋の登録済みの曜限もふさぐ
+            autumn_registered = (
+                history.registered_slots(PlanTerm(year=term.year, term=_AUTUMN)) if term.term == _SPRING else frozenset()
+            )
             chosen: list[int] = []
             for index in order:
+                if cap is not None and total >= cap - _EPS:  # 登録済みの科目だけで上限に達した学期も、ここで止まる
+                    break
                 if scores[index] <= 0:
                     break
                 course = candidates[index]
@@ -192,6 +213,8 @@ class DiagnoseEngine:
                 if course.name in placed_names:  # 入らなかったクラスの名前は残し、下のクラスを見る
                     continue
                 if occupied.intersection(course.slots):
+                    continue
+                if course.term == _FULL_YEAR and autumn_registered.intersection(course.slots):
                     continue
                 if cap is not None and total + credits > cap + _EPS:
                     continue
@@ -201,20 +224,38 @@ class DiagnoseEngine:
                 placed_names.add(course.name)
                 if course.term == _FULL_YEAR and term.term == _SPRING:
                     reserved.setdefault(PlanTerm(year=term.year, term=_AUTUMN), set()).update(course.slots)
-                if cap is not None and total >= cap - _EPS:
-                    break
             terms.append(
                 PlanTermOut(
                     year=term.year,
                     term=term.term,
                     credits_total=round(total, _OUT_DIGITS),
-                    courses=[self._course_out(term, index, scores[index], reason_effects) for index in chosen],
+                    courses=[
+                        *(self._registered_out(term, course, effects) for course in registered),
+                        *(self._course_out(term, index, scores[index], reason_effects) for index in chosen),
+                    ],
                 )
             )
         return DiagnosePlanOut(
             config_version=self._config.version,
             answers_digest=answers_digest(answers),
+            context_digest=context_digest(history),
             terms=terms,
+        )
+
+    def _registered_out(self, term: PlanTerm, course: DiagCourse, effects: Sequence[Effect]) -> PlanCourseOut:
+        """登録済みの科目。点は候補と同じ計算（Σ weight × 値）で付け、理由の文は付けない。"""
+        score = round(
+            sum(effect.weight * effect.primitive.value(course, term, self._catalog) for effect in effects), _SCORE_DIGITS
+        )
+        return PlanCourseOut(
+            syllabus_id=course.syllabus_id,
+            name=course.name,
+            credits=course.credits or 0.0,
+            slots=list(course.slots),
+            slot_note=course.slot_note,
+            score=round(score, _OUT_DIGITS),
+            reasons=[],
+            status="registered",
         )
 
     def _course_out(self, term: PlanTerm, index: int, score: float, reason_effects: Sequence[Effect]) -> PlanCourseOut:
@@ -268,5 +309,7 @@ class DiagnoseEngine:
         return reasons
 
 
-def build_plan(config: DiagnoseConfig, catalog: Catalog, answers: Answers) -> DiagnosePlanOut:
-    return DiagnoseEngine(config, catalog).plan(answers)
+def build_plan(
+    config: DiagnoseConfig, catalog: Catalog, answers: Answers, history: PlanHistory = NO_HISTORY
+) -> DiagnosePlanOut:
+    return DiagnoseEngine(config, catalog).plan(answers, history)
