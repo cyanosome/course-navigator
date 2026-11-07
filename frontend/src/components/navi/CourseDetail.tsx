@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError, apiErrorMessage } from '../../navi/api'
 import { useNaviData } from '../../navi/dataSource'
 import { findCourse, findFrame, sequenceOf } from '../../navi/graph'
 import type { CourseMapping, UnmappedCourse } from '../../navi/mapping'
-import { useResearchLog } from '../../navi/research'
+import { useResearchLog, useSyllabusViewLog } from '../../navi/research'
 import { courseHref, groupHref, useNavi } from '../../navi/state'
 import type { Origin, PaneState, PcTab, TrailEntry } from '../../navi/state'
 import { courseTermLabel, isRequired, slotLong } from '../../navi/timetable'
@@ -103,18 +103,6 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
 
   if (!load.value.ok) return <UnmappedDetail course={load.value} trail={trail} tab={tab} />
   return <CourseBody course={load.value.course} origin={origin} trail={trail} tab={tab} />
-}
-
-/** 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに） */
-function useSyllabusViewLog(syllabusId: string) {
-  const { log } = useResearchLog()
-  useEffect(() => {
-    const opened = performance.now()
-    log('syllabus_open', { syllabus_id: syllabusId })
-    return () => {
-      log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
-    }
-  }, [log, syllabusId])
 }
 
 interface UnmappedDetailProps {

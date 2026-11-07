@@ -51,6 +51,18 @@ export function useResearchLog(): ResearchLog {
   return useContext(ResearchLogContext)
 }
 
+/** 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに） */
+export function useSyllabusViewLog(syllabusId: string) {
+  const { log } = useResearchLog()
+  useEffect(() => {
+    const opened = performance.now()
+    log('syllabus_open', { syllabus_id: syllabusId })
+    return () => {
+      log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
+    }
+  }, [log, syllabusId])
+}
+
 /* ---------- 調査のセッションの状態 ---------- */
 
 /** 調査の段階。task のあいだだけ画面（/navi）を開き、ほかは調査の入口（/navi/s/<トークン>）に出す */
