@@ -9,9 +9,20 @@
  *   上のクラスが曜限か上限で入らなければ次のクラスを見る（backend の P-a、9e23f1f））を、見本の学科（fixtureDepartment.ts）の上でまねたもの。見本だけの簡略: 学期と配当の学年が合わない科目は
  *   点にかかわらず入れない。scale5 は答えの n 番目の選択肢の点の付け方を使う（API と同じ）。理由の文は、選んだ選択肢の効果と
  *   base の in_group・reaches_group・on_curriculum だけから作る（backend のエンジンと同じ決まり。理由が空の科目もある）。
+ * - 履修の状況（start・completed・registered）は backend の course_core.diagnose.history をまねる: start から先だけを埋め、
+ *   履修済み・登録済みと同じ名前を入れず、登録済みは学期のはじめに置く。誤りは 422（見本の学科の科目で引く）。
  */
 import { ApiError } from './api'
-import type { DiagnoseAnswers, DiagnoseConfig, DiagnoseEffect, DiagnosePlanIn, DiagnosePlanOut, PlanCourse, PlanReason } from './apiTypes'
+import type {
+  DiagnoseAnswers,
+  DiagnoseConfig,
+  DiagnoseEffect,
+  DiagnosePlanIn,
+  DiagnosePlanOut,
+  DiagnoseScopeTerm,
+  PlanCourse,
+  PlanReason,
+} from './apiTypes'
 import type { DiagnoseSource } from './diagnose'
 import { firstUnanswered, isAnswered } from './diagnose'
 import { FIXTURE_DEPARTMENTS } from './fixtureDepartment'
@@ -24,7 +35,18 @@ const REASONS_PER_COURSE = 2
 export const FIXTURE_DIAGNOSE_CONFIG: DiagnoseConfig = {
   version: 'fixture-1107',
   department_id: 'enechem',
-  scope: { terms: [{ year: 1, term: '春' }, { year: 1, term: '秋' }], credit_cap_per_term: 8 },
+  // 学期は本物の設定（kansai-enechem-2026）と同じ 1年春〜3年秋（学期ごとの利用を見本で確かめるため）
+  scope: {
+    terms: [
+      { year: 1, term: '春' },
+      { year: 1, term: '秋' },
+      { year: 2, term: '春' },
+      { year: 2, term: '秋' },
+      { year: 3, term: '春' },
+      { year: 3, term: '秋' },
+    ],
+    credit_cap_per_term: 8,
+  },
   questions: [
     {
       id: 'field',
@@ -201,12 +223,66 @@ function digest(answers: DiagnoseAnswers): string {
   return `fnv1a32:${hash.toString(16).padStart(8, '0')}`
 }
 
-function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAnswers): DiagnosePlanOut {
+/** 検査を通った履修の状況（見本） */
+interface FixtureHistory {
+  start: DiagnoseScopeTerm | null
+  completed: Course[]
+  /** 学期の鍵（例 2-秋）→ その学期の登録済みの科目 */
+  registered: Map<string, Course[]>
+}
+
+const termKey = (t: DiagnoseScopeTerm) => `${t.year}-${t.term}`
+const termRank = (t: DiagnoseScopeTerm) => t.year * 2 + (t.term === '秋' ? 1 : 0)
+
+/** backend の validate_history と同じ誤り（scope に無い start、埋めない学期の registered、知らない科目、重複）を 422 に */
+function checkHistory(config: DiagnoseConfig, dept: Department, input: DiagnosePlanIn): FixtureHistory {
+  const bad = (what: string) => new ApiError('http', 422, `履修の状況に誤りがあります: ${what}（見本）`, 'プラン: HTTP 422（見本）')
+  const start = input.start ?? null
+  if (start !== null && !config.scope.terms.some((t) => termKey(t) === termKey(start))) throw bad('start が scope にありません')
+  const byId = new Map(dept.courses.map((c) => [c.code, c]))
+  const find = (id: string) => {
+    const c = byId.get(id)
+    if (c === undefined) throw bad(`知らない科目です: ${id}`)
+    return c
+  }
+  const completed = (input.completed ?? []).map(find)
+  const registered = new Map<string, Course[]>()
+  const seen = new Set(completed.map((c) => c.code))
+  if (seen.size !== completed.length) throw bad('completed に同じ科目が2回あります')
+  for (const r of input.registered ?? []) {
+    if (registered.has(termKey(r))) throw bad(`registered に ${termKey(r)} が2回あります`)
+    if (start !== null && termRank(r) < termRank(start)) throw bad(`registered の ${termKey(r)} は埋める学期にありません`)
+    const courses = r.syllabus_ids.map(find)
+    for (const c of courses) {
+      if (seen.has(c.code)) throw bad(`同じ科目が2回あります: ${c.code}`)
+      seen.add(c.code)
+    }
+    registered.set(termKey(r), courses)
+  }
+  return { start, completed, registered }
+}
+
+function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAnswers, history: FixtureHistory): DiagnosePlanOut {
   const effects = activeEffects(config, answers)
   const cap = config.scope.credit_cap_per_term
-  /** プランに入った科目名（同じ名前はプランに1つまで。前の学期までに入った名前も入れない） */
-  const placedNames = new Set<string>()
-  const terms = config.scope.terms.map((t) => {
+  /** プランに入った科目名（同じ名前はプランに1つまで。前の学期までに入った名前も、履修済み・登録済みの名前も入れない） */
+  const placedNames = new Set<string>([
+    ...history.completed.map((c) => c.name),
+    ...[...history.registered.values()].flat().map((c) => c.name),
+  ])
+  const filled = config.scope.terms.filter((t) => history.start === null || termRank(t) >= termRank(history.start))
+  const terms = filled.map((t) => {
+    // 登録済みの科目は学期のはじめにそのまま置く（曜限をふさぎ、単位に数える）
+    const fixed: PlanCourse[] = (history.registered.get(termKey(t)) ?? []).map((c) => ({
+      syllabus_id: c.code,
+      name: c.name,
+      credits: c.credits,
+      slots: c.slots,
+      slot_note: c.slotNote,
+      score: 0,
+      reasons: [],
+      status: 'registered',
+    }))
     const scored = dept.courses
       .filter((c) => c.year === t.year && (c.term === t.term || c.term === '通年') && !placedNames.has(c.name))
       .map((c) => {
@@ -221,9 +297,9 @@ function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAns
         return { c, score: parts.reduce((n, p) => n + p.v, 0), reasons }
       })
       .sort((a, b) => b.score - a.score || (a.c.code < b.c.code ? -1 : a.c.code > b.c.code ? 1 : 0))
-    const picked: PlanCourse[] = []
-    const used = new Set<string>()
-    let credits = 0
+    const picked: PlanCourse[] = [...fixed]
+    const used = new Set<string>(fixed.flatMap((c) => c.slots))
+    let credits = fixed.reduce((n, c) => n + (c.credits ?? 0), 0)
     for (const { c, score, reasons } of scored) {
       // 同じ名前のクラスは点の順に見る。上のクラスが曜限か上限で入らなければ、名前は残して次のクラスを見る（P-a）
       if (placedNames.has(c.name)) continue
@@ -232,11 +308,17 @@ function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAns
       c.slots.forEach((s) => used.add(s))
       credits += c.credits ?? 0
       placedNames.add(c.name)
-      picked.push({ syllabus_id: c.code, name: c.name, credits: c.credits, slots: c.slots, slot_note: c.slotNote, score, reasons })
+      picked.push({ syllabus_id: c.code, name: c.name, credits: c.credits, slots: c.slots, slot_note: c.slotNote, score, reasons, status: 'planned' })
     }
     return { year: t.year, term: t.term, credits_total: credits, courses: picked }
   })
-  return { config_version: config.version, answers_digest: digest(answers), terms }
+  const withHistory = history.start !== null || history.completed.length > 0 || history.registered.size > 0
+  return {
+    config_version: config.version,
+    answers_digest: digest(answers),
+    context_digest: withHistory ? 'fixture:history' : null,
+    terms,
+  }
 }
 
 export function createFixtureDiagnoseSource(): DiagnoseSource {
@@ -259,7 +341,7 @@ export function createFixtureDiagnoseSource(): DiagnoseSource {
       if (extra || bad || firstUnanswered(config, input.answers) >= 0) {
         throw new ApiError('http', 422, '答えを読めません（見本）', 'プラン: HTTP 422（見本）')
       }
-      return makePlan(config, dept, input.answers)
+      return makePlan(config, dept, input.answers, checkHistory(config, dept, input))
     },
   }
 }

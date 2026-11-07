@@ -362,7 +362,7 @@ export interface AssistOptions {
 export const PLAN_CONTEXT_LIMITS = { summaryChars: 1000, terms: 16, idsPerTerm: 40, yearMax: 8 } as const
 
 /** A1 に添える、いまのプラン（プランの微修正のときだけ。backend は科目名などを DB で引いて相談に付ける） */
-export interface PlanContextIn {
+export interface PlanContextIn extends PlanHistoryIn {
   /** 診断の答えの短いまとめ（PLAN_CONTEXT_LIMITS.summaryChars 字まで） */
   answers_summary: string
   /** いまのプランの科目（学期ごと。微修正で足し外しした後） */
@@ -383,13 +383,18 @@ export interface PlanSuggestion {
   /** 足す案を入れる学年と学期（任意。今の backend は送らない。無ければ科目の配当の学年と学期に入れる） */
   year?: number
   term?: DiagnoseTerm
+  /** 外す案の科目が登録済み（plan_context の registered）なら registered。履修の状況を知らない backend は送らない */
+  status?: PlanCourseStatus
 }
 
-/** 照合で外した提案（not_candidate: 足す案が候補に無い、locked: 外す案が系統図の科目） */
+/**
+ * 照合で外した提案（not_candidate: 足す案が候補に無い、locked: 外す案が系統図の科目、
+ * completed: 足す案が履修済み（plan_context の completed）の科目と同じ名前）
+ */
 export interface DroppedSuggestion {
   action: 'add' | 'remove'
   syllabus_id: string
-  reason: 'not_in_db' | 'already_in_plan' | 'not_in_plan' | 'not_candidate' | 'locked'
+  reason: 'not_in_db' | 'already_in_plan' | 'not_in_plan' | 'not_candidate' | 'locked' | 'completed'
 }
 
 /** プランの微修正の提案（照合の後）。足す科目は DB にありプランに無いもの、外す科目はプランにあるもの */
@@ -480,8 +485,33 @@ export interface DiagnoseConfig {
 /** 答え（multi・single は選んだ選択肢の ID、scale5 は 1〜5） */
 export type DiagnoseAnswers = Record<string, string[] | number>
 
+/** 履修の状況の学期（start と registered の学期。診断の設定の scope の学期のどれか） */
+export interface HistoryTermIn {
+  year: number
+  term: DiagnoseTerm
+}
+
+/** その学期にもう登録した科目（registered の1学期分） */
+export interface RegisteredTermIn extends HistoryTermIn {
+  syllabus_ids: string[]
+}
+
+/**
+ * 履修の状況（任意。送らなければ、空の配列も、前と同じプラン）。backend の course_core.diagnose.history。
+ * start から先だけを埋め、completed と registered の科目と同じ名前をプランに入れない。registered はその学期に置く。
+ * 誤り（scope に無い start、start より前の registered、知らない科目、同じ科目の重複）は 422。サーバーには残らない
+ */
+export interface PlanHistoryIn {
+  start?: HistoryTermIn
+  completed?: string[]
+  registered?: RegisteredTermIn[]
+}
+
+/** 履修の状況の大きさの上限（backend の COMPLETED_MAX・REGISTERED_TERMS_MAX・REGISTERED_IDS_PER_TERM_MAX） */
+export const HISTORY_LIMITS = { completed: 200, registeredTerms: 8, registeredIdsPerTerm: 40 } as const
+
 /** POST /api/diagnose/plan の入力 */
-export interface DiagnosePlanIn {
+export interface DiagnosePlanIn extends PlanHistoryIn {
   department_id: string
   config_version: string
   answers: DiagnoseAnswers
@@ -492,6 +522,9 @@ export interface PlanReason {
   text: string
 }
 
+/** planned: 診断が選んだ科目、registered: registered で送った科目（理由の文は空） */
+export type PlanCourseStatus = 'planned' | 'registered'
+
 export interface PlanCourse {
   syllabus_id: string
   name: string
@@ -500,6 +533,8 @@ export interface PlanCourse {
   slot_note: string | null
   score: number
   reasons: PlanReason[]
+  /** 履修の状況を知らない backend は送らない（無ければ planned） */
+  status?: PlanCourseStatus
 }
 
 export interface PlanTerm {
@@ -513,5 +548,8 @@ export interface PlanTerm {
 export interface DiagnosePlanOut {
   config_version: string
   answers_digest: string
+  /** 履修の状況の指紋（送らなければ null。知らない backend は項目ごと無い） */
+  context_digest?: string | null
+  /** 時系列の順。start を送ったら start から先だけ */
   terms: PlanTerm[]
 }

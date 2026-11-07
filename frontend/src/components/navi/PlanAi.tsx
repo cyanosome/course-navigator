@@ -150,6 +150,8 @@ interface ProposalRow {
   from: string | null
   /** 入れる学年と学期（move は移す元の学期、add は案にあればそれ）。null なら科目の配当の学年と学期 */
   at: PlanPlace | null
+  /** 外す行の科目が登録済み（backend の status=registered）。外すには履修登録の変更が要る */
+  registered?: boolean
 }
 
 const rowKey = (r: ProposalRow) => (r.kind === 'move' ? `move:${r.from}>${r.code}` : `${r.kind}:${r.code}`)
@@ -172,7 +174,15 @@ function suggestionRows(s: PlanSuggestions, plan: WorkingPlan): ProposalRow[] {
         ? undefined
         : s.add.find((a) => !paired.has(a.syllabus_id) && a.syllabus_id !== out.syllabus_id && nameOf(a) === nameOf(out))
     if (hit === undefined || to === undefined) {
-      rows.push({ code: out.syllabus_id, title: nameOf(out), reason: out.reason, kind: 'remove', from: null, at: null })
+      rows.push({
+        code: out.syllabus_id,
+        title: nameOf(out),
+        reason: out.reason,
+        kind: 'remove',
+        from: null,
+        at: null,
+        registered: out.status === 'registered',
+      })
       continue
     }
     paired.add(to.syllabus_id)
@@ -275,10 +285,11 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
   })()
 
   const paragraphs = (result?.answer ?? '').split(/\n{2,}/).filter((p) => p.trim() !== '')
-  // 照合で落ちた案。系統図の科目を外す案（locked）だけ分けて出す
+  // 照合で落ちた案。系統図の科目を外す案（locked）と、取った科目と同じ名前の科目を足す案（completed）は分けて出す
   const droppedAll = suggestions?.dropped ?? []
   const locked = droppedAll.filter((d) => d.reason === 'locked' && d.action === 'remove').length
-  const dropped = droppedAll.length - locked
+  const taken = droppedAll.filter((d) => d.reason === 'completed').length
+  const dropped = droppedAll.length - locked - taken
 
   const toggle = (r: ProposalRow) => {
     setMessage(null)
@@ -407,6 +418,7 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
                   </Link>
                   {r.from !== null && <span className="ai-slot">{moveSlots(r.from, r.code)}</span>}
                   <span className="ai-meta">
+                    {r.registered === true && '登録済み　'}
                     {credits !== null && `${credits}単位`}
                     {credits !== null && r.reason !== '' && '　'}
                     {r.reason}
@@ -433,6 +445,7 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
       <p className="ai-src">AIの判断です。間違うことがあります。</p>
       {dropped > 0 && <p className="ai-src">確かめられなかった案が{dropped}件あり、出していません。</p>}
       {locked > 0 && <p className="ai-src">系統図の科目を外す案が{locked}件あり、出していません。</p>}
+      {taken > 0 && <p className="ai-src">取った科目と同じ名前の案が{taken}件あり、出していません。</p>}
       {message !== null && (
         <p className="ai-msg-line" role="alert">
           <Icon name="warn" small />

@@ -17,6 +17,7 @@ import type {
   EventPayload,
   JsonValue,
   PlanContextIn,
+  PlanHistoryIn,
   PlanReason,
 } from './apiTypes'
 import { PLAN_CONTEXT_LIMITS } from './apiTypes'
@@ -342,14 +343,18 @@ export function summaryText(summary: AnswerSummaryItem[]): string {
 /**
  * A1 の plan_context。サーバーの上限（学期の数・学期ごとの科目の数・学年・要約の字数）に収める。
  * 収めるために落としたものがあれば clamped を true にする（記録に残す）。
- * diagnosis はプランを作った設定の版と答え（POST /diagnose/plan と同じ形。backend が足す科目の候補を作るのに使う）
+ * diagnosis はプランを作った設定の版と答え（POST /diagnose/plan と同じ形。backend が足す科目の候補を作るのに使う）。
+ * history（履修の状況）があれば添える。start より前の学期は送らず（plansFrom）、registered は terms の同じ学期に
+ * 入っている科目だけにする（backend の決まり。外れると 422）。plan は start より前の学期を含んでいてよい
  */
 export function planContext(
   plan: WorkingPlan,
   summary: AnswerSummaryItem[],
   diagnosis: { configVersion: string; answers: DiagnoseAnswers },
+  history: PlanHistoryIn | null = null,
 ): { context: PlanContextIn; clamped: boolean } {
-  const inRange = plan.terms.filter((t) => t.year >= 1 && t.year <= PLAN_CONTEXT_LIMITS.yearMax)
+  const sent = history?.start === undefined ? plan : plansFrom(plan, history.start)
+  const inRange = sent.terms.filter((t) => t.year >= 1 && t.year <= PLAN_CONTEXT_LIMITS.yearMax)
   const terms = inRange.slice(0, PLAN_CONTEXT_LIMITS.terms).map((t) => ({
     year: t.year,
     term: t.term,
@@ -357,14 +362,58 @@ export function planContext(
   }))
   const fullSummary = summary.map((s) => `${s.question}→${s.answer}`).join('／')
   const clamped =
-    inRange.length !== plan.terms.length ||
+    inRange.length !== sent.terms.length ||
     inRange.length > PLAN_CONTEXT_LIMITS.terms ||
     inRange.some((t) => t.courses.length > PLAN_CONTEXT_LIMITS.idsPerTerm) ||
     fullSummary.length > PLAN_CONTEXT_LIMITS.summaryChars
-  return {
-    context: { answers_summary: summaryText(summary), terms, config_version: diagnosis.configVersion, answers: diagnosis.answers },
-    clamped,
+  const registered = (history?.registered ?? [])
+    .map((r) => {
+      const inTerm = terms.find((t) => t.year === r.year && t.term === r.term)?.syllabus_ids ?? []
+      return { ...r, syllabus_ids: r.syllabus_ids.filter((id) => inTerm.includes(id)) }
+    })
+    .filter((r) => r.syllabus_ids.length > 0)
+  const context: PlanContextIn = {
+    answers_summary: summaryText(summary),
+    terms,
+    config_version: diagnosis.configVersion,
+    answers: diagnosis.answers,
+    ...(history?.start === undefined ? {} : { start: history.start }),
+    ...(history?.completed === undefined || history.completed.length === 0 ? {} : { completed: history.completed }),
+    ...(registered.length === 0 ? {} : { registered }),
   }
+  return { context, clamped }
+}
+
+/* ---------- 履修の状況（今の学期より前の学期） ---------- */
+
+/** 学期の順の比べ（a が先なら負） */
+export function comparePlace(a: PlanPlace, b: PlanPlace): number {
+  return compareTerm(a, b)
+}
+
+/** start から先の学期だけのプラン（AI に送る・再診断で置き換える範囲） */
+export function plansFrom(plan: WorkingPlan, start: PlanPlace): WorkingPlan {
+  return { terms: plan.terms.filter((t) => compareTerm(t, start) >= 0) }
+}
+
+/**
+ * start を送って作り直したプラン（start から先だけ）に、前のプランの start より前の学期を残す。
+ * 前の学期は「プランのとおり記録する」に使うので消さない（start が無ければ next のまま）
+ */
+export function keepPastTerms(previous: WorkingPlan | null, next: WorkingPlan, start: PlanPlace | null): WorkingPlan {
+  if (start === null || previous === null) return next
+  const past = previous.terms.filter((t) => compareTerm(t, start) < 0)
+  return { terms: [...past, ...next.terms.filter((t) => compareTerm(t, start) >= 0)] }
+}
+
+/**
+ * 入れる学期が min より前なら、min から先で同じ春・秋の最初の学期にずらす（今の学期より前は記録の学期なので、
+ * プランに足す科目は今の学期から先に入れる。例 1〜4年次の春の科目を2年秋に足すと3年春）
+ */
+export function liftPlace(place: PlanPlace, min: PlanPlace | null): PlanPlace {
+  if (min === null || compareTerm(place, min) >= 0) return place
+  if (place.term === min.term) return min
+  return { year: min.year + 1, term: place.term }
 }
 
 /** A1 の question の上限（backend の AssistIn の max_length） */
