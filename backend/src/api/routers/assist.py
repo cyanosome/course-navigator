@@ -6,7 +6,8 @@
 2. 調査のセッションがあれば、成功でも失敗でも chat_response を研究のログに1行書く。
 3. サーバー側の時間切れ（170 秒で 504。画面の上限 180 秒より短く）。
 関西のデータで答え、出典は syllabus_id と courses で照合する（E1）。本文に plan_context（今のプラン）があれば、
-足す・外すの提案を照合して plan_suggestions で返す。
+足す・外すの提案を照合して plan_suggestions で返す。plan_context に診断の答え（config_version と answers）があれば
+静的の経路（道具なしの1回の生成。route_options.select_path）で答える。答えの版が違えば 409、答えの誤りは 422。
 """
 
 import asyncio
@@ -66,15 +67,22 @@ def options_from_flags(flags: VariantFlags) -> AssistOptions:
 def plan_delivery(data: AssistIn, run: route_options.AssistRun | None) -> PlanDelivery | None:
     """plan_context の配達の状態。plan_context の無い問い（AI に聞く、文にプランを入れて聞き直したもの）は None。
 
-    delivered: MCP の経路で、プランを付けた相談に LLM が答えた（照合の後の案は plan_suggestions）
-    static_fallback: MCP を使えず静的探索で答えた（プランは使われず、案も無い）
-    not_delivered: 時間切れ・失敗・未実装の水準で、答えが返らなかった
+    delivered: プランを付けた相談に LLM が答えた（MCP の経路か、診断の答えがある静的の経路。照合の後の案は plan_suggestions）
+    static_fallback: MCP の経路で MCP を使えず静的探索で答えた（プランは使われず、案も無い）
+    not_delivered: 時間切れ・失敗・未実装の水準・使えない診断の答えで、答えが返らなかった
     """
     if data.plan_context is None:
         return None
     if run is None:
         return "not_delivered"
+    if run.path == "static":
+        return "delivered"
     return "delivered" if run.result.route == "mcp" else "static_fallback"
+
+
+def _fell_back(run: route_options.AssistRun) -> bool:
+    """MCP の経路を選んだのに、MCP を使えず静的探索で答えたか（静的の経路を選んだときは倒れではない）。"""
+    return run.path == "mcp" and run.result.route != "mcp"
 
 
 def _unverified_items(codes: list[str]) -> list[UnverifiedItem]:
@@ -98,9 +106,13 @@ def _chat_response_payload(
     7.2 に足した項目（E1）: plan_context_sha256（plan_context の指紋。診断のまとめの本文は書かない）、
     plan_suggestions（照合の後の足す・外すの syllabus_id と外した理由）、toolset（McpToolset を使い回したか）、
     plan_delivery（plan_context が AI に届いたか。plan_delivery を見る）。
+    E2 で足した項目: path（サーバーが選んだ経路。mcp か static。この口で動かせない組み合わせは null）、
+    candidate_count（静的の経路で渡した選べる科目の数。mcp と失敗は null）、
+    llm_calls（LLM の呼び出しの回数。答えが返らなかったときは null）。
     """
     result = run.result if run is not None else None
     suggestions = run.plan_suggestions if run is not None else None
+    path = run.path if run is not None else route_options.select_path(options, data.plan_context)
     return {
         "request_id": request_id,
         "client_event_id": str(data.client_event_id) if data.client_event_id else None,
@@ -130,6 +142,9 @@ def _chat_response_payload(
         else None,
         "plan_delivery": plan_delivery(data, run),
         "toolset": ("reused" if run.toolset_reused else "per_request") if run is not None else None,
+        "path": path,
+        "candidate_count": run.candidate_count if run is not None else None,
+        "llm_calls": run.llm_calls if run is not None else None,
         "tokens": None,
         "error": error,
         "error_detail": error_detail,
@@ -191,6 +206,9 @@ async def ask(
     except route_options.UnsupportedLevelError as exc:
         await record(None, "other", str(exc))
         raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except route_options.PlanAnswersError as exc:
+        await record(None, "other", exc.detail)
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except Exception as exc:
         if deadline.expired():
             await record(None, "timeout", f"{ASSIST_TIMEOUT_SECONDS:.0f} 秒で打ち切りました")
@@ -199,7 +217,7 @@ async def ask(
         raise
 
     result = run.result
-    fell_back = options.route == "mcp_grounded" and result.route != "mcp"
+    fell_back = _fell_back(run)
     if fell_back:
         logger.warning("AI が MCP を使えず静的探索で答えました（request_id=%s）: %s", request_id, result.notes)
     await record(run, "mcp_unavailable" if fell_back else None, "; ".join(result.notes) if fell_back else None)

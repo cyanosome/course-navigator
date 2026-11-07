@@ -24,11 +24,14 @@ from agent.schemas import AnswerPayload, PlanAnswerPayload
 from course_core import config
 
 __all__ = [
+    "REFINE_AGENT_NAME",
     "build_grounded_mcp_agent",
     "build_kansai_mcp_agent",
+    "build_kansai_refine_agent",
     "build_mcp_agent",
     "build_neo4j_toolset",
     "load_kansai_instruction",
+    "load_kansai_refine_instruction",
     "open_shared_mcp_toolset",
 ]
 
@@ -40,6 +43,9 @@ _GROUNDED_ADDENDUM_PATH = Path(__file__).resolve().parent / "prompts" / "grounde
 # 関西のデータ（Course{syllabus_id}・CourseGroup・courses）向けの指示文（A1 用）。シードの形の
 # compose_answer.md・grounded_addendum.md は /test/agent/mcp と adk web がそのまま使う。
 _KANSAI_INSTRUCTION_PATH = Path(__file__).resolve().parent / "prompts" / "kansai_answer.md"
+# A1 の微修正（診断の答えがあるとき）の、道具なしの1回の生成の指示文。
+_KANSAI_REFINE_INSTRUCTION_PATH = Path(__file__).resolve().parent / "prompts" / "kansai_refine.md"
+REFINE_AGENT_NAME = "refine_agent"
 _PROMPT_SEPARATOR = "\n\n"
 # MCP セッション確立の待ち時間（秒）。`uv run neo4j-mcp-server` は起動に約6秒かかり、
 # ADK 既定の 5.0 秒では接続前にタイムアウトしてツール無しで実行されてしまう。
@@ -190,6 +196,28 @@ def build_kansai_mcp_agent(
         toolset=toolset,
         output_schema=PlanAnswerPayload,
         **agent_kwargs,
+    )
+
+
+def load_kansai_refine_instruction() -> str:
+    if not _KANSAI_REFINE_INSTRUCTION_PATH.is_file():
+        raise FileNotFoundError(f"微修正の指示文が見つかりません: {_KANSAI_REFINE_INSTRUCTION_PATH}")
+    return _KANSAI_REFINE_INSTRUCTION_PATH.read_text(encoding="utf-8")
+
+
+def build_kansai_refine_agent(instruction: str | None = None, model: str | None = None) -> LlmAgent:
+    """A1 の微修正（診断の答えがあるとき）用のエージェント。道具を持たず、1回の生成で答える。
+
+    入力（今のプラン・選べる科目）はサーバーが相談の後ろに付けて渡す。instruction 未指定時は kansai_refine.md。
+    最終回答は PlanAnswerPayload（道具が無いので set_model_response ではなく応答の形の指定で返す）。
+    """
+    _export_gemini_api_key()
+    return LlmAgent(
+        name=REFINE_AGENT_NAME,
+        model=model or config.AGENT_MODEL,
+        instruction=instruction if instruction is not None else load_kansai_refine_instruction(),
+        tools=[],
+        output_schema=PlanAnswerPayload,
     )
 
 

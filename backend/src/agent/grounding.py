@@ -9,7 +9,7 @@
 
 import string
 import unicodedata
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any
 
 from agent.schemas import (
@@ -156,11 +156,17 @@ def ground_plan_suggestions(
     payload: PlanAnswerPayload,
     rows_by_id: Mapping[str, Mapping[str, Any]],
     plan_ids: Sequence[str],
+    *,
+    candidate_ids: Collection[str] | None = None,
+    locked_ids: Collection[str] | None = None,
 ) -> PlanSuggestions:
     """足す・外すの提案を DB の行と今のプランで照合する。
 
     足す科目は DB に実在しプランに無いものだけ、外す科目はプランにあるものだけを残し、
     外したものは理由つきで dropped に回す。同じ科目の2回目の提案は数えない。
+    candidate_ids（サーバーが渡した「選べる科目」）があれば、足す科目はその中のものだけ（外れたら not_candidate）。
+    locked_ids（系統図に載るプランの科目）があれば、その科目を外す提案は locked で外す。
+    どちらも None なら見ない（診断の答えの無い微修正。MCP の経路）。
     """
     plan = set(normalize_codes(plan_ids))
     add: list[PlanSuggestion] = []
@@ -179,6 +185,9 @@ def ground_plan_suggestions(
         if syllabus_id in plan:
             dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="already_in_plan"))
             continue
+        if candidate_ids is not None and syllabus_id not in candidate_ids:
+            dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="not_candidate"))
+            continue
         title = rows_by_id[syllabus_id]["subject_name"]
         add.append(PlanSuggestion(syllabus_id=syllabus_id, title=title, reason=change.reason))
 
@@ -190,6 +199,9 @@ def ground_plan_suggestions(
         seen_remove.add(syllabus_id)
         if syllabus_id not in plan:
             dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="not_in_plan"))
+            continue
+        if locked_ids is not None and syllabus_id in locked_ids:
+            dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="locked"))
             continue
         row = rows_by_id.get(syllabus_id)
         title = row["subject_name"] if row is not None else None
@@ -203,10 +215,13 @@ def build_course_grounded_answer(
     rows: Iterable[Mapping[str, Any]],
     *,
     plan_ids: Sequence[str] | None,
+    candidate_ids: Collection[str] | None = None,
+    locked_ids: Collection[str] | None = None,
 ) -> CourseGroundedAnswer:
     """cited_codes（syllabus_id）を courses の行と突き合わせ、出典と未検証に振り分ける。
 
-    plan_ids（今のプランの syllabus_id）があれば、足す・外すの提案も照合して plan_suggestions に入れる。
+    plan_ids（今のプランの syllabus_id）があれば、足す・外すの提案も照合して plan_suggestions に入れる
+    （candidate_ids・locked_ids は ground_plan_suggestions のとおり）。
     無ければ plan_suggestions は None で、LLM が提案を出していたら使わなかったことを notes に残す。
     """
     cited = normalize_codes(payload.cited_codes)
@@ -214,7 +229,9 @@ def build_course_grounded_answer(
     notes: list[str] = []
     plan_suggestions: PlanSuggestions | None = None
     if plan_ids is not None:
-        plan_suggestions = ground_plan_suggestions(payload, rows_by_id, plan_ids)
+        plan_suggestions = ground_plan_suggestions(
+            payload, rows_by_id, plan_ids, candidate_ids=candidate_ids, locked_ids=locked_ids
+        )
     elif payload.add or payload.remove:
         notes.append(_NO_PLAN_NOTE.format(count=len(payload.add) + len(payload.remove)))
     return CourseGroundedAnswer(

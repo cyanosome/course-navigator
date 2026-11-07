@@ -10,7 +10,7 @@
 """
 
 import os
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 
 from google.adk import Context, Event
 from google.genai import types
@@ -208,11 +208,15 @@ async def attach_sources(node_input: AnswerPayload, ctx: Context) -> Event:
 
 def course_sources_node(
     plan_ids: Sequence[str] | None,
+    *,
+    candidate_ids: Collection[str] | None = None,
+    locked_ids: Collection[str] | None = None,
 ) -> Callable[[PlanAnswerPayload, Context], Awaitable[Event]]:
     """関西（courses）向けの出典付与ノードを作る（A1 用。LLM 0回）。
 
     plan_ids は今のプランの syllabus_id（プランが渡されなければ None）。ノードの入力しか受け取れない
     ADK の関数ノードにプランを渡すため、1問ごとに閉包で作る（ワークフローも1問ごとに作っている）。
+    candidate_ids・locked_ids は診断の答えがある微修正だけ（grounding.ground_plan_suggestions のとおり）。
     ノードの名前は attach_sources のまま（node_sequence がシードの経路と同じ並びになる）。
     """
 
@@ -228,7 +232,9 @@ def course_sources_node(
                 conn, grounding.course_lookup_ids(node_input)
             )
         return Event(
-            output=grounding.build_course_grounded_answer(node_input, rows, plan_ids=plan_ids)
+            output=grounding.build_course_grounded_answer(
+                node_input, rows, plan_ids=plan_ids, candidate_ids=candidate_ids, locked_ids=locked_ids
+            )
         )
 
     return attach_sources

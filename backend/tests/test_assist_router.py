@@ -20,9 +20,10 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
+import diagnose_fixtures
 from agent import courses_tools, deps, grounding, route_options, runner
 from agent.route_options import AssistOptions
-from agent.schemas import PlanAnswerPayload
+from agent.schemas import PlanAnswerPayload, PlanChange
 from api.routers import assist as assist_router
 from catalog_rows import course_row
 from fake_toolset import RecordingToolset
@@ -615,3 +616,207 @@ def test_build_agent_passes_style_instruction():
     assert agent.instruction == route_options.instruction_for("detailed")
     standard = route_options.build_agent(AssistOptions())
     assert "回答の長さ" not in standard.instruction and "回答の詳しさ" not in standard.instruction
+
+
+def test_refine_instruction_for_styles():
+    from agent.mcp_agent import load_kansai_refine_instruction
+
+    assert route_options.refine_instruction_for("standard") is None
+    brief = route_options.refine_instruction_for("brief")
+    assert brief is not None and brief.startswith(load_kansai_refine_instruction())
+    assert route_options.build_refine_agent(AssistOptions(style="brief")).instruction == brief
+    assert route_options.build_refine_agent(AssistOptions()).tools == []
+
+
+# --- 診断の答えがある微修正（静的の経路） ------------------------------------------------------
+
+_LOCKED_CODE = _PLAN_CODE  # 今のプランにある系統図の科目（外さない）
+_FREE_CODE = "900004"  # 今のプランにある系統図に載らない科目（外せる）
+_SAME_NAME_CODE = "900005"  # 今のプランの系統図の科目と同じ名前の別クラス（選べる科目に出さない）
+_STATIC_ROWS = [
+    *_ROWS,
+    course_row(syllabus_id=_FREE_CODE, subject_name="架空の教養", term_schedule="月3"),
+    course_row(syllabus_id=_SAME_NAME_CODE, subject_name="架空の月曜の科目", term_schedule="金2"),
+]
+_STATIC_PLAN = {
+    "answers_summary": "架空の診断のまとめ",
+    "terms": [{"year": 1, "term": "春", "syllabus_ids": [_LOCKED_CODE, _FREE_CODE]}],
+    "config_version": "test-1",
+    "answers": {"interest": ["adv"], "morning": ["ok"], "scale": 3},
+}
+
+
+def _static_catalog():
+    return diagnose_fixtures.catalog(
+        [
+            diagnose_fixtures.course(_LOCKED_CODE, name="架空の月曜の科目", group_id="G_A", slots=("月2",)),
+            diagnose_fixtures.course(_FREE_CODE, name="架空の教養", slots=("月3",)),
+            diagnose_fixtures.course(_EXTRA_CODE, name="架空の水曜の科目", slots=("水2",)),  # 選べる科目
+            diagnose_fixtures.course(_SAME_NAME_CODE, name="架空の月曜の科目", slots=("金2",)),  # 同じ名前なので選べない
+            diagnose_fixtures.course(_KNOWN_CODE, name="架空の反応工学１", year_min=3),  # 1年は取れないので選べない
+        ]
+    )
+
+
+class _RefineLlm(BaseLlm):
+    """道具なしの生成の偽モデル。1回だけ JSON の文を返す（足す・外すに、照合で残るもの・外れるものを混ぜる）。"""
+
+    model: str = "refine-fake-llm"
+    received: list[str] = []
+    tool_counts: list[int] = []
+    catalog_loads: list[str] = []  # 候補を作るために読んだ学科（差し替えた load_refine_catalog が書く）
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        self.received.append(_user_text(llm_request))
+        self.tool_counts.append(len(llm_request.config.tools or []))
+        payload = PlanAnswerPayload(
+            answer=f"架空の水曜の科目 [{_EXTRA_CODE}] を足します。",
+            cited_codes=[_EXTRA_CODE],
+            add=[
+                PlanChange(syllabus_id=_EXTRA_CODE, reason="水2"),
+                PlanChange(syllabus_id=_KNOWN_CODE, reason="選べる科目に無い"),
+                PlanChange(syllabus_id=_SAME_NAME_CODE, reason="同じ名前の別クラス"),
+                PlanChange(syllabus_id=_UNKNOWN_CODE, reason="DB に無い"),
+            ],
+            remove=[
+                PlanChange(syllabus_id=_LOCKED_CODE, reason="系統図の科目"),
+                PlanChange(syllabus_id=_FREE_CODE, reason="月3"),
+            ],
+        )
+        yield LlmResponse(
+            content=types.Content(role="model", parts=[types.Part(text=payload.model_dump_json())]),
+            usage_metadata=types.GenerateContentResponseUsageMetadata(prompt_token_count=10, candidates_token_count=5),
+        )
+
+
+@pytest.fixture
+def refine_llm(monkeypatch, built_options) -> _RefineLlm:
+    """静的の経路の差し替え（偽モデル・架空の診断の設定と科目）。MCP の経路の build_agent は built_options が記録する。"""
+    llm = _RefineLlm(received=[], tool_counts=[], catalog_loads=[])
+
+    async def _catalog(department_id: str):
+        llm.catalog_loads.append(department_id)
+        return _static_catalog()
+
+    monkeypatch.setattr(
+        route_options,
+        "build_refine_agent",
+        lambda options: LlmAgent(
+            name="refine_agent", model=llm, instruction="テスト用", tools=[], output_schema=PlanAnswerPayload
+        ),
+    )
+    monkeypatch.setattr(route_options, "load_refine_config", lambda department_id: diagnose_fixtures.make_config())
+    monkeypatch.setattr(route_options, "load_refine_catalog", _catalog)
+    deps.set_backends(_FakePool(_STATIC_ROWS), None)
+    return llm
+
+
+def test_plan_answers_use_the_static_path_with_candidates_and_locks(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")  # route=mcp_grounded の変種でも、診断の答えがあれば静的の経路
+    response = _ask(client, session="sess-1", plan_context=_STATIC_PLAN)
+    assert response.status_code == 200
+    body = response.json()
+
+    # LLM は1回だけ、道具なしで呼ばれ、選べる科目と系統図の科目の印が相談の後ろに付く
+    assert len(refine_llm.received) == 1
+    assert refine_llm.tool_counts == [0]
+    assert built_options == []  # MCP の経路のエージェントは作らない
+    assert refine_llm.catalog_loads == [route_options.REFINE_DEPARTMENT_ID]
+    text = refine_llm.received[0]
+    lines = text.splitlines()
+    assert text.startswith(_QUESTION)
+    assert f"- {_LOCKED_CODE} 架空の月曜の科目（月2、2単位、まとまり: 架空基礎系）［系統図の科目・外さない］" in lines
+    assert f"- {_FREE_CODE} 架空の教養（月3、2単位）" in lines
+    assert any(line.startswith("## 選べる科目") for line in lines)
+    assert f"- {_EXTRA_CODE} 架空の水曜の科目（水2、2単位、点 1）" in lines
+    assert f"- {_SAME_NAME_CODE} " not in text  # 同じ名前の別クラスは選べる科目に出さない
+
+    assert body["route"] == "static"
+    assert body["route_requested"] == "mcp_grounded"
+    assert body["model"] == "refine-fake-llm"
+    assert body["tool_calls"] == []
+    assert body["plan_suggestions"] == {
+        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水2"}],
+        "remove": [{"syllabus_id": _FREE_CODE, "title": "架空の教養", "reason": "月3"}],
+        "dropped": [
+            {"action": "add", "syllabus_id": _KNOWN_CODE, "reason": "not_candidate"},
+            {"action": "add", "syllabus_id": _SAME_NAME_CODE, "reason": "not_candidate"},
+            {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
+            {"action": "remove", "syllabus_id": _LOCKED_CODE, "reason": "locked"},
+        ],
+    }
+
+    payload = sink.events[0][2]
+    assert (payload["path"], payload["candidate_count"], payload["llm_calls"]) == ("static", 1, 1)
+    assert (payload["route_actual"], payload["plan_delivery"], payload["error"]) == ("static", "delivered", None)
+    assert payload["plan_suggestions"]["remove"] == [_FREE_CODE]
+    assert "架空の診断のまとめ" not in str(payload)
+
+
+def test_static_route_option_with_plan_answers_is_served(client, sink, built_options, refine_llm, monkeypatch):
+    """route=static（今まで 501）は、診断の答えがあれば静的の経路で答える。"""
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    response = _ask(client, options={"route": "static"}, plan_context=_STATIC_PLAN)
+    assert response.status_code == 200
+    assert response.json()["route"] == "static"
+    assert len(refine_llm.received) == 1
+
+
+def test_plan_without_answers_keeps_the_mcp_path(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context=_PLAN).status_code == 200
+    assert refine_llm.received == []
+    assert len(built_options) == 1
+    payload = sink.events[0][2]
+    assert (payload["path"], payload["candidate_count"], payload["route_actual"]) == ("mcp", None, "mcp")
+    assert payload["llm_calls"] == 0  # 偽モデルは usage_metadata を返さない（実の Gemini は返す）
+
+
+def test_plan_answers_with_another_config_version_are_409(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1", plan_context={**_STATIC_PLAN, "config_version": "old-1"})
+    assert response.status_code == 409
+    assert "old-1" in response.json()["detail"]
+    assert refine_llm.received == []
+    payload = sink.events[0][2]
+    assert (payload["path"], payload["plan_delivery"], payload["error"]) == ("static", "not_delivered", "other")
+
+
+def test_wrong_plan_answers_are_422_and_recorded(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")
+    bad = {**_STATIC_PLAN, "answers": {"interest": ["no-such-option"], "morning": ["ok"], "scale": 3}}
+    response = _ask(client, session="sess-1", plan_context=bad)
+    assert response.status_code == 422
+    assert "no-such-option" in response.json()["detail"]
+    assert refine_llm.received == []
+    assert sink.events[0][2]["error"] == "other"
+
+
+@pytest.mark.parametrize("missing", ["config_version", "answers"])
+def test_plan_answers_need_both_version_and_answers(client, sink, built_options, refine_llm, missing):
+    sink.add("sess-1", "V00")
+    plan = {key: value for key, value in _STATIC_PLAN.items() if key != missing}
+    assert _ask(client, session="sess-1", plan_context=plan).status_code == 422
+    assert refine_llm.received == []
+    assert sink.events == []  # 形の誤りは FastAPI が断る（plan_context のほかの形の誤りと同じく記録しない）
+
+
+def test_static_path_needs_the_databases(client, sink, monkeypatch):
+    """DB が無ければ候補を作れない。記録してから 500（握りつぶさない）。"""
+    monkeypatch.setattr(route_options, "load_refine_config", lambda department_id: diagnose_fixtures.make_config())
+    deps.set_backends(None, None)
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context=_STATIC_PLAN).status_code == 500
+    payload = sink.events[0][2]
+    assert payload["error"] == "other"
+    assert "未設定" in payload["error_detail"]
+
+
+def test_plan_context_digest_ignores_unsent_answers():
+    """診断の答えを送らない plan_context の指紋は、項目を足す前と同じ（送られなかった項目を指紋に入れない）。"""
+    plan = route_options.PlanContext.model_validate(_PLAN)
+    with_answers = route_options.PlanContext.model_validate(_STATIC_PLAN)
+    assert set(plan.model_dump(exclude_none=True)) == {"answers_summary", "terms"}
+    assert route_options.plan_context_sha256(plan) != route_options.plan_context_sha256(with_answers)

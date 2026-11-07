@@ -354,3 +354,110 @@ def test_open_shared_mcp_toolset_does_not_stop_startup(monkeypatch, caplog):
 
     assert opened is toolset  # 起動は続け、リクエストのときに繋ぎ直す
     assert any("架空の接続の失敗" in record.getMessage() for record in caplog.records)
+
+
+# --- 微修正の静的の経路（診断の答えがあるとき） -------------------------------------------------
+
+
+def test_ground_plan_suggestions_with_candidates_and_locks():
+    """足す科目は選べる科目の中のもの、外す科目は系統図に載らないものだけ（それ以外は理由つきで dropped）。"""
+    payload = PlanAnswerPayload(
+        answer="回答",
+        add=[PlanChange(syllabus_id=_OTHER, reason="候補"), PlanChange(syllabus_id=_KNOWN), PlanChange(syllabus_id=_UNKNOWN)],
+        remove=[PlanChange(syllabus_id="888888", reason="系統図"), PlanChange(syllabus_id="777777", reason="教養")],
+    )
+    rows_by_id = {row["syllabus_id"]: row for row in _ROWS}
+
+    suggestions = grounding.ground_plan_suggestions(
+        payload, rows_by_id, ["888888", "777777"], candidate_ids={_OTHER}, locked_ids={"888888"}
+    )
+
+    assert [s.syllabus_id for s in suggestions.add] == [_OTHER]
+    assert [s.syllabus_id for s in suggestions.remove] == ["777777"]
+    assert [(d.action, d.syllabus_id, d.reason) for d in suggestions.dropped] == [
+        ("add", _KNOWN, "not_candidate"),
+        ("add", _UNKNOWN, "not_in_db"),  # DB に無いものは先に not_in_db
+        ("remove", "888888", "locked"),
+    ]
+    # 集合を渡さなければ今の照合のまま（MCP の経路）
+    plain = grounding.ground_plan_suggestions(payload, rows_by_id, ["888888", "777777"])
+    assert [s.syllabus_id for s in plain.add] == [_OTHER, _KNOWN]
+    assert [s.syllabus_id for s in plain.remove] == ["888888", "777777"]
+
+
+def test_course_sources_node_passes_candidates_and_locks(fake_pool):
+    node = nodes.course_sources_node([_KNOWN], candidate_ids=set(), locked_ids={_KNOWN})
+    payload = PlanAnswerPayload(
+        answer="回答", add=[PlanChange(syllabus_id=_OTHER)], remove=[PlanChange(syllabus_id=_KNOWN)]
+    )
+
+    event = asyncio.run(node(payload, None))
+
+    assert [(d.syllabus_id, d.reason) for d in event.output.plan_suggestions.dropped] == [
+        (_OTHER, "not_candidate"),
+        (_KNOWN, "locked"),
+    ]
+
+
+def test_build_kansai_refine_agent_has_no_tools():
+    agent = mcp_agent.build_kansai_refine_agent()
+
+    assert agent.tools == []
+    assert agent.name == mcp_agent.REFINE_AGENT_NAME
+    assert agent.output_schema is PlanAnswerPayload
+    assert agent.instruction == mcp_agent.load_kansai_refine_instruction()
+
+
+def test_kansai_refine_instruction_matches_the_block():
+    from agent import plan_candidates
+
+    text = mcp_agent.load_kansai_refine_instruction()
+    for needed in ("## 今のプラン", "## 選べる科目", plan_candidates.LOCK_MARK, "合計", "準備中", "cited_codes"):
+        assert needed in text
+    assert plan_candidates.PLAN_HEADING.startswith("## 今のプラン")
+    assert plan_candidates.CANDIDATES_HEADING.startswith("## 選べる科目")
+    # 道具を持たないので、道具の名前は書かない
+    for absent in ("read-cypher", "get_course_details(", "get-schema"):
+        assert absent not in text
+
+
+class _JsonLlm(BaseLlm):
+    """道具なしの生成の偽モデル。応答の形の指定（response_schema）に合わせ、JSON の文を1回だけ返す。"""
+
+    model: str = "json-fake-llm"
+    requests: list[LlmRequest] = []
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        self.requests.append(llm_request)
+        text = PlanAnswerPayload(answer="回答", cited_codes=[_KNOWN]).model_dump_json()
+        yield LlmResponse(
+            content=types.Content(role="model", parts=[types.Part(text=text)]),
+            usage_metadata=types.GenerateContentResponseUsageMetadata(prompt_token_count=10, candidates_token_count=5),
+        )
+
+
+def test_run_single_generation_calls_the_llm_once_without_tools(fake_pool):
+    llm = _JsonLlm(requests=[])
+    agent = LlmAgent(name="refine_agent", model=llm, instruction="テスト用", tools=[], output_schema=PlanAnswerPayload)
+
+    run = asyncio.run(
+        runner.run_single_generation("質問", agent=agent, grounding_node=nodes.course_sources_node([_KNOWN]))
+    )
+
+    assert run.result.route == "static"
+    assert run.result.model == "json-fake-llm"
+    assert run.result.node_sequence == ["refine_agent", "attach_sources"]
+    assert run.result.tool_calls == []
+    assert [source.code for source in run.result.sources] == [_KNOWN]
+    assert isinstance(run.grounded, CourseGroundedAnswer)
+    assert run.llm_calls == 1
+    assert len(llm.requests) == 1
+    assert not llm.requests[0].config.tools  # 道具を渡していない
+
+
+def test_run_single_generation_refuses_agents_with_tools(fake_pool):
+    agent = _agent_with(RecordingToolset())
+    with pytest.raises(ValueError):
+        asyncio.run(runner.run_single_generation("質問", agent=agent, grounding_node=nodes.course_sources_node(None)))

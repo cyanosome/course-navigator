@@ -2,11 +2,15 @@
 
 関西のデータで答える（E1）: 指示文は kansai_answer.md、ツールは courses を読む get_course_details、
 出典の照合は syllabus_id と courses（nodes.course_sources_node）。/test/agent/mcp のシードの経路は変えない。
-- route: mcp_grounded は runner.run_grounded。static は関西の静的経路が入るまで未実装（UnsupportedLevelError）。
+- 経路（select_path）: plan_context に診断の答え（config_version と answers）があれば静的の経路（static）。
+  道具なしの LLM を1回だけ動かす（runner.run_single_generation、指示文は kansai_refine.md）。サーバーが診断のエンジンで
+  プランの学期ごとの「選べる科目」（agent.plan_candidates）を作り、プランの系統図の科目に「外さない」の印を付けて渡す。
+  答えが無ければ、route=mcp_grounded は MCP の経路（runner.run_grounded）、route=static は未実装（UnsupportedLevelError）。
 - style: standard は関西の指示文そのまま（instruction を渡さない）。brief・detailed は同じ文に追補ファイルを足して渡す。
 - verify・citations: 生成は変えない（照合は常にかかる）。画面の出し方と記録のために options に残すだけ。
-- plan_context: 今のプラン（診断の結果）があれば、科目名などを courses で引いて相談の後ろに付け、
-  足す・外すの提案を出させて照合する。
+- plan_context: 今のプラン（診断の結果）があれば、科目名などを DB で引いて相談の後ろに付け、
+  足す・外すの提案を出させて照合する。静的の経路では、足す科目は選べる科目の中のもの（外れたら not_candidate）、
+  外す科目は系統図に載らないもの（載るものは locked）だけを残す。
 - McpToolset: lifespan で作った1つ（deps.mcp_toolset）があれば使い回し、閉じない。無ければ1問ごとに作って閉じる。
 型を course_core でなくここに置くのは、AssistOut が runner.McpAgentRunResult を継ぐため
 （course_core から agent を import すると向きが逆になる）。
@@ -22,30 +26,44 @@ from typing import Annotated, Any, Final, Literal
 from uuid import UUID
 
 from google.adk.agents.llm_agent import LlmAgent
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StrictInt, StrictStr, StringConstraints, model_validator
 
-from agent import deps, nodes, runner
+from agent import deps, nodes, plan_candidates, runner
 from agent.grounding import normalize_codes
 from agent.schemas import CourseGroundedAnswer, PlanSuggestions
 from course_core.catalog.mapping import to_float_credits
+from course_core.catalog.registry import load_departments
+from course_core.diagnose.answers import validate_answers
+from course_core.diagnose.config import DiagnoseConfig, load_config
+from course_core.diagnose.engine import DiagnoseEngine
+from course_core.diagnose.model import Catalog
+from course_core.diagnose.source import load_catalog
 from course_core.repositories import postgres_courses_repo
 
 __all__ = [
+    "REFINE_DEPARTMENT_ID",
     "AssistIn",
     "AssistOptions",
     "AssistOut",
+    "AssistPath",
     "AssistRun",
+    "PlanAnswersError",
     "PlanContext",
     "PlanTerm",
     "UnsupportedLevelError",
     "UnverifiedItem",
     "build_agent",
+    "build_refine_agent",
     "compose_message",
     "instruction_for",
+    "load_refine_catalog",
+    "load_refine_config",
     "plan_context_sha256",
     "plan_syllabus_ids",
+    "refine_instruction_for",
     "render_plan_block",
     "run_with_options",
+    "select_path",
 ]
 
 logger = logging.getLogger(__name__)
@@ -67,8 +85,14 @@ _PLAN_SUMMARY_PREFIX: Final = "診断のまとめ: "
 _PLAN_NOT_IN_DB: Final = "（DB に無い syllabus_id）"
 _PLAN_LOOKUP_FAILED: Final = "（DB を引けず確かめられませんでした）"
 _PLAN_EMPTY_TERM: Final = "- （科目なし）"
+# 診断の答え（plan_context.answers）の質問の数の上限（設定の質問は8問まで。知らない質問は答えの検査で断る）。
+PLAN_ANSWERS_MAX: Final = 16
+PLAN_CONFIG_VERSION_MAX_CHARS: Final = 64
+# A1 は関西の1学科のデータで答える（指示文も関西のもの）。微修正の候補はこの学科の診断の設定と科目で作る。
+REFINE_DEPARTMENT_ID: Final = "kansai-enechem-2026"
 
 SyllabusId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
+AssistPath = Literal["mcp", "static"]
 
 
 class PlanTerm(BaseModel):
@@ -80,10 +104,27 @@ class PlanTerm(BaseModel):
 
 
 class PlanContext(BaseModel):
-    """診断のプラン（A1 の任意の入力）。あれば AI は利用者の頼みに沿って足す・外すを提案する。"""
+    """診断のプラン（A1 の任意の入力）。あれば AI は利用者の頼みに沿って足す・外すを提案する。
+
+    config_version と answers（POST /diagnose/plan と同じ形の診断の答え）は任意で、送るなら両方とも送る。
+    あれば静的の経路（道具なしの1回の生成）で、診断のエンジンの候補から選ばせる。
+    """
 
     answers_summary: str = Field("", max_length=PLAN_SUMMARY_MAX_CHARS)  # 診断の答えの短いまとめ
     terms: list[PlanTerm] = Field(default_factory=list, max_length=PLAN_TERMS_MAX)
+    config_version: str | None = Field(None, min_length=1, max_length=PLAN_CONFIG_VERSION_MAX_CHARS)
+    # single・multi は選択肢の id の配列、scale5 は 1〜5（schemas.diagnose.DiagnosePlanIn.answers と同じ形）
+    answers: dict[str, list[StrictStr] | StrictInt] | None = Field(None, max_length=PLAN_ANSWERS_MAX)
+
+    @model_validator(mode="after")
+    def _version_and_answers_together(self) -> "PlanContext":
+        if (self.config_version is None) != (self.answers is None):
+            raise ValueError("config_version と answers は両方とも送るか、両方とも送らないでください。")
+        return self
+
+    @property
+    def has_answers(self) -> bool:
+        return self.answers is not None
 
 
 class AssistOptions(BaseModel):
@@ -115,12 +156,21 @@ class AssistOut(runner.McpAgentRunResult):
     options_ignored: bool  # 送られた options を使わなかったか（調査中・開発でないとき）
     route_requested: Literal["mcp_grounded", "static"]
     unverified_items: list[UnverifiedItem]  # verify=off のときだけ埋める
-    # plan_context があり、mcp の経路で照合まで通ったときだけ埋まる（無ければ None）。
+    # plan_context があり、照合まで通ったときだけ埋まる（無ければ None。MCP の経路で静的 DAG に倒れたときも None）。
     plan_suggestions: PlanSuggestions | None = None
 
 
 class UnsupportedLevelError(Exception):
-    """この口でまだ動かせない水準（例 route=static は関西の静的経路が入るまで）。501 にする。"""
+    """この口でまだ動かせない水準（例 診断の答えの無い route=static）。501 にする。"""
+
+
+class PlanAnswersError(Exception):
+    """plan_context の診断の答えを使えない（版が違う 409、答えの誤り 422）。status_code で返す。"""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
 
 
 @dataclass(frozen=True)
@@ -129,6 +179,9 @@ class AssistRun:
     prompt_sha256: str | None  # 使った指示文の SHA-256（指示文が文字列でなければ None）
     plan_suggestions: PlanSuggestions | None = None
     toolset_reused: bool = False  # lifespan で作った McpToolset を使い回したか（偽なら1問ごとに作って閉じた）
+    path: AssistPath = "mcp"  # サーバーが選んだ経路（select_path）
+    candidate_count: int | None = None  # 静的の経路で渡した選べる科目の syllabus_id の数（mcp では None）
+    llm_calls: int | None = None  # LLM の呼び出しの回数（runner.GroundedRun.llm_calls）
 
 
 def _style_addendum(style: str) -> str:
@@ -159,6 +212,34 @@ def build_agent(options: AssistOptions) -> LlmAgent:
     return build_kansai_mcp_agent(instruction=instruction_for(options.style), toolset=deps.mcp_toolset())
 
 
+def refine_instruction_for(style: str) -> str | None:
+    """静的の経路の style ごとの指示文。standard は None（build_kansai_refine_agent の既定の文 kansai_refine.md）。"""
+    if style == "standard":
+        return None
+    from agent.mcp_agent import load_kansai_refine_instruction
+
+    return _PROMPT_SEPARATOR.join((load_kansai_refine_instruction(), _style_addendum(style)))
+
+
+def build_refine_agent(options: AssistOptions) -> LlmAgent:
+    """静的の経路（診断の答えがある微修正）の、道具を持たない関西向けのエージェント。テストは偽モデルに差し替える。"""
+    from agent.mcp_agent import build_kansai_refine_agent
+
+    return build_kansai_refine_agent(instruction=refine_instruction_for(options.style))
+
+
+def select_path(options: AssistOptions, plan_context: PlanContext | None) -> AssistPath | None:
+    """サーバーが選ぶ経路。plan_context に診断の答えがあれば static（options.route によらない）。
+
+    答えが無ければ route=mcp_grounded は mcp。route=static は候補を作れないので None（この口では動かせない）。
+    """
+    if plan_context is not None and plan_context.has_answers:
+        return "static"
+    if options.route == "mcp_grounded":
+        return "mcp"
+    return None
+
+
 def _prompt_sha256(agent: LlmAgent) -> str | None:
     instruction = agent.instruction
     if not isinstance(instruction, str):
@@ -175,8 +256,13 @@ def plan_syllabus_ids(plan: PlanContext) -> list[str]:
 
 
 def plan_context_sha256(plan: PlanContext) -> str:
-    """記録（chat_response）に残す plan_context の指紋。本文（診断のまとめ）は記録に書かない。"""
-    canonical = json.dumps(plan.model_dump(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    """記録（chat_response）に残す plan_context の指紋。本文（診断のまとめ）は記録に書かない。
+
+    送られなかった任意の項目（config_version・answers）は指紋に入れない（診断の答えを足す前の指紋と同じになる）。
+    """
+    canonical = json.dumps(
+        plan.model_dump(exclude_none=True), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -225,12 +311,76 @@ async def _fetch_plan_rows(syllabus_ids: Sequence[str]) -> list[Mapping[str, Any
         return list(await postgres_courses_repo.fetch_courses_by_ids(conn, syllabus_ids))
 
 
+def load_refine_config(department_id: str) -> DiagnoseConfig:
+    """静的の経路で使う、いま有効な診断の設定。テストは架空の設定に差し替える。"""
+    return load_config(department_id).config
+
+
+async def load_refine_catalog(department_id: str) -> Catalog:
+    """静的の経路で使う学科の科目と系統図（POST /diagnose/plan と同じ読み方。読み取りだけ）。テストは差し替える。"""
+    pool, driver = deps.db_pool(), deps.neo4j_driver()
+    if pool is None or driver is None:
+        raise RuntimeError("PostgreSQL か Neo4j が未設定のため、微修正の候補を作れません（deps.set_backends）。")
+    department = load_departments()[department_id]
+    async with pool.acquire() as conn, driver.session() as session:
+        return await load_catalog(conn, session, department)
+
+
+async def _refine_context(plan_context: PlanContext) -> plan_candidates.RefineContext:
+    """診断の答えを検査し、診断のエンジンで選べる科目と系統図の科目の印を作る。使えない答えは PlanAnswersError。"""
+    config = load_refine_config(REFINE_DEPARTMENT_ID)
+    if plan_context.config_version != config.version:
+        raise PlanAnswersError(
+            409,
+            f"診断の設定の版が違います（送られた版 {plan_context.config_version}、いまの版 {config.version}）。",
+        )
+    answers, errors = validate_answers(config, plan_context.answers or {})
+    if errors:
+        raise PlanAnswersError(422, "診断の答えに誤りがあります: " + "; ".join(errors))
+    catalog = await load_refine_catalog(REFINE_DEPARTMENT_ID)
+    return plan_candidates.build_refine_context(
+        engine=DiagnoseEngine(config, catalog),
+        catalog=catalog,
+        answers=answers,
+        answers_summary=plan_context.answers_summary,
+        terms=plan_context.terms,
+    )
+
+
+async def _run_static(question: str, options: AssistOptions, plan_context: PlanContext) -> AssistRun:
+    """静的の経路: 道具なしの LLM を1回動かし、選べる科目と系統図の科目の印で照合する。"""
+    context = await _refine_context(plan_context)
+    candidate_ids = context.candidate_ids
+    agent = build_refine_agent(options)
+    run = await runner.run_single_generation(
+        compose_message(question, context.block),
+        agent=agent,
+        grounding_node=nodes.course_sources_node(
+            context.plan_ids, candidate_ids=candidate_ids, locked_ids=context.locked_ids
+        ),
+    )
+    grounded = run.grounded
+    return AssistRun(
+        result=run.result,
+        prompt_sha256=_prompt_sha256(agent),
+        plan_suggestions=grounded.plan_suggestions if isinstance(grounded, CourseGroundedAnswer) else None,
+        path="static",
+        candidate_count=len(candidate_ids),
+        llm_calls=run.llm_calls,
+    )
+
+
 async def run_with_options(
     question: str, options: AssistOptions, plan_context: PlanContext | None = None
 ) -> AssistRun:
-    """options に合わせて AI を1回動かす。例外は握りつぶさない（呼ぶ側が記録してから共通ハンドラへ）。"""
-    if options.route == "static":
-        raise UnsupportedLevelError("route=static は未実装の水準です（関西の静的経路が入るまで使えません）。")
+    """options と plan_context に合わせて AI を1回動かす。例外は握りつぶさない（呼ぶ側が記録してから共通ハンドラへ）。"""
+    path = select_path(options, plan_context)
+    if path is None:
+        raise UnsupportedLevelError(
+            "route=static は、plan_context に診断の答え（config_version と answers）があるときだけ使えます。"
+        )
+    if path == "static" and plan_context is not None:
+        return await _run_static(question, options, plan_context)
 
     plan_ids: list[str] | None = None
     plan_block: str | None = None
@@ -254,4 +404,6 @@ async def run_with_options(
         prompt_sha256=_prompt_sha256(agent),
         plan_suggestions=plan_suggestions,
         toolset_reused=reused,
+        path="mcp",
+        llm_calls=run.llm_calls,
     )

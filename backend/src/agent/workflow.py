@@ -15,6 +15,7 @@ __all__ = [
     "build_agent_workflow",
     "build_mcp_first_workflow",
     "build_mcp_grounded_workflow",
+    "build_single_generation_workflow",
     "build_workflow",
     "workflow",
 ]
@@ -170,3 +171,16 @@ def build_mcp_grounded_workflow(
             (nodes.rank_candidates, nodes.compose_answer),
         ],
     )
+
+
+def build_single_generation_workflow(
+    agent_node: LlmAgent,
+    grounding_node: Any,
+    name: str = "course_navigator_single_generation_workflow",
+) -> Workflow:
+    """道具なしの LLM を1回だけ動かし、出典を付けるワークフロー（A1 の微修正の静的の経路）。
+
+    START ➔ agent_node（道具なし。入力に要る情報はサーバーが渡す） ➔ grounding_node（DB で照合する決定論ノード）
+    MCP を使わないので route_initial も静的 DAG への倒れ先も持たない。
+    """
+    return Workflow(name=name, edges=[("START", agent_node, grounding_node)])
