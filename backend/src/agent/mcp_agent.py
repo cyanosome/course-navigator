@@ -94,6 +94,12 @@ def build_neo4j_toolset() -> McpToolset:
     return McpToolset(connection_params=connection_params)
 
 
+def _export_gemini_api_key() -> None:
+    """GEMINI_API_KEY が config にあれば環境変数へ伝播（Google GenAI SDK 連携用）。"""
+    if config.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = config.GEMINI_API_KEY
+
+
 def build_mcp_agent(
     model: str | None = None,
     instruction: str | None = None,
@@ -125,9 +131,7 @@ def build_mcp_agent(
     if extra_tools:
         tools.extend(extra_tools)
 
-    # GEMINI_API_KEY が config にあれば環境変数へ伝播（Google GenAI SDK 連携用）
-    if config.GEMINI_API_KEY and not os.environ.get("GEMINI_API_KEY"):
-        os.environ["GEMINI_API_KEY"] = config.GEMINI_API_KEY
+    _export_gemini_api_key()
 
     return LlmAgent(
         name="mcp_agent",

@@ -150,6 +150,14 @@ class DiagnoseEngine:
                     scores[index] += weight * value
         return [round(score, _SCORE_DIGITS) for score in scores]
 
+    def _ranked(self, term: PlanTerm, scores: Sequence[float]) -> list[int]:
+        """候補の添え字を、点の高い順 → tie_break → syllabus_id の昇順に並べる。"""
+        candidates = self._candidates[term]
+        return sorted(
+            range(len(candidates)),
+            key=lambda index: (-scores[index], *self._tie_key(term, index), candidates[index].syllabus_id),
+        )
+
     def plan(self, answers: Answers) -> DiagnosePlanOut:
         """検査を通った答え（answers.validate_answers の結果）からプランを作る。"""
         effects = self.effects_for(answers)
@@ -161,10 +169,7 @@ class DiagnoseEngine:
         for term in self._config.terms:
             candidates = self._candidates[term]
             scores = self._scores(term, effects)
-            order = sorted(
-                range(len(candidates)),
-                key=lambda index: (-scores[index], *self._tie_key(term, index), candidates[index].syllabus_id),
-            )
+            order = self._ranked(term, scores)
             occupied = set(reserved.get(term, ()))
             total = 0.0
             chosen: list[int] = []
