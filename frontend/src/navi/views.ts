@@ -4,6 +4,7 @@
 import type { CourseSummary } from './apiTypes'
 import { extractReasons } from './ask'
 import { courseIndex, findCourse, findFrame, findInterest, hasEdge, interestGroups, reachedInterests, realInterests } from './graph'
+import { toCourse } from './mapping'
 import type { AskSession, Origin, TrailEntry } from './state'
 import { courseHref, DIAGNOSE_AI_HREF, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
 import type { Placement, TermKey } from './timetable'
@@ -13,6 +14,7 @@ import {
   gradProgress,
   inTerm,
   isRequired,
+  resolveCourse,
   sameTerm,
   shortName,
   slotShort,
@@ -164,10 +166,17 @@ export function planRowView(
   }
 }
 
-/** キーワード検索の結果（D4 の1件）の行。学科の系統図に無い科目もあるので、API の項目だけで作る */
-export function summaryRowView(item: CourseSummary, origin: Origin, focusTerm: TermKey): RowView {
+/**
+ * キーワード検索の結果（D4 の1件）の行。学科の系統図に無い科目もあるので、API の項目だけで作る。
+ * 重なりは系統図の科目の行と同じく、いまの時間割（プランか候補）に対して出す。時間割に入っている科目は、
+ * 置いた学年と学期で見る（時間割の引き方 placement で引く）。学年か学期が読めない科目は出さない
+ */
+export function summaryRowView(ctx: ListContext, item: CourseSummary, origin: Origin): RowView {
+  const { focusTerm } = ctx
   const term = item.year_min !== null && item.term !== null ? `${item.year_min}年${item.term}` : null
   const sameAsFocus = item.year_min === focusTerm.year && (item.term === focusTerm.half || item.term === '通年')
+  const mapped = toCourse(item, { ownFaculty: ctx.dept.faculty })
+  const placed = resolveCourse(ctx.dept, item.syllabus_id, ctx.placement) ?? (mapped.ok ? mapped.course : undefined)
   return {
     code: item.syllabus_id,
     name: item.name,
@@ -177,7 +186,7 @@ export function summaryRowView(item: CourseSummary, origin: Origin, focusTerm: T
     termNote: term !== null && !sameAsFocus ? term : null,
     learn: item.lead !== '' ? item.lead : 'シラバスに記載なし',
     learnMissing: item.lead === '',
-    clash: null,
+    clash: placed === undefined ? null : clashText(ctx, placed),
     why: null,
     source: null,
     href: courseHref(item.syllabus_id, origin),

@@ -144,7 +144,7 @@ export default function KeywordResults({ ctx, query, currentCode }: KeywordResul
         <ul className="list">
           {items.map((item, i) => {
             const course = findCourse(dept, item.syllabus_id)
-            const r = course === undefined ? summaryRowView(item, ORIGIN, ctx.focusTerm) : rowView(ctx, course, ORIGIN, null, null)
+            const r = course === undefined ? summaryRowView(ctx, item, ORIGIN) : rowView(ctx, course, ORIGIN, null, null)
             return (
               <CourseRow
                 key={r.code}
