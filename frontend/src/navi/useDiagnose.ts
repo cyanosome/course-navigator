@@ -12,6 +12,7 @@ import {
   addCourseToPlan,
   answersPayload,
   answersSummary,
+  findPlanCourse,
   firstUnanswered,
   inPlan,
   isDiagnoseAnswers,
@@ -43,8 +44,11 @@ export interface DiagnoseNotice {
 /** プランへ足した結果（unmapped は学年か学期が読めない科目） */
 export type PlanAddResult = 'added' | 'already' | 'unmapped' | 'failed'
 
-/** プランの足し外しがどこからか（研究のログの from） */
-export type PlanEditFrom = 'refine'
+/**
+ * プランの足し外しがどこからか（研究のログの from。事前登録 study1 の 6.2 の4種）。manual: プランの行や詳細から、
+ * search: さがすの一覧から、check_fix: チェックの直し方（別のクラスへ移す）から、refine: 微修正の AI の案から
+ */
+export type PlanEditFrom = 'manual' | 'search' | 'check_fix' | 'refine'
 
 interface Stored {
   deptId: string
@@ -114,7 +118,10 @@ export interface DiagnoseState {
   retake: () => void
   /** 答え直しをやめてプランへ戻る（答えはプランを作った答えに戻す） */
   backToPlan: () => void
-  /** 微修正の AI の回答の科目をプランに足す（科目の詳細を読んで学期を決める。plan_course_add。detail は記録に足す項目） */
+  /**
+   * 科目をプランに足す（科目の詳細を読んで学期を決める。plan_course_add。detail は記録に足す項目）。
+   * from が refine なら AI の案、それ以外は利用者が自分で足した科目として持つ
+   */
   addToPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => Promise<PlanAddResult>
   /** プランから外す（plan_course_remove） */
   removeFromPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => void
@@ -262,7 +269,9 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
       const course = mapping.course
       setStored((s) => {
         const base = s.deptId === deptId ? s : freshState(deptId)
-        return base.working === null ? base : { ...base, working: addCourseToPlan(base.working, course) }
+        return base.working === null
+          ? base
+          : { ...base, working: addCourseToPlan(base.working, course, from === 'refine' ? 'refine' : 'user') }
       })
       log('plan_course_add', { ...detail, syllabus_id: code, year: course.year, term: course.term === '秋' ? '秋' : '春', from })
       return 'added'
@@ -272,11 +281,16 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
 
   const removeFromPlan = useCallback(
     (code: string, from: PlanEditFrom, detail: EventPayload = {}) => {
-      if (working === null || !inPlan(working, code)) return
-      update({ working: removeCourseFromPlan(working, code) })
-      log('plan_course_remove', { ...detail, syllabus_id: code, from })
+      const hit = working === null ? undefined : findPlanCourse(working, code)
+      if (hit === undefined) return
+      // 続けて何科目か外す（微修正の案をまとめて入れる）ときに前の外しを消さないよう、いまの状態から外す
+      setStored((s) => {
+        const base = s.deptId === deptId ? s : freshState(deptId)
+        return base.working === null ? base : { ...base, working: removeCourseFromPlan(base.working, code) }
+      })
+      log('plan_course_remove', { ...detail, syllabus_id: code, year: hit.term.year, term: hit.term.term, from })
     },
-    [log, update, working],
+    [deptId, log, working],
   )
 
   return {

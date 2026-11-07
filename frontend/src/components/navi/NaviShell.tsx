@@ -5,6 +5,7 @@ import { markVariantApplied, useResearchLog } from '../../navi/research'
 import { DIAGNOSE_HREF, listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
 import { termCredits, termLabel } from '../../navi/timetable'
+import '../../navi/plan.css'
 import { useFlags } from '../../navi/variant'
 import { rootEntry } from '../../navi/views'
 import Icon from './Icon'
@@ -159,6 +160,40 @@ export default function NaviShell({ children }: NaviShellProps) {
       {announcement}
     </p>
   )
+
+  // 診断の変種（デザインのコンペの U-a）: 上の帯は コースナビ・プラン・さがす・メニュー だけ。時間割のタブと下のタブは無く、
+  // 時間割は確かめる場所（PlanLayout）の一部。戻るは作る場所の上（BackLink）に置く
+  if (flags.diagnose === 'quiz') {
+    const fromPlan = origin.kind === 'plan' || origin.kind === 'refine' || origin.kind === 'status'
+    const onPlan = place === 'plan' || (place === 'detail' && fromPlan)
+    const onSearch = place === 'search' || (place === 'detail' && !fromPlan)
+    return (
+      <div className="ps">
+        {band}
+        {task}
+        <header className="ps-bar">
+          <span className="brand">コースナビ</span>
+          {!minimal && (
+            <nav className="ps-tabs" aria-label="行き先">
+              <Link to={DIAGNOSE_HREF} aria-current={onPlan ? 'page' : undefined}>
+                プラン
+              </Link>
+              <Link to={searchHref} aria-current={onSearch ? 'page' : undefined}>
+                さがす
+              </Link>
+            </nav>
+          )}
+          <div className="spacer" />
+          {showMenu && menuButton}
+          {menu}
+        </header>
+        {askPending && !minimal && place !== 'search' && <WaitLine />}
+        {children}
+        <Toast />
+        {live}
+      </div>
+    )
+  }
 
   if (isPc) {
     return (

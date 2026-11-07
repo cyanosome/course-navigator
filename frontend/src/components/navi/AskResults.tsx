@@ -123,6 +123,7 @@ export default function AskResults({ session, currentCode }: AskResultsProps) {
             key={r.code}
             row={r}
             current={r.code === currentCode}
+            keepFrom="ask"
             linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
             onOpen={() => {
               log('result_click', { syllabus_id: r.code, rank: i + 1, list: 'ask' })

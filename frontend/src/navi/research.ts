@@ -51,16 +51,19 @@ export function useResearchLog(): ResearchLog {
   return useContext(ResearchLogContext)
 }
 
-/** 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに） */
-export function useSyllabusViewLog(syllabusId: string) {
+/**
+ * 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに）。
+ * from はどこから開いたか（plan・status・search・refine など。事前登録 study1 の 6.2）
+ */
+export function useSyllabusViewLog(syllabusId: string, from: string) {
   const { log } = useResearchLog()
   useEffect(() => {
     const opened = performance.now()
-    log('syllabus_open', { syllabus_id: syllabusId })
+    log('syllabus_open', { syllabus_id: syllabusId, from })
     return () => {
       log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
     }
-  }, [log, syllabusId])
+  }, [from, log, syllabusId])
 }
 
 /* ---------- 調査のセッションの状態 ---------- */

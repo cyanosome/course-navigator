@@ -153,9 +153,11 @@ export interface WorkingCourse {
   /** 診断の点。微修正で足した科目は null */
   score: number | null
   reasons: PlanReason[]
-  /** diagnose: 診断が選んだ、refine: 微修正の AI の回答から足した */
-  origin: 'diagnose' | 'refine'
+  /** diagnose: 診断が選んだ、refine: 微修正の AI の回答から足した、user: 利用者が自分で足した */
+  origin: PlanOrigin
 }
+
+export type PlanOrigin = 'diagnose' | 'refine' | 'user'
 
 export interface WorkingTerm {
   year: number
@@ -178,7 +180,7 @@ function isWorkingCourse(v: unknown): v is WorkingCourse {
     (v.score === null || isNumber(v.score)) &&
     Array.isArray(v.reasons) &&
     v.reasons.every((r) => isRecord(r) && isString(r.primitive) && isString(r.text)) &&
-    (v.origin === 'diagnose' || v.origin === 'refine')
+    (v.origin === 'diagnose' || v.origin === 'refine' || v.origin === 'user')
   )
 }
 
@@ -271,10 +273,10 @@ export function workingTermCredits(term: WorkingTerm): { credits: number; unknow
 }
 
 /**
- * 科目をプランに足す（微修正の AI の回答から）。入れる学期は科目の配当の学年と学期（通年は春に置く）。
+ * 科目をプランに足す（微修正の AI の回答から、か利用者が自分で）。入れる学期は科目の配当の学年と学期（通年は春に置く）。
  * その学期がプランに無ければ学期を足す。もう入っていれば変えない
  */
-export function addCourseToPlan(plan: WorkingPlan, course: Course): WorkingPlan {
+export function addCourseToPlan(plan: WorkingPlan, course: Course, origin: Exclude<PlanOrigin, 'diagnose'> = 'refine'): WorkingPlan {
   if (inPlan(plan, course.code)) return plan
   const term: DiagnoseTerm = course.term === '秋' ? '秋' : '春'
   const entry: WorkingCourse = {
@@ -285,7 +287,7 @@ export function addCourseToPlan(plan: WorkingPlan, course: Course): WorkingPlan 
     slot_note: course.slotNote,
     score: null,
     reasons: [],
-    origin: 'refine',
+    origin,
   }
   const exists = plan.terms.some((t) => t.year === course.year && t.term === term)
   const terms = exists

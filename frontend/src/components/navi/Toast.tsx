@@ -9,7 +9,7 @@ import { addedNotice } from '../../navi/views'
 const ADDED_MS = 2_400
 /** 動きを減らす設定では、動かさずに長めに出す */
 const ADDED_REDUCED_MS = 4_000
-/** ［元に戻す］つきの知らせ（E1 10章: 5 秒） */
+/** ［元に戻す］つきの知らせ（E1 10章: 5 秒）と、文だけの知らせ */
 const REMOVED_MS = 5_000
 const LEAVE_MS = 240
 
@@ -29,7 +29,7 @@ function ToastView({ toast }: ToastViewProps) {
   const [leaving, setLeaving] = useState(false)
   /** ［元に戻す］にフォーカスやマウスがあるあいだは消さない（押す前に消えないように） */
   const [held, setHeld] = useState(false)
-  const stay = toast.kind === 'removed' ? REMOVED_MS : reducedMotion ? ADDED_REDUCED_MS : ADDED_MS
+  const stay = toast.kind !== 'added' ? REMOVED_MS : reducedMotion ? ADDED_REDUCED_MS : ADDED_MS
 
   useEffect(() => {
     if (held) return
@@ -43,9 +43,17 @@ function ToastView({ toast }: ToastViewProps) {
     return () => clearTimeout(timer)
   }, [leaving, reducedMotion, clearToast, toast.id])
 
+  const className = leaving ? 'toast is-leaving' : 'toast'
+  if (toast.kind === 'note') {
+    // 文だけの知らせ（読み上げは呼んだ側が announce で1回言う）
+    return (
+      <div className={className} aria-hidden="true">
+        <p className="toast-text">{toast.text}</p>
+      </div>
+    )
+  }
   const course = resolveCourse(dept, toast.code, placement)
   if (course === undefined) return null
-  const className = leaving ? 'toast is-leaving' : 'toast'
 
   if (toast.kind === 'removed') {
     return (

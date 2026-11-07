@@ -14,8 +14,10 @@ import { useFlags } from '../../navi/variant'
 import { clashText, detailWhy, isOtherTerm, leadText, WIDE_SPACE } from '../../navi/views'
 import type { ListContext } from '../../navi/views'
 import Accordion from './Accordion'
+import BackLink from './BackLink'
 import Crumbs from './Crumbs'
 import Icon from './Icon'
+import PlanCourseBody from './PlanCourseBody'
 
 interface CourseDetailProps {
   code: string
@@ -38,12 +40,41 @@ function slotWidth(value: string, note: string): number {
   return em(value) * VALUE_PX + (note === '' ? 0 : em(` ${note}`) * NOTE_PX)
 }
 
+interface DetailNavProps {
+  trail: TrailEntry[]
+  current: string
+  tab: PcTab
+}
+
+/** 詳細の上の道筋。PC はパンくず、スマホは上の帯の戻る（ここには出さない）、診断の変種は作る場所の上の戻る */
+function DetailNav({ trail, current, tab }: DetailNavProps) {
+  const { isPc } = useNavi()
+  const flags = useFlags()
+  if (flags.diagnose === 'quiz') return <BackLink entry={trail[trail.length - 1] ?? { label: 'さがす', href: '/navi' }} />
+  return isPc ? <Crumbs trail={trail} current={current} tab={tab} /> : null
+}
+
+/** 詳細を開いた記録（syllabus_open）の from。来た場所の種類 */
+const OPEN_FROM: Record<Origin['kind'], string> = {
+  default: 'recommend',
+  dir: 'interest',
+  course: 'sequence',
+  group: 'group',
+  ask: 'ask',
+  tt: 'timetable',
+  plan: 'plan',
+  refine: 'refine',
+  status: 'status',
+  none: 'search',
+}
+
 /**
  * 科目の詳細（W3。PC は中央の段）。詳細は API（D5）から取る。学科の科目に無い科目（検索・AI の結果）も同じ口で出す。
  * 読み込み中・見つからない・読み込めない・表示できない科目を出し分け、取れた科目は CourseBody で出す。
  */
 export default function CourseDetail({ code, origin, trail, tab }: CourseDetailProps) {
-  const { dept, ask, isPc } = useNavi()
+  const { dept, ask } = useNavi()
+  const flags = useFlags()
   const { loadCourse } = useNaviData()
   const titleId = useId()
   const [reload, setReload] = useState(0)
@@ -56,7 +87,7 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
   if (load.status === 'loading') {
     return (
       <section className="detail" aria-labelledby={titleId} aria-busy="true">
-        {isPc && <Crumbs trail={trail} current={name ?? code} tab={tab} />}
+        <DetailNav trail={trail} current={name ?? code} tab={tab} />
         <h1 className="title" id={titleId}>
           {name ?? '科目の詳細'}
         </h1>
@@ -73,7 +104,7 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
       if (source !== undefined) return <OutsideCourse source={source} trail={trail} tab={tab} />
       return (
         <section className="detail" aria-labelledby={titleId}>
-          {isPc && <Crumbs trail={trail} current={code} tab={tab} />}
+          <DetailNav trail={trail} current={code} tab={tab} />
           <h1 className="title" id={titleId}>
             この科目は見つかりませんでした
           </h1>
@@ -85,7 +116,7 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
     }
     return (
       <section className="detail" aria-labelledby={titleId}>
-        {isPc && <Crumbs trail={trail} current={name ?? code} tab={tab} />}
+        <DetailNav trail={trail} current={name ?? code} tab={tab} />
         <h1 className="title" id={titleId}>
           科目の詳細を読み込めませんでした
         </h1>
@@ -102,6 +133,10 @@ export default function CourseDetail({ code, origin, trail, tab }: CourseDetailP
   }
 
   if (!load.value.ok) return <UnmappedDetail course={load.value} trail={trail} tab={tab} />
+  // 診断の変種は、プランの中でのその科目を出す詳細（デザインのコンペの U-a）
+  if (flags.diagnose === 'quiz') {
+    return <PlanCourseBody course={load.value.course} origin={origin} from={OPEN_FROM[origin.kind]} back={trail[trail.length - 1] ?? { label: 'さがす', href: '/navi' }} />
+  }
   return <CourseBody course={load.value.course} origin={origin} trail={trail} tab={tab} />
 }
 
@@ -115,11 +150,10 @@ const MISSING_LABEL = { year: '学年', term: '学期' } as const
 
 /** 学年か学期を読めない科目（時間割に置けないので、今の画面では出せない。扱いは T15 で決める） */
 function UnmappedDetail({ course, trail, tab }: UnmappedDetailProps) {
-  const { isPc } = useNavi()
   const titleId = useId()
   return (
     <section className="detail" aria-labelledby={titleId}>
-      {isPc && <Crumbs trail={trail} current={course.name} tab={tab} />}
+      <DetailNav trail={trail} current={course.name} tab={tab} />
       <h1 className="title" id={titleId}>
         {course.name}
       </h1>
@@ -148,11 +182,11 @@ interface CourseBodyProps {
  * 旗 graph=off では「取る順」と、系統図から言う「なぜ」を出さない（AI の判断の「なぜ」は出す）。
  */
 function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
-  const { dept, ask, isPc, isKept, toggleKeep, track, shortlist, placement, focusTerm, assumedTerm } = useNavi()
+  const { dept, ask, isKept, toggleKeep, track, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const { log } = useResearchLog()
   const titleId = useId()
-  useSyllabusViewLog(course.code)
+  useSyllabusViewLog(course.code, OPEN_FROM[origin.kind])
   // 旗も渡す（detailWhy は recommend=catalog・off のとき、おすすめの並びの説明を出さない）
   const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const kept = isKept(course.code)
@@ -173,7 +207,7 @@ function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
 
   return (
     <article className="detail" aria-labelledby={titleId}>
-      {isPc && <Crumbs trail={trail} current={course.name} tab={tab} />}
+      <DetailNav trail={trail} current={course.name} tab={tab} />
       <h1 className="title" id={titleId}>
         {course.name}
         {course.faculty !== null && <span className="fac"> {course.faculty}</span>}
@@ -392,13 +426,15 @@ interface OutsideCourseProps {
 
 /** 自由記述の結果から来た、学科データに無い科目（UX 仕様 W3 の注。sources の項目だけで作る） */
 function OutsideCourse({ source, trail, tab }: OutsideCourseProps) {
-  const { isPc, isKept, toggleKeep } = useNavi()
+  const { isKept, toggleKeep } = useNavi()
+  // 診断の変種では、データに無い科目はプランに入れられない（詳細を読めないので学期が決まらない）
+  const planMode = useFlags().diagnose === 'quiz'
   const titleId = useId()
-  useSyllabusViewLog(source.code)
+  useSyllabusViewLog(source.code, 'ask')
   const kept = isKept(source.code)
   return (
     <article className="detail" aria-labelledby={titleId}>
-      {isPc && <Crumbs trail={trail} current={source.title} tab={tab} />}
+      <DetailNav trail={trail} current={source.title} tab={tab} />
       <h1 className="title" id={titleId}>
         {source.title}
       </h1>
@@ -416,10 +452,12 @@ function OutsideCourse({ source, trail, tab }: OutsideCourseProps) {
           <dd>{source.instructor ?? <span className="note">準備中</span>}</dd>
         </div>
       </dl>
-      <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(source.code, 'detail')}>
-        <Icon name={kept ? 'check' : 'plus'} />
-        <span>{kept ? '候補に入っています' : '候補に入れる'}</span>
-      </button>
+      {!planMode && (
+        <button className="primary" type="button" aria-pressed={kept} onClick={() => toggleKeep(source.code, 'detail')}>
+          <Icon name={kept ? 'check' : 'plus'} />
+          <span>{kept ? '候補に入っています' : '候補に入れる'}</span>
+        </button>
+      )}
       <section className="sec">
         <h2 className="sec-label">授業でやること</h2>
         <p className={source.excerpt === '' ? 'lead is-missing' : 'lead'}>{source.excerpt === '' ? 'シラバスに記載なし' : source.excerpt}</p>

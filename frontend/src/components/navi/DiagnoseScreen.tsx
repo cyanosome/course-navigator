@@ -9,12 +9,11 @@ import { firstUnanswered, isAnswered, isPickBlocked, planTermLabel, SCALE_POINTS
 import { useDiagnose } from '../../navi/useDiagnose'
 import { useVariant } from '../../navi/variant'
 import Icon from './Icon'
-import PageFrame from './PageFrame'
-import PlanView from './PlanView'
+import PlanScreen from './PlanScreen'
 
 /**
- * 診断の画面（/navi/diagnose。旗 diagnose=quiz のときだけ）。仮の置き方で、見た目はデザインのコンペで差し替える。
- * 設定（GET /api/diagnose/config）から質問を1問ずつ組み立て、全部答えたら送ってプランを出す（PlanView）。
+ * 診断の画面（/navi/diagnose。旗 diagnose=quiz のときだけ）。作る場所（PlanLayout の左）に出す。
+ * 設定（GET /api/diagnose/config）から質問を1問ずつ組み立て、全部答えたら送ってプランを出す（PlanScreen）。
  * 状態と記録はすべて navi/useDiagnose.ts（この部品は値を出して、押されたら関数を呼ぶだけ）。
  */
 export default function DiagnoseScreen() {
@@ -29,16 +28,16 @@ export default function DiagnoseScreen() {
   if (flags.diagnose !== 'quiz' && variantId !== null) return <Navigate to="/navi" replace />
   if (flags.diagnose !== 'quiz' || d.config === null || d.config.status === 'loading') {
     return (
-      <PageFrame>
+      <div className="page pl-page">
         <p className="text" role="status">
           読み込んでいます
         </p>
-      </PageFrame>
+      </div>
     )
   }
   if (d.config.status === 'failed') {
     return (
-      <PageFrame>
+      <div className="page pl-page">
         <div role="alert">
           <h1 className="title">質問を読み込めませんでした</h1>
           <p className="text">{apiErrorMessage(d.config.error)}</p>
@@ -48,20 +47,20 @@ export default function DiagnoseScreen() {
             もう一度読み込む
           </button>
         </div>
-      </PageFrame>
+      </div>
     )
   }
   const config = d.config.value
   return (
-    <PageFrame>
+    <div className="page pl-page">
       {d.phase === 'plan' && d.working !== null ? (
-        <PlanView plan={d.working} />
+        <PlanScreen plan={d.working} />
       ) : d.phase === 'answering' ? (
         <QuestionStep config={config} />
       ) : (
         <Intro config={config} />
       )}
-    </PageFrame>
+    </div>
   )
 }
 

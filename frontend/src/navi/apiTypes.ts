@@ -312,6 +312,7 @@ export const CLIENT_EVENT_TYPES = [
   'plan_course_add',
   'plan_course_remove',
   'plan_refine_send',
+  'plan_refine_decide',
   /* 履修状況のチェック */
   'checkpoint_add',
   'checkpoint_remove',

@@ -39,7 +39,9 @@ export default function StatusPanel({ target, heading, frame }: StatusPanelProps
   useEffect(() => {
     if (logged.current) return
     logged.current = true
+    // 時間割のタブ（利用者が開いた画面）の一覧を開いたとき
     log('status_open', {
+      how: 'list',
       target: target.kind,
       checkpoints: checkpoints.map(checkpointPayload),
       results: resultsPayload(results),
@@ -121,8 +123,15 @@ function toNumber(text: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
+interface CheckpointFormProps {
+  /** 足したあと（診断の変種の確かめる場所では、欄を閉じる） */
+  onAdded?: () => void
+  /** ［やめる］を出して、押したら呼ぶ */
+  onCancel?: () => void
+}
+
 /** チェックを足す欄（数を決めるものは数を入れる。数の無いものは、もう一覧にあれば足せない） */
-function CheckpointForm() {
+export function CheckpointForm({ onAdded, onCancel }: CheckpointFormProps) {
   const { checkpoints, add } = useCheckpoints()
   const { dept } = useNavi()
   const flags = useFlags()
@@ -163,7 +172,9 @@ function CheckpointForm() {
       className="chk-form"
       onSubmit={(e) => {
         e.preventDefault()
-        if (draft !== null) add(draft)
+        if (draft === null) return
+        add(draft)
+        onAdded?.()
       }}
     >
       <label className="q-field" htmlFor={id('kind')}>
@@ -242,6 +253,11 @@ function CheckpointForm() {
         <button className="primary" type="submit" disabled={draft === null}>
           足す
         </button>
+        {onCancel !== undefined && (
+          <button className="text-btn" type="button" onClick={onCancel}>
+            やめる
+          </button>
+        )}
       </div>
     </form>
   )

@@ -97,8 +97,12 @@ export type Origin =
   | { kind: 'group'; frameId: string }
   | { kind: 'ask'; localId: string }
   | { kind: 'tt' }
-  /** 診断のプラン（微修正の AI の回答から来たときも） */
+  /** 診断のプラン */
   | { kind: 'plan' }
+  /** プランの微修正の AI の案 */
+  | { kind: 'refine' }
+  /** チェックの原因の科目（診断の変種の確かめる場所） */
+  | { kind: 'status' }
   | { kind: 'none' }
 
 export function parseOrigin(value: string | null): Origin {
@@ -107,6 +111,8 @@ export function parseOrigin(value: string | null): Origin {
   // 'shortlist' は改訂前の候補の画面のリンク（時間割に置き換えた）
   if (value === 'tt' || value === 'shortlist') return { kind: 'tt' }
   if (value === 'plan') return { kind: 'plan' }
+  if (value === 'refine') return { kind: 'refine' }
+  if (value === 'status') return { kind: 'status' }
   const [kind, id] = value.split(':')
   if (id === undefined || id === '') return { kind: 'none' }
   if (kind === 'dir') return { kind: 'dir', dirId: id }
@@ -124,6 +130,10 @@ function originParam(origin: Origin): string | null {
       return 'tt'
     case 'plan':
       return 'plan'
+    case 'refine':
+      return 'refine'
+    case 'status':
+      return 'status'
     case 'dir':
       return `dir:${origin.dirId}`
     case 'course':
@@ -159,6 +169,9 @@ export const TIMETABLE_HREF = '/navi/timetable'
 /** 診断とプラン（diagnose=quiz のときだけ開く） */
 export const DIAGNOSE_HREF = '/navi/diagnose'
 
+/** プランの直しを AI に頼む画面（diagnose=quiz かつ assistant=on のときだけ開く） */
+export const DIAGNOSE_AI_HREF = '/navi/diagnose/ai'
+
 /* ---------- たどった道筋（PC のパンくず、スマホの戻る。UX 仕様 C03、E1 6章） ---------- */
 
 export type PcTab = 'search' | 'tt'
@@ -190,6 +203,8 @@ export type ToastState =
   | { id: number; kind: 'added'; code: string }
   /** 時間割の［外す］で外した（5 秒、［元に戻す］つき。E1 10章） */
   | { id: number; kind: 'removed'; code: string; index: number }
+  /** 文だけの知らせ（診断の変種で、プランに入れられなかったときなど。5 秒） */
+  | { id: number; kind: 'note'; text: string }
 
 /* ---------- 共有する状態 ---------- */
 
@@ -202,6 +217,10 @@ export interface NaviContextValue {
   isPc: boolean
   reducedMotion: boolean
 
+  /**
+   * 候補（時間割に入れた科目）。診断の変種（diagnose=quiz）ではプランの科目（全学期）で、isKept・toggleKeep・
+   * removeKeep もプランの足し外しになる（プランが時間割と確かめる場所の元になるので、候補は別に持たない）
+   */
   shortlist: string[]
   /**
    * 時間割に置く科目の引き方。系統図に無い科目は、科目の入れ物（D5 で読んだ詳細）→ プランの科目の順に引く。

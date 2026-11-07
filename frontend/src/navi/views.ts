@@ -5,7 +5,7 @@ import type { CourseSummary } from './apiTypes'
 import { extractReasons } from './ask'
 import { courseIndex, findCourse, findFrame, findInterest, hasEdge, interestGroups, reachedInterests, realInterests } from './graph'
 import type { AskSession, Origin, TrailEntry } from './state'
-import { courseHref, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
+import { courseHref, DIAGNOSE_AI_HREF, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
 import type { Placement, TermKey } from './timetable'
 import {
   clashesOf,
@@ -377,6 +377,8 @@ export function detailWhy(ctx: ListContext, course: Course, origin: Origin, ask:
       return { ...frameFact(dept, course), text: `あなたが候補に入れた科目です。${frameFact(dept, course).text}` }
     case 'group':
     case 'plan':
+    case 'refine':
+    case 'status':
     case 'none':
       return frameFact(dept, course)
   }
@@ -426,7 +428,10 @@ export function rootEntry(dept: Department, origin: Origin): TrailEntry {
     case 'tt':
       return { label: '時間割', href: TIMETABLE_HREF }
     case 'plan':
+    case 'status':
       return { label: 'プラン', href: DIAGNOSE_HREF }
+    case 'refine':
+      return { label: 'AIに直しを頼む', href: DIAGNOSE_AI_HREF }
     case 'course': {
       const from = findCourse(dept, origin.code)
       return { label: from?.name ?? 'さがす', href: courseHref(origin.code, { kind: 'none' }) }
