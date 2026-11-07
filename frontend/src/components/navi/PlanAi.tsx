@@ -352,12 +352,11 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
     if (m !== undefined && m !== 'failed' && m.ok) return m.course.slots.join('・') || 'なし'
     return resolveCourse(dept, code, placement)?.slots.join('・') ?? ''
   }
-  /** 移す行は「元の曜限 → 移す先の曜限」（移す先が読めるまでは元の曜限だけ。折り返すときは → の前で） */
-  const slotsOf = (r: ProposalRow): string => {
-    if (r.kind === 'remove') return planSlots(r.code)
-    if (r.from === null) return addSlots(r.code)
-    const to = addSlots(r.code)
-    return to === '' ? planSlots(r.from) : `${planSlots(r.from)} →\u00a0${to}`
+  const slotsOf = (r: ProposalRow): string => (r.kind === 'remove' ? planSlots(r.code) : addSlots(r.code))
+  /** 移す行の曜限の変わり方「元の曜限 → 移す先の曜限」（移す先が読めるまでは元の曜限だけ） */
+  const moveSlots = (from: string, code: string): string => {
+    const to = addSlots(code)
+    return to === '' ? planSlots(from) : `${planSlots(from)} → ${to}`
   }
   const creditsOf = (r: ProposalRow): number | null => {
     if (r.kind === 'remove') return findPlanCourse(plan, r.code)?.course.credits ?? null
@@ -392,7 +391,8 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
                   {OP_WORD[r.kind]}
                   <span className="vh">: {r.title}</span>
                 </label>
-                <span className="ai-slot">{slotsOf(r)}</span>
+                {/* 移す行の曜限は、狭い列で折り返さないよう科目名の下に「元 → 先」で出す（この列は空ける） */}
+                <span className="ai-slot">{r.from === null ? slotsOf(r) : ''}</span>
                 <span className="ai-body">
                   <Link
                     className="ai-name"
@@ -405,6 +405,7 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
                   >
                     {r.title}
                   </Link>
+                  {r.from !== null && <span className="ai-slot">{moveSlots(r.from, r.code)}</span>}
                   <span className="ai-meta">
                     {credits !== null && `${credits}単位`}
                     {credits !== null && r.reason !== '' && '　'}
