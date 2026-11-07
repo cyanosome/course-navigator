@@ -277,11 +277,18 @@ export function StatusBand({ view, focusCode, onChecks, checksId, checksOpen }: 
   const grid = ledgerGrid(view.here.status, view.checkpoints)
   const focus = useFocusCourse(focusCode, view.term, view.status)
   const shortOf = useShortName()
+  /** 今の学期より前で未記入の学期の数（取った科目を記録しているときだけ。利用者が入れて直せるので帯に出す） */
+  const unrecorded = history?.unrecorded.length ?? 0
   const sum: ReactNode =
     view.unmet > 0 ? (
       <>
         <Icon name="warn" small />
         要確認 {view.unmet}
+      </>
+    ) : unrecorded > 0 ? (
+      <>
+        <Icon name="warn" small />
+        未記入 {unrecorded}学期
       </>
     ) : view.others.length > 0 ? (
       <>
@@ -308,7 +315,7 @@ export function StatusBand({ view, focusCode, onChecks, checksId, checksOpen }: 
       <div className="lg-band-line">
         {history?.viewKind !== 'unrecorded' && <Units view={view} />}
         <button
-          className={view.unmet > 0 || view.others.length > 0 ? 'lg-sum is-ng' : 'lg-sum'}
+          className={view.unmet > 0 || unrecorded > 0 || view.others.length > 0 ? 'lg-sum is-ng' : 'lg-sum'}
           type="button"
           aria-controls={checksId}
           aria-expanded={checksOpen}
