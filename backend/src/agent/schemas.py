@@ -118,8 +118,11 @@ class PlanSuggestion(BaseModel):
     reason: str = ""
 
 
+# already_in_plan: 足す科目がもうプランにある。診断の答えがある微修正では、同じ名前の別クラスを、元の科目を外す案と
+#   組にせずに足す案も含む（同じ科目が2つになるため）
 # not_candidate: 足す科目が、サーバーが渡した「選べる科目」に無い（診断の答えがある微修正だけ）
-# locked: 外す科目が、系統図に載る科目（外さない印を付けて渡したもの。診断の答えがある微修正だけ）
+# locked: 外す科目が、系統図に載る科目（外さない印を付けて渡したもの）で、同じ学期の別クラスへ移す組でもない
+#   （診断の答えがある微修正だけ）
 DropReason = Literal["not_in_db", "already_in_plan", "not_in_plan", "not_candidate", "locked"]
 
 
@@ -135,6 +138,7 @@ class PlanSuggestions(BaseModel):
     """プランの微修正の提案（照合の後）。足す科目は DB に実在しプランに無いもの、外す科目はプランにあるもの。
 
     診断の答えがある微修正では、さらに足す科目は「選べる科目」の中のもの、外す科目は系統図に載らないものだけ。
+    ただし同じ学期の同じ名前の別クラスへ移す組（外す＋足す）は、系統図の科目でも残す。
     """
 
     add: list[PlanSuggestion] = Field(default_factory=list)

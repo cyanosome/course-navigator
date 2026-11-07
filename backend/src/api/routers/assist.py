@@ -108,6 +108,7 @@ def _chat_response_payload(
     plan_delivery（plan_context が AI に届いたか。plan_delivery を見る）。
     E2 で足した項目: path（サーバーが選んだ経路。mcp か static。この口で動かせない組み合わせは null）、
     candidate_count（静的の経路で渡した選べる科目の数。mcp と失敗は null）、
+    candidate_sources（candidate_count の入った経路ごとの内訳 {top, same_name, named}。mcp と失敗は null）、
     llm_calls（LLM の呼び出しの回数。答えが返らなかったときは null）。
     """
     result = run.result if run is not None else None
@@ -144,6 +145,7 @@ def _chat_response_payload(
         "toolset": ("reused" if run.toolset_reused else "per_request") if run is not None else None,
         "path": path,
         "candidate_count": run.candidate_count if run is not None else None,
+        "candidate_sources": run.candidate_sources if run is not None else None,
         "llm_calls": run.llm_calls if run is not None else None,
         "tokens": None,
         "error": error,
@@ -202,7 +204,9 @@ async def ask(
     deadline = asyncio.timeout(ASSIST_TIMEOUT_SECONDS)
     try:
         async with deadline:
-            run = await route_options.run_with_options(question, options, plan_context=data.plan_context)
+            run = await route_options.run_with_options(
+                question, options, plan_context=data.plan_context, request_text=data.raw_input
+            )
     except route_options.UnsupportedLevelError as exc:
         await record(None, "other", str(exc))
         raise HTTPException(status_code=501, detail=str(exc)) from exc

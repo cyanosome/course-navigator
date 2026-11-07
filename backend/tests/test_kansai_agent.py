@@ -385,6 +385,41 @@ def test_ground_plan_suggestions_with_candidates_and_locks():
     assert [s.syllabus_id for s in plain.remove] == ["888888", "777777"]
 
 
+def test_ground_plan_suggestions_allows_moving_to_another_class():
+    """系統図の科目 888888 を外す案は、同じ学期の同じ名前の別クラスを足す案が残る組なら「移す」として残す。"""
+    rows_by_id = {row["syllabus_id"]: row for row in _ROWS}
+    plan = ["888888", "777777"]
+    pairs = {"888888": {_OTHER}, "777777": {_KNOWN}}
+    kwargs = {"candidate_ids": {_OTHER, _KNOWN}, "locked_ids": {"888888"}, "move_pairs": pairs}
+
+    moved = grounding.ground_plan_suggestions(
+        PlanAnswerPayload(answer="回答", add=[PlanChange(syllabus_id=_OTHER)], remove=[PlanChange(syllabus_id="888888")]),
+        rows_by_id,
+        plan,
+        **kwargs,
+    )
+    assert [s.syllabus_id for s in moved.add] == [_OTHER]
+    assert [s.syllabus_id for s in moved.remove] == ["888888"]
+    assert moved.dropped == []
+
+    # 別クラスだけを足す案（元を外さない）は already_in_plan、別の科目の別クラスとの組では locked のまま
+    unpaired = grounding.ground_plan_suggestions(
+        PlanAnswerPayload(answer="回答", add=[PlanChange(syllabus_id=_OTHER), PlanChange(syllabus_id=_KNOWN)], remove=[PlanChange(syllabus_id="777777")]),
+        rows_by_id,
+        plan,
+        **kwargs,
+    )
+    assert [s.syllabus_id for s in unpaired.add] == [_KNOWN]  # 777777 を外す組の別クラス
+    assert [(d.action, d.syllabus_id, d.reason) for d in unpaired.dropped] == [("add", _OTHER, "already_in_plan")]
+    wrong_pair = grounding.ground_plan_suggestions(
+        PlanAnswerPayload(answer="回答", add=[PlanChange(syllabus_id=_KNOWN)], remove=[PlanChange(syllabus_id="888888"), PlanChange(syllabus_id="777777")]),
+        rows_by_id,
+        plan,
+        **kwargs,
+    )
+    assert [(d.action, d.syllabus_id, d.reason) for d in wrong_pair.dropped] == [("remove", "888888", "locked")]
+
+
 def test_course_sources_node_passes_candidates_and_locks(fake_pool):
     node = nodes.course_sources_node([_KNOWN], candidate_ids=set(), locked_ids={_KNOWN})
     payload = PlanAnswerPayload(

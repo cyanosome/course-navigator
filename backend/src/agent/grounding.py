@@ -159,16 +159,25 @@ def ground_plan_suggestions(
     *,
     candidate_ids: Collection[str] | None = None,
     locked_ids: Collection[str] | None = None,
+    move_pairs: Mapping[str, Collection[str]] | None = None,
 ) -> PlanSuggestions:
     """足す・外すの提案を DB の行と今のプランで照合する。
 
     足す科目は DB に実在しプランに無いものだけ、外す科目はプランにあるものだけを残し、
     外したものは理由つきで dropped に回す。同じ科目の2回目の提案は数えない。
-    candidate_ids（サーバーが渡した「選べる科目」）があれば、足す科目はその中のものだけ（外れたら not_candidate）。
-    locked_ids（系統図に載るプランの科目）があれば、その科目を外す提案は locked で外す。
-    どちらも None なら見ない（診断の答えの無い微修正。MCP の経路）。
+    診断の答えのある微修正（静的の経路）だけで使う集合（None なら見ない。MCP の経路）:
+    - candidate_ids（サーバーが渡した「選べる科目」）: 足す科目はその中のものだけ（外れたら not_candidate）
+    - move_pairs（プランの科目 → 同じ学期の同じ名前の別クラス）: 別クラスを足す案は、元の科目を外す案と組のときだけ
+      「移す」として残す（組でなければ、同じ名前の科目がもうプランにあるので already_in_plan）
+    - locked_ids（系統図に載るプランの科目）: 外す案は locked で外す。ただし移す組（別クラスを足す案が残ったもの）は残す
     """
     plan = set(normalize_codes(plan_ids))
+    pairs = move_pairs or {}
+    requested_removals = {_normalize_code(change.syllabus_id) for change in payload.remove} & plan
+    move_sources: dict[str, set[str]] = {}  # 別クラス → 移す元になれるプランの科目
+    for plan_id, targets in pairs.items():
+        for target in targets:
+            move_sources.setdefault(target, set()).add(plan_id)
     add: list[PlanSuggestion] = []
     remove: list[PlanSuggestion] = []
     dropped: list[DroppedSuggestion] = []
@@ -188,9 +197,13 @@ def ground_plan_suggestions(
         if candidate_ids is not None and syllabus_id not in candidate_ids:
             dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="not_candidate"))
             continue
+        if syllabus_id in move_sources and not move_sources[syllabus_id] & requested_removals:
+            dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="already_in_plan"))
+            continue
         title = rows_by_id[syllabus_id]["subject_name"]
         add.append(PlanSuggestion(syllabus_id=syllabus_id, title=title, reason=change.reason))
 
+    accepted_adds = {suggestion.syllabus_id for suggestion in add}
     seen_remove: set[str] = set()
     for change in payload.remove:
         syllabus_id = _normalize_code(change.syllabus_id)
@@ -200,7 +213,8 @@ def ground_plan_suggestions(
         if syllabus_id not in plan:
             dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="not_in_plan"))
             continue
-        if locked_ids is not None and syllabus_id in locked_ids:
+        moved = any(target in accepted_adds for target in pairs.get(syllabus_id, ()))
+        if locked_ids is not None and syllabus_id in locked_ids and not moved:
             dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="locked"))
             continue
         row = rows_by_id.get(syllabus_id)
@@ -217,11 +231,12 @@ def build_course_grounded_answer(
     plan_ids: Sequence[str] | None,
     candidate_ids: Collection[str] | None = None,
     locked_ids: Collection[str] | None = None,
+    move_pairs: Mapping[str, Collection[str]] | None = None,
 ) -> CourseGroundedAnswer:
     """cited_codes（syllabus_id）を courses の行と突き合わせ、出典と未検証に振り分ける。
 
     plan_ids（今のプランの syllabus_id）があれば、足す・外すの提案も照合して plan_suggestions に入れる
-    （candidate_ids・locked_ids は ground_plan_suggestions のとおり）。
+    （candidate_ids・locked_ids・move_pairs は ground_plan_suggestions のとおり）。
     無ければ plan_suggestions は None で、LLM が提案を出していたら使わなかったことを notes に残す。
     """
     cited = normalize_codes(payload.cited_codes)
@@ -230,7 +245,7 @@ def build_course_grounded_answer(
     plan_suggestions: PlanSuggestions | None = None
     if plan_ids is not None:
         plan_suggestions = ground_plan_suggestions(
-            payload, rows_by_id, plan_ids, candidate_ids=candidate_ids, locked_ids=locked_ids
+            payload, rows_by_id, plan_ids, candidate_ids=candidate_ids, locked_ids=locked_ids, move_pairs=move_pairs
         )
     elif payload.add or payload.remove:
         notes.append(_NO_PLAN_NOTE.format(count=len(payload.add) + len(payload.remove)))

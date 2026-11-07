@@ -4,13 +4,14 @@
 出典の照合は syllabus_id と courses（nodes.course_sources_node）。/test/agent/mcp のシードの経路は変えない。
 - 経路（select_path）: plan_context に診断の答え（config_version と answers）があれば静的の経路（static）。
   道具なしの LLM を1回だけ動かす（runner.run_single_generation、指示文は kansai_refine.md）。サーバーが診断のエンジンで
-  プランの学期ごとの「選べる科目」（agent.plan_candidates）を作り、プランの系統図の科目に「外さない」の印を付けて渡す。
+  プランの学期ごとの「選べる科目」（agent.plan_candidates。点の上位・プランの科目の別クラス・頼みに名前が出た科目）を作り、
+  プランの系統図の科目に「外さない（別クラスへ移すのはよい）」の印を付けて渡す。
   答えが無ければ、route=mcp_grounded は MCP の経路（runner.run_grounded）、route=static は未実装（UnsupportedLevelError）。
 - style: standard は関西の指示文そのまま（instruction を渡さない）。brief・detailed は同じ文に追補ファイルを足して渡す。
 - verify・citations: 生成は変えない（照合は常にかかる）。画面の出し方と記録のために options に残すだけ。
 - plan_context: 今のプラン（診断の結果）があれば、科目名などを DB で引いて相談の後ろに付け、
   足す・外すの提案を出させて照合する。静的の経路では、足す科目は選べる科目の中のもの（外れたら not_candidate）、
-  外す科目は系統図に載らないもの（載るものは locked）だけを残す。
+  外す科目は系統図に載らないもの（載るものは locked）だけを残す。ただし同じ学期の同じ名前の別クラスを足す組は「移す」として残す。
 - McpToolset: lifespan で作った1つ（deps.mcp_toolset）があれば使い回し、閉じない。無ければ1問ごとに作って閉じる。
 型を course_core でなくここに置くのは、AssistOut が runner.McpAgentRunResult を継ぐため
 （course_core から agent を import すると向きが逆になる）。
@@ -136,7 +137,7 @@ class AssistOptions(BaseModel):
 
 class AssistIn(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)  # composeQuestion の後の文
-    raw_input: str | None = Field(None, max_length=2000)  # 利用者が打った文（記録用）
+    raw_input: str | None = Field(None, max_length=2000)  # 利用者が打った文（記録用。静的の経路では頼みに名前が出た科目を探す）
     client_event_id: UUID | None = None  # 対応する chat_send の event_id
     options: AssistOptions | None = None  # 開発のときだけ効く
     plan_context: PlanContext | None = None  # 今のプラン（診断の結果）。あれば足す・外すを提案する
@@ -181,6 +182,8 @@ class AssistRun:
     toolset_reused: bool = False  # lifespan で作った McpToolset を使い回したか（偽なら1問ごとに作って閉じた）
     path: AssistPath = "mcp"  # サーバーが選んだ経路（select_path）
     candidate_count: int | None = None  # 静的の経路で渡した選べる科目の syllabus_id の数（mcp では None）
+    # candidate_count の内訳（plan_candidates.RefineContext.source_counts。top・same_name・named。mcp では None）
+    candidate_sources: dict[str, int] | None = None
     llm_calls: int | None = None  # LLM の呼び出しの回数（runner.GroundedRun.llm_calls）
 
 
@@ -326,7 +329,7 @@ async def load_refine_catalog(department_id: str) -> Catalog:
         return await load_catalog(conn, session, department)
 
 
-async def _refine_context(plan_context: PlanContext) -> plan_candidates.RefineContext:
+async def _refine_context(plan_context: PlanContext, request_text: str) -> plan_candidates.RefineContext:
     """診断の答えを検査し、診断のエンジンで選べる科目と系統図の科目の印を作る。使えない答えは PlanAnswersError。"""
     config = load_refine_config(REFINE_DEPARTMENT_ID)
     if plan_context.config_version != config.version:
@@ -344,19 +347,23 @@ async def _refine_context(plan_context: PlanContext) -> plan_candidates.RefineCo
         answers=answers,
         answers_summary=plan_context.answers_summary,
         terms=plan_context.terms,
+        request_text=request_text,
     )
 
 
-async def _run_static(question: str, options: AssistOptions, plan_context: PlanContext) -> AssistRun:
-    """静的の経路: 道具なしの LLM を1回動かし、選べる科目と系統図の科目の印で照合する。"""
-    context = await _refine_context(plan_context)
+async def _run_static(question: str, options: AssistOptions, plan_context: PlanContext, request_text: str) -> AssistRun:
+    """静的の経路: 道具なしの LLM を1回動かし、選べる科目と系統図の科目の印（と移す組）で照合する。"""
+    context = await _refine_context(plan_context, request_text)
     candidate_ids = context.candidate_ids
     agent = build_refine_agent(options)
     run = await runner.run_single_generation(
         compose_message(question, context.block),
         agent=agent,
         grounding_node=nodes.course_sources_node(
-            context.plan_ids, candidate_ids=candidate_ids, locked_ids=context.locked_ids
+            context.plan_ids,
+            candidate_ids=candidate_ids,
+            locked_ids=context.locked_ids,
+            move_pairs=context.move_pairs,
         ),
     )
     grounded = run.grounded
@@ -366,21 +373,28 @@ async def _run_static(question: str, options: AssistOptions, plan_context: PlanC
         plan_suggestions=grounded.plan_suggestions if isinstance(grounded, CourseGroundedAnswer) else None,
         path="static",
         candidate_count=len(candidate_ids),
+        candidate_sources=context.source_counts,
         llm_calls=run.llm_calls,
     )
 
 
 async def run_with_options(
-    question: str, options: AssistOptions, plan_context: PlanContext | None = None
+    question: str,
+    options: AssistOptions,
+    plan_context: PlanContext | None = None,
+    request_text: str | None = None,
 ) -> AssistRun:
-    """options と plan_context に合わせて AI を1回動かす。例外は握りつぶさない（呼ぶ側が記録してから共通ハンドラへ）。"""
+    """options と plan_context に合わせて AI を1回動かす。例外は握りつぶさない（呼ぶ側が記録してから共通ハンドラへ）。
+
+    request_text は頼みに名前が出た科目を探す文（利用者が打った文。無ければ question）。静的の経路だけが使う。
+    """
     path = select_path(options, plan_context)
     if path is None:
         raise UnsupportedLevelError(
             "route=static は、plan_context に診断の答え（config_version と answers）があるときだけ使えます。"
         )
     if path == "static" and plan_context is not None:
-        return await _run_static(question, options, plan_context)
+        return await _run_static(question, options, plan_context, request_text or question)
 
     plan_ids: list[str] | None = None
     plan_block: str | None = None
