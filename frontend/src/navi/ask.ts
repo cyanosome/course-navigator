@@ -4,6 +4,7 @@
  * 本物は POST /api/assist/ask（askAdapter.ts の createHttpAskAdapter）。開発ビルドで ?wait= を付けたときだけ、
  * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。見本の回答は本番の束に入れないよう、使うときに読み込む。
  */
+import { ApiError } from './api'
 import type { PlanContextIn, PlanSuggestions } from './apiTypes'
 import type { Department, McpAgentRunResult } from './types'
 
@@ -24,10 +25,10 @@ export interface AskAdapter {
   ask(request: AskRequest, signal: AbortSignal): Promise<McpAgentRunResult>
 }
 
-/** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long） */
-export type FakeWaitMode = 'short' | 'long' | 'timeout' | 'error' | 'empty'
+/** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long）。504 はサーバーの打ち切りを真似る */
+export type FakeWaitMode = 'short' | 'long' | 'timeout' | 'error' | 'empty' | '504'
 
-export const FAKE_WAIT_MODES: readonly FakeWaitMode[] = ['short', 'long', 'timeout', 'error', 'empty']
+export const FAKE_WAIT_MODES: readonly FakeWaitMode[] = ['short', 'long', 'timeout', 'error', 'empty', '504']
 
 const SHORT_WAIT_MS = 4_000
 /** 実測の上の端（1問 53〜93 秒。UX 仕様 T3）に近い値 */
@@ -71,6 +72,10 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
       if (mode === 'error') {
         await delay(ERROR_WAIT_MS, signal)
         throw new TypeError('Failed to fetch（モック: サーバーにつながらない状態を真似ています）')
+      }
+      if (mode === '504') {
+        await delay(ERROR_WAIT_MS, signal)
+        throw new ApiError('http', 504, null, 'AI の回答: HTTP 504（モック: サーバーの打ち切りを真似ています）')
       }
       await delay(mode === 'long' ? LONG_WAIT_MS : SHORT_WAIT_MS, signal)
       const { FIXTURE_ASK_RESULT } = await import('./fixtureAsk')

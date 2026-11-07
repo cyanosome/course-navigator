@@ -6,7 +6,7 @@
  *   - サーバーが plan_context を断った（422）: plan_context を外し、プランと答えの要約を文に入れて聞き直す（text_only）
  *   - サーバーが plan_context を知らない（応答に plan_suggestions の項目が無い。E1 より前）: 回答はそのまま出し、
  *     プランが AI に届いていないと添える（not_supported）。提案が無いので、出典の科目から足し外しする
- *   - つながらない・時間切れ: 失敗として出し、［もう一度送る］で送り直す
+ *   - つながらない・時間切れ（画面の上限か、サーバーの打ち切りの 504）: 失敗として出し、［もう一度送る］で送り直す
  * - 送るたびに plan_refine_send を記録し、その event_id を A1 の client_event_id に渡す（サーバーの chat_response と結ぶ）。
  * - 待つあいだもほかの画面を使える（状態は NaviRoot にあり、画面を移っても送信は続く）。
  * 質問と回答は sessionStorage（KEYS.refine。タブを閉じると消える）。NaviRoot で1つ作り、PlanRefineContext で配る。
@@ -42,6 +42,9 @@ export interface RefineSession {
 }
 
 const DELIVERIES: readonly string[] = ['with_context', 'text_only', 'not_supported']
+
+/** サーバーが時間内に答えを作れず打ち切った（backend の A1 の上限、プロキシの上限） */
+const GATEWAY_TIMEOUT = 504
 
 function isRefineSession(v: unknown): v is RefineSession {
   return (
@@ -156,6 +159,11 @@ export function usePlanRefineState({ adapter, dept, log, target }: RefineDeps): 
               return
             }
             if (c.signal.aborted) return // ［やめる］で止めた
+            if (err instanceof ApiError && err.status === GATEWAY_TIMEOUT) {
+              console.warn('プランの微修正がサーバーで時間切れになりました', err)
+              finish({ status: 'timeout' })
+              return
+            }
             if (withContext && err instanceof ApiError && err.status === 422) {
               console.warn('サーバーが plan_context を受け付けないので、プランを文に入れて聞き直します', err)
               return attempt(false)

@@ -110,7 +110,7 @@ function Result({ session, plan, onResend, onClose }: ResultProps) {
   if (session.status !== 'done' || session.result === null) {
     const text =
       session.status === 'timeout'
-        ? '3分たっても回答が届かないため、待つのをやめました。'
+        ? '時間がかかりすぎて止まりました。もう一度送れます。'
         : session.status === 'empty'
           ? '頼みに合う科目は見つかりませんでした。'
           : '回答を作れませんでした（サーバーにつながりません）。プランはこのまま使えます。'
