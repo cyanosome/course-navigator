@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-07-1",
+  "version": "2026-11-07-2",
   "department_id": "kansai-enechem-2026",
   "scope": {
     "terms": [
@@ -62,8 +62,7 @@
       "max_select": 3,
       "options": [
         {"id": "math", "label": "数学", "effects": [
-          {"primitive": "keyword", "args": {"words": ["基礎からの数学", "数学を学ぶ（微分積分１）", "数学を学ぶ（微分積分２）"], "fields": ["name"]}, "weight": 3},
-          {"primitive": "keyword", "args": {"words": ["グラフを通じた直感"], "fields": ["summary"]}, "weight": 3}
+          {"primitive": "keyword", "args": {"words": ["基礎からの数学", "数学を学ぶ（微分積分１）", "数学を学ぶ（微分積分２）"], "fields": ["name"]}, "weight": 3}
         ]},
         {"id": "phys", "label": "物理", "effects": [
           {"primitive": "keyword", "args": {"words": ["基礎からの物理学"], "fields": ["name"]}, "weight": 3}
