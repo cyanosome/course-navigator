@@ -1,6 +1,6 @@
 # [ADR-0012] Ingestion 運用環境における Backend 自動シード投入の停止とオプトイン化
 
-- **ステータス**: 提案中 (Proposed)
+- **ステータス**: 承認済み(Accepted)
 - **起票日**: 2026-10-10
 - **決定者 / 議論の場**: yuto (@cyanosome), abuku, akiha (@Akitoshi-Hasegawa)
 - **関連リンク**: [ADR-0002](0002-use-polyglot-persistence-postgres-and-neo4j.md), [ADR-0008](0008-refactor-uv-workspace-and-separate-ingestion.md), [ADR-0011](0011-pivot-from-nagasaki-to-komazawa-ingestion.md), `backend/src/course_core/seeder.py`, `backend/src/api/main.py`
@@ -60,18 +60,21 @@
 ## 5. 各選択肢の評価 (Pros & Cons)
 
 ### 選択肢 A: Seeder コード完全削除
+
 - **メリット (+)**:
   - コードベースが最もシンプルになり、シード用の重複コードが消える。
 - **デメリット・見送り理由 (-)**:
   - 既存の Agent 意図解析テスト（81件）やゴールデンテストが 20 件のシードデータに依存しているため、テスト実行前に毎回 Ingestion を動かす必要が生じ、CI の実行速度と開発容易性が大きく低下する。
 
 ### 選択肢 B: 環境変数制御（デフォルト `true`）
+
 - **メリット (+)**:
   - 既存の Agent 開発環境では設定変更なしでそのまま動く。
 - **デメリット・見送り理由 (-)**:
   - 新規開発者や別ブランチから Ingestion を動かした際、`.env` へのフラグ追加を忘れると実 DB にダミーデータが混入するリスクが残り、「Secure by Default」の原則に反する。
 
 ### 選択肢 C: 環境変数によるオプトイン制御（デフォルト `false`） 【採用案】
+
 - **メリット (+)**:
   - 実シラバスデータとダミーデータの混入リスクをゼロにできる。
   - 手動 CLI（`python -m course_core.seeder`）を残すため、開発者の自由度を損なわない。
