@@ -81,15 +81,18 @@ function findInPlan(plan: WorkingPlan, code: string): StatusCourse | undefined {
   return undefined
 }
 
-/** プランから。学期はプランの学期、まとまりと必修は学科の系統図の科目から引く */
-export function statusCoursesFromPlan(dept: Department, plan: WorkingPlan): StatusCourse[] {
+/**
+ * プランから。学期はプランの学期、まとまりと必修は学科の系統図の科目（無ければ lookup）から引く。
+ * 通年の科目（系統図か lookup で分かったもの）は、プランでは春に置いてあっても春と秋の両方に入れる
+ */
+export function statusCoursesFromPlan(dept: Department, plan: WorkingPlan, lookup?: (code: string) => Course | undefined): StatusCourse[] {
   return plan.terms.flatMap((t) =>
     t.courses.map((c): StatusCourse => {
-      const course = findCourse(dept, c.syllabus_id)
+      const course = findCourse(dept, c.syllabus_id) ?? lookup?.(c.syllabus_id)
       return {
         code: c.syllabus_id,
         name: c.name,
-        terms: [planTermKey(t)],
+        terms: course?.term === '通年' ? termsOf(course) : [planTermKey(t)],
         credits: c.credits,
         slots: c.slots,
         frameId: course?.frameId ?? null,

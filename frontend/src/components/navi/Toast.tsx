@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { findCourse } from '../../navi/graph'
 import { useNavi } from '../../navi/state'
 import type { ToastState } from '../../navi/state'
-import { DAYS, gridSlots, isOnGrid, isRequired, PERIODS, placedInTerm, slotMap, termsOf } from '../../navi/timetable'
+import { DAYS, gridSlots, isOnGrid, isRequired, PERIODS, placedInTerm, resolveCourse, slotMap, termsOf } from '../../navi/timetable'
 import type { Course } from '../../navi/types'
 import { addedNotice } from '../../navi/views'
 
@@ -26,7 +25,7 @@ interface ToastViewProps {
 }
 
 function ToastView({ toast }: ToastViewProps) {
-  const { dept, shortlist, focusTerm, reducedMotion, clearToast, undoRemove } = useNavi()
+  const { dept, shortlist, placement, focusTerm, reducedMotion, clearToast, undoRemove } = useNavi()
   const [leaving, setLeaving] = useState(false)
   /** ［元に戻す］にフォーカスやマウスがあるあいだは消さない（押す前に消えないように） */
   const [held, setHeld] = useState(false)
@@ -44,7 +43,7 @@ function ToastView({ toast }: ToastViewProps) {
     return () => clearTimeout(timer)
   }, [leaving, reducedMotion, clearToast, toast.id])
 
-  const course = findCourse(dept, toast.code)
+  const course = resolveCourse(dept, toast.code, placement)
   if (course === undefined) return null
   const className = leaving ? 'toast is-leaving' : 'toast'
 
@@ -65,7 +64,7 @@ function ToastView({ toast }: ToastViewProps) {
     )
   }
 
-  const notice = addedNotice(dept, shortlist, course, focusTerm)
+  const notice = addedNotice(dept, shortlist, course, focusTerm, placement)
   return (
     // 状態は読み上げ用の領域で1回だけ言うので、知らせそのものは読み上げない（E1 5章）
     <div className={className} aria-hidden="true">
@@ -84,10 +83,10 @@ interface MiniTimetableProps {
 
 /** 知らせの中の小さな時間割（5日×5限）。必修は灰、いま入れたマスは緑、ほかの候補は緑の輪、空きは枠だけ */
 function MiniTimetable({ course }: MiniTimetableProps) {
-  const { dept, shortlist } = useNavi()
+  const { dept, shortlist, placement } = useNavi()
   const term = termsOf(course)[0]
   if (term === undefined) return null
-  const map = slotMap(placedInTerm(dept, shortlist, term))
+  const map = slotMap(placedInTerm(dept, shortlist, term, placement))
   const mine = new Set(gridSlots(course))
   return (
     <div className="mini">

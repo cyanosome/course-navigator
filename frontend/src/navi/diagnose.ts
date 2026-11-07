@@ -230,6 +230,38 @@ export function findPlanCourse(plan: WorkingPlan, code: string): { term: Working
   return undefined
 }
 
+/**
+ * プランの科目を時間割の科目の形に（学年と学期はプランの学期）。科目の詳細を読むまでのあいだ、
+ * 系統図に無いプランの科目を時間割に置くのに使う（区分・担当・授業の中身は分からないものとして空にする）
+ */
+export function planCourseAsCourse(plan: WorkingPlan, code: string): Course | undefined {
+  const hit = findPlanCourse(plan, code)
+  if (hit === undefined) return undefined
+  const { term, course: c } = hit
+  return {
+    code: c.syllabus_id,
+    name: c.name,
+    short: null,
+    frameId: null,
+    faculty: null,
+    year: term.year,
+    yearRange: null,
+    term: term.term,
+    slots: c.slots,
+    slotNote: c.slot_note,
+    credits: c.credits,
+    kind: null,
+    grad: null,
+    teacher: { status: 'notDelivered' },
+    learn: '',
+    summary: '',
+    plan: [],
+    grading: null,
+    textbook: null,
+    syllabusUrl: null,
+  }
+}
+
 /** 学期の単位の合計（単位の分からない科目は数えず、その数を unknown に） */
 export function workingTermCredits(term: WorkingTerm): { credits: number; unknown: number } {
   return {

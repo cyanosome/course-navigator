@@ -37,7 +37,7 @@ interface SearchListProps {
  * - assistant: on のときだけ［AIに聞く］と AI の結果
  */
 export default function SearchList({ dirId, pc, currentCode }: SearchListProps) {
-  const { dept, shortlist, focusTerm, assumedTerm, ask, askDraft, askDraftUnsent } = useNavi()
+  const { dept, shortlist, placement, focusTerm, assumedTerm, ask, askDraft, askDraftUnsent } = useNavi()
   const flags = useFlags()
   const [keyword, setKeyword] = useKeywordQuery()
   const navigate = useNavigate()
@@ -48,9 +48,9 @@ export default function SearchList({ dirId, pc, currentCode }: SearchListProps) 
   const askOpen = askFocused || draftUnsent
   /** 一度隠したチップは、戻すときに開閉の中身と同じフェードで出す（最初から出ているときは動かさない） */
   const [chipsWereHidden, setChipsWereHidden] = useState(draftUnsent)
-  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags }
+  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const interest = listInterest(ctx, dirId)
-  const required = placedInTerm(dept, shortlist, focusTerm).filter(isRequired)
+  const required = placedInTerm(dept, shortlist, focusTerm, placement).filter(isRequired)
   const showField = flags.search !== 'off' || flags.assistant === 'on'
   const searching = flags.search !== 'off' && keyword !== ''
   /** キーワード検索の結果を出しているあいだは、どのチップも選ばない */

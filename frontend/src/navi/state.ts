@@ -4,7 +4,7 @@
  */
 import { createContext, useContext } from 'react'
 import type { ShortlistFrom } from './research'
-import type { TermKey } from './timetable'
+import type { Placement, TermKey } from './timetable'
 import type { Department, McpAgentRunResult } from './types'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
 
@@ -203,6 +203,11 @@ export interface NaviContextValue {
   reducedMotion: boolean
 
   shortlist: string[]
+  /**
+   * 時間割に置く科目の引き方。系統図に無い科目は、科目の入れ物（D5 で読んだ詳細）→ プランの科目の順に引く。
+   * 入れ物に無い候補は NaviApp が詳細を読みに行き、読めたら引き方を作り直す（時間割が描き直される）
+   */
+  placement: Placement
   isKept: (code: string) => boolean
   /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す。from は研究のログの「どこから」 */
   toggleKeep: (code: string, from?: ShortlistFrom) => void

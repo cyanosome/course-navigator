@@ -6,7 +6,6 @@
  * 判定そのものは status.ts の純関数。画面の部品はこのフックの値と関数だけを使う。
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useNaviData } from './dataSource'
 import type { WorkingPlan } from './diagnose'
 import type { ResearchLog } from './research'
 import { useNavi } from './state'
@@ -93,8 +92,7 @@ export interface CourseStatusView {
  * プランならプランの学期、どちらも無ければ科目のある学期。候補には時間割と同じく、旗 requirements=shown なら学科の必修を入れる
  */
 export function useCourseStatus(target: StatusTarget): CourseStatusView {
-  const { dept, shortlist } = useNavi()
-  const { peekCourse } = useNaviData()
+  const { dept, shortlist, placement } = useNavi()
   const { checkpoints } = useCheckpoints()
   const { config, working } = useDiagnose()
   const flags = useFlags()
@@ -103,15 +101,14 @@ export function useCourseStatus(target: StatusTarget): CourseStatusView {
     [config],
   )
   const plan = target.kind === 'plan' ? target.plan : null
+  // 系統図に無い科目は、時間割と同じ引き方（科目の入れ物 → プランの科目）で引く
+  const lookup = placement.lookup
   return useMemo(() => {
-    const lookup = (code: string) => {
-      const m = peekCourse(code)
-      return m !== undefined && m.ok ? m.course : undefined
-    }
+    const find = (code: string) => lookup?.(code)
     const courses =
       plan !== null
-        ? statusCoursesFromPlan(dept, plan)
-        : statusCoursesFromShortlist(dept, shortlist, lookup, working, flags.requirements === 'shown')
+        ? statusCoursesFromPlan(dept, plan, find)
+        : statusCoursesFromShortlist(dept, shortlist, find, working, flags.requirements === 'shown')
     const terms = plan !== null ? plan.terms.map((t) => ({ year: t.year, half: t.term })) : scopeTerms
     const status = buildStatus(courses)
     // 区分を出さない変種（requirements=hidden）では、必修のチェックを出さない
@@ -122,5 +119,5 @@ export function useCourseStatus(target: StatusTarget): CourseStatusView {
       kindsAvailable: flags.requirements === 'shown' && kindsAvailable(dept),
     })
     return { status, results, terms }
-  }, [checkpoints, dept, flags.requirements, peekCourse, plan, scopeTerms, shortlist, working])
+  }, [checkpoints, dept, flags.requirements, lookup, plan, scopeTerms, shortlist, working])
 }

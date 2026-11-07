@@ -6,7 +6,7 @@ import { extractReasons } from './ask'
 import { courseIndex, findCourse, findFrame, findInterest, hasEdge, interestGroups, reachedInterests, realInterests } from './graph'
 import type { AskSession, Origin, TrailEntry } from './state'
 import { courseHref, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
-import type { TermKey } from './timetable'
+import type { Placement, TermKey } from './timetable'
 import {
   clashesOf,
   courseTermLabel,
@@ -36,6 +36,8 @@ export interface ListContext {
   assumedTerm: TermKey
   /** 変種の旗（graph・recommend）。省くと基準 V00 と同じ（系統図もおすすめも出す） */
   flags?: VariantFlags
+  /** 時間割に置く科目の引き方（系統図に無い科目の引き方と、必修を最初から入れるか）。省くと系統図の科目と必修だけ */
+  placement?: Placement
 }
 
 /** 一覧に使う興味関心。系統図を出さない変種（graph=off）では、URL に ?dir= があっても使わない */
@@ -94,7 +96,7 @@ export function isOtherTerm(course: Course, focusTerm: TermKey): boolean {
 
 /** 重なりの1行。いま見ている学期と違う学期の重なりは学期を添える */
 export function clashText(ctx: ListContext, course: Course): string | null {
-  const first = clashesOf(ctx.dept, ctx.shortlist, course)[0]
+  const first = clashesOf(ctx.dept, ctx.shortlist, course, ctx.placement)[0]
   if (first === undefined) return null
   const prefix = sameTerm(first.term, ctx.focusTerm) ? '' : `${termLabel(first.term)}は`
   return `${prefix}${shortName(first.other)}と重なる`
@@ -247,7 +249,7 @@ export function defaultList(ctx: ListContext): DefaultList {
     .sort((a, b) => b.count - a.count || courseIndex(dept, a.course.code) - courseIndex(dept, b.course.code))
     .map((r) => ({ course: r.course, ...reachWhy(dept, r.course) }))
 
-  const progress = gradProgress(dept, shortlist)
+  const progress = gradProgress(dept, shortlist, ctx.placement)
   const lack = progress?.find((p) => p.category === DEFICIT_CATEGORY)
   const remaining = lack === undefined ? 0 : lack.need - lack.placed
   const top = ranked.slice(0, REACH_PICKS)
@@ -329,7 +331,7 @@ export function detailWhy(ctx: ListContext, course: Course, origin: Origin, ask:
       const recommend = ctx.flags?.recommend ?? 'reach'
       if (recommend === 'catalog' || recommend === 'off') return frameFact(dept, course)
       const list = defaultList(ctx)
-      const progress = gradProgress(dept, ctx.shortlist)?.find((p) => p.category === DEFICIT_CATEGORY)
+      const progress = gradProgress(dept, ctx.shortlist, ctx.placement)?.find((p) => p.category === DEFICIT_CATEGORY)
       if (list.deficitCode === course.code && progress !== undefined) {
         return {
           text: `卒業に要る${DEFICIT_CATEGORY}が、あと${progress.need - progress.placed}単位あります。必修と重ならない${DEFICIT_CATEGORY}の科目です`,
@@ -390,11 +392,17 @@ export interface AddedNotice {
 }
 
 /** shortlist は入れたあとの候補 */
-export function addedNotice(dept: Department, shortlist: string[], course: Course, focusTerm: TermKey): AddedNotice {
+export function addedNotice(
+  dept: Department,
+  shortlist: string[],
+  course: Course,
+  focusTerm: TermKey,
+  placement: Placement = {},
+): AddedNotice {
   const main = `${course.name}を候補に入れました`
   let sub: string
   if (inTerm(course, focusTerm)) {
-    const credits = termCreditsOf(dept, shortlist, focusTerm)
+    const credits = termCreditsOf(dept, shortlist, focusTerm, placement)
     const where = course.slots.length > 0 ? course.slots.join('・') : '曜限なし'
     sub = `${where}${WIDE_SPACE}${termLabel(focusTerm)}は${credits}単位`
   } else {

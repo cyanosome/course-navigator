@@ -22,7 +22,7 @@ function framesText(frames: Frame[]): string {
  * 系統図を出さない変種（graph=off）では、まとまりは無いものとして扱う（URL を直に開いても出さない）。
  */
 export default function GroupScreen() {
-  const { dept, isPc, shortlist, focusTerm, assumedTerm } = useNavi()
+  const { dept, isPc, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const { log } = useResearchLog()
   const { frameId = '' } = useParams()
@@ -58,7 +58,7 @@ export default function GroupScreen() {
     return isPc ? missing : <main>{missing}</main>
   }
 
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, placement }
   const here = groupHref(frame.id, origin)
   const rowOrigin: Origin = { kind: 'group', frameId: frame.id }
   const courses = coursesInFrame(dept, frame.id)

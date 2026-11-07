@@ -40,7 +40,7 @@ function placeOf(pathname: string): Place {
  * （学科を変える・このAIについては、どの条件でも開けないようにする）。
  */
 export default function NaviShell({ children }: NaviShellProps) {
-  const { dept, isPc, shortlist, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
+  const { dept, isPc, shortlist, placement, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
   const flags = useFlags()
   const { active: researching, log } = useResearchLog()
   const location = useLocation()
@@ -115,7 +115,7 @@ export default function NaviShell({ children }: NaviShellProps) {
             : null
   const showPlanTab = flags.diagnose === 'quiz'
   const searchHref = listHref(lastDir)
-  const credits = termCredits(dept, shortlist, focusTerm)
+  const credits = termCredits(dept, shortlist, focusTerm, placement)
 
   // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない。AI の欄が無い変種では出さない
   const askPending = flags.assistant === 'on' && ask !== null && (ask.status === 'waiting' || !ask.seen)

@@ -160,13 +160,13 @@ interface CourseBodyProps {
  * 旗 graph=off では「取る順」と、系統図から言う「なぜ」を出さない（AI の判断の「なぜ」は出す）。
  */
 function CourseBody({ course, origin, trail, tab }: CourseBodyProps) {
-  const { dept, ask, isPc, isKept, toggleKeep, track, shortlist, focusTerm, assumedTerm } = useNavi()
+  const { dept, ask, isPc, isKept, toggleKeep, track, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const { log } = useResearchLog()
   const titleId = useId()
   useSyllabusViewLog(course.code)
   // 旗も渡す（detailWhy は recommend=catalog・off のとき、おすすめの並びの説明を出さない）
-  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags }
+  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const kept = isKept(course.code)
   const required = isRequired(course)
   const why = detailWhy(ctx, course, origin, ask)
@@ -357,8 +357,8 @@ interface SlotFitProps {
  * （例 木3 3年春は空き）。オーナーの追加の指示（2026-11-04）: どの学期の話かを、文字を増やしすぎずに書く。
  */
 function SlotFit({ course, kept }: SlotFitProps) {
-  const { dept, shortlist, focusTerm, assumedTerm } = useNavi()
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  const { dept, shortlist, placement, focusTerm, assumedTerm } = useNavi()
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, placement }
   const text = fitText(ctx, course, kept)
   if (text === '') return null
   return <span className={clashText(ctx, course) !== null ? 'note is-clash' : 'note'}>{text}</span>

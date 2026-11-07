@@ -16,7 +16,7 @@ import type { FakeWaitMode } from '../../navi/ask'
 import { createHttpAskAdapter } from '../../navi/askAdapter'
 import { createCourseStore, createNaviDataSource, NaviDataContext } from '../../navi/dataSource'
 import type { NaviData, NaviDataSource } from '../../navi/dataSource'
-import { createDiagnoseSource } from '../../navi/diagnose'
+import { createDiagnoseSource, planCourseAsCourse } from '../../navi/diagnose'
 import type { DiagnoseSource } from '../../navi/diagnose'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
@@ -33,8 +33,9 @@ import type { ShortlistFrom } from '../../navi/research'
 import { ASK_TIMEOUT_MS, DIAGNOSE_HREF, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
 import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '../../navi/storage'
-import type { TermKey } from '../../navi/timetable'
-import type { Department } from '../../navi/types'
+import { resolveCourse } from '../../navi/timetable'
+import type { CourseLookup, Placement, TermKey } from '../../navi/timetable'
+import type { Course, Department } from '../../navi/types'
 import { DiagnoseContext, useDiagnoseState } from '../../navi/useDiagnose'
 import type { DiagnoseState } from '../../navi/useDiagnose'
 import { useLoadable } from '../../navi/useLoadable'
@@ -325,6 +326,17 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   )
   const assumedTerm = useMemo<TermKey>(() => ({ year: initial.assumedYear, half: '春' }), [initial.assumedYear])
 
+  /* ---------- 診断（プランは時間割の引き方にも使うので、先に作る。状態は navi/useDiagnose） ---------- */
+  const [diagnoseSource] = useState<DiagnoseSource>(createDiagnoseSource)
+  const diagnose = useDiagnoseState({
+    deptId: dept.id,
+    enabled: flags.diagnose === 'quiz',
+    source: diagnoseSource,
+    log,
+    loadCourse: naviData.loadCourse,
+  })
+  const working = diagnose.working
+
   /* ---------- 時間割の学期・読み上げ・知らせ ---------- */
   const [focusTerm, setFocusTerm] = useState<TermKey>(assumedTerm)
   const [announcement, setAnnouncement] = useState('')
@@ -336,6 +348,38 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   /* ---------- 候補 ---------- */
   const [shortlist, setShortlist] = useState<string[]>(() => readJson('local', KEYS.shortlist, isStringArray) ?? [])
   useEffect(() => writeJson('local', KEYS.shortlist, shortlist), [shortlist])
+
+  /* ---------- 時間割に置く科目の引き方（系統図 → 科目の入れ物 → プランの科目） ---------- */
+  const { loadCourse, peekCourse } = naviData
+  /** 候補のうち系統図に無い科目で、ここで詳細を読んだもの（読めたら引き方を作り直し、時間割を描き直す） */
+  const [fetched, setFetched] = useState<ReadonlyMap<string, Course>>(() => new Map())
+  const lookupCourse = useCallback<CourseLookup>(
+    (code) => {
+      const hit = fetched.get(code)
+      if (hit !== undefined) return hit
+      const mapped = peekCourse(code)
+      if (mapped !== undefined && mapped.ok) return mapped.course
+      return working === null ? undefined : planCourseAsCourse(working, code)
+    },
+    [fetched, peekCourse, working],
+  )
+  const placement = useMemo<Placement>(() => ({ lookup: lookupCourse }), [lookupCourse])
+  // 系統図に無く、まだ入れ物に無い候補の詳細を読む（タブを開き直すと入れ物は空なので、そのたびに読む）
+  useEffect(() => {
+    const missing = shortlist.filter((code) => findCourse(dept, code) === undefined && peekCourse(code) === undefined)
+    if (missing.length === 0) return
+    const control = new AbortController()
+    void Promise.allSettled(missing.map((code) => loadCourse(code, control.signal))).then((results) => {
+      if (control.signal.aborted) return
+      const got = new Map<string, Course>()
+      results.forEach((r, i) => {
+        const code = missing[i]
+        if (code !== undefined && r.status === 'fulfilled' && r.value.ok) got.set(code, r.value.course)
+      })
+      if (got.size > 0) setFetched((prev) => new Map([...prev, ...got]))
+    })
+    return () => control.abort()
+  }, [dept, loadCourse, peekCourse, shortlist])
 
   /* ---------- 調査モード ---------- */
   const [study, setStudy] = useState<StudyRecord | null>(() => readJson('local', KEYS.study, isStudyRecord))
@@ -359,7 +403,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   }, [])
 
   const isKept = useCallback((code: string) => shortlist.includes(code), [shortlist])
-  const courseName = useCallback((code: string) => findCourse(dept, code)?.name ?? code, [dept])
+  const courseName = useCallback((code: string) => resolveCourse(dept, code, placement)?.name ?? code, [dept, placement])
 
   const toggleKeep = useCallback(
     (code: string, from: ShortlistFrom = 'unknown') => {
@@ -379,17 +423,17 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
           ? { ...s, keptAfterReason: [...s.keptAfterReason, code] }
           : s,
       )
-      const course = findCourse(dept, code)
+      const course = resolveCourse(dept, code, placement)
       if (course === undefined) {
-        // 学科データに無い科目（自由記述の結果）は時間割に入らないので、読み上げだけ
+        // 詳細を読めていない科目（データに無い自由記述の結果など）は時間割に置けないので、読み上げだけ
         announce(`${code}を候補に入れました。`)
         return
       }
       toastSeq.current += 1
       setToast({ id: toastSeq.current, kind: 'added', code })
-      announce(addedNotice(dept, next, course, focusTerm).speech)
+      announce(addedNotice(dept, next, course, focusTerm, placement).speech)
     },
-    [announce, courseName, dept, focusTerm, log, shortlist],
+    [announce, courseName, dept, focusTerm, log, placement, shortlist],
   )
 
   const removeKeep = useCallback(
@@ -539,14 +583,6 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   const [lastDir, setLastDir] = useState('default')
 
   /* ---------- 診断・プランの微修正・履修状況のチェック（状態は navi/useDiagnose・usePlanRefine・useStatus） ---------- */
-  const [diagnoseSource] = useState<DiagnoseSource>(createDiagnoseSource)
-  const diagnose = useDiagnoseState({
-    deptId: dept.id,
-    enabled: flags.diagnose === 'quiz',
-    source: diagnoseSource,
-    log,
-    loadCourse: naviData.loadCourse,
-  })
   // 微修正は、いまのプラン（足し外しの後）と、プランを作った答えの版・指紋・要約を送る
   const refineTarget = useMemo<RefineTarget | null>(
     () =>
@@ -571,6 +607,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       isPc,
       reducedMotion,
       shortlist,
+      placement,
       isKept,
       toggleKeep,
       keepAll,
@@ -604,6 +641,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       isPc,
       reducedMotion,
       shortlist,
+      placement,
       isKept,
       toggleKeep,
       keepAll,

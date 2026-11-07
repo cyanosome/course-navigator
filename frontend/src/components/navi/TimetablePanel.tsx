@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { findCourse } from '../../navi/graph'
 import { courseHref, listHref, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import {
   ALL_TERMS,
@@ -9,6 +8,7 @@ import {
   isOnGrid,
   isRequired,
   placedInTerm,
+  resolveCourse,
   slotMap,
   termCredits,
   termIndex,
@@ -28,22 +28,25 @@ import TimetableGrid from './TimetableGrid'
  * 履修状況のチェック（StatusPanel。仮の置き方）は、どの変種でも同じものを出す。
  */
 export default function TimetablePanel() {
-  const { dept, shortlist, focusTerm, setFocusTerm, removeKeep, isPc, lastDir } = useNavi()
+  const { dept, shortlist, placement, focusTerm, setFocusTerm, removeKeep, isPc, lastDir } = useNavi()
   const index = termIndex(focusTerm)
   const prev = ALL_TERMS[index - 1]
   const next = ALL_TERMS[index + 1]
-  const placed = placedInTerm(dept, shortlist, focusTerm)
+  const placed = placedInTerm(dept, shortlist, focusTerm, placement)
   const clashes = [...slotMap(placed).entries()].filter(([, cs]) => cs.length > 1)
   const noSlot = placed.filter((c) => !isOnGrid(c))
-  const picked = shortlist.map((code) => findCourse(dept, code)).filter((c): c is Course => c !== undefined && !isRequired(c))
+  const picked = shortlist
+    .map((code) => resolveCourse(dept, code, placement))
+    .filter((c): c is Course => c !== undefined && !isRequired(c))
   const pickedHere = picked.filter((c) => inTerm(c, focusTerm))
   const elsewhere = picked.filter((c) => !inTerm(c, focusTerm))
-  const outside = shortlist.filter((code) => findCourse(dept, code) === undefined)
-  const credits = termCredits(dept, shortlist, focusTerm)
-  const unknown = unknownCreditCount(dept, shortlist, focusTerm)
+  // 系統図にも科目の入れ物にもプランにも無い（詳細を読めていない）候補
+  const outside = shortlist.filter((code) => resolveCourse(dept, code, placement) === undefined)
+  const credits = termCredits(dept, shortlist, focusTerm, placement)
+  const unknown = unknownCreditCount(dept, shortlist, focusTerm, placement)
   const req = dept.requirements
-  const progress = gradProgress(dept, shortlist)
-  const total = totalPlacedCredits(dept, shortlist)
+  const progress = gradProgress(dept, shortlist, placement)
+  const total = totalPlacedCredits(dept, shortlist, placement)
   const Heading = isPc ? 'h2' : 'h1'
 
   const nameLink = (c: Course) => {
@@ -158,7 +161,7 @@ export default function TimetablePanel() {
       {outside.length > 0 && (
         <section className="block" aria-labelledby="tt-outside">
           <h2 className="block-h" id="tt-outside">
-            学科のデータに無い候補（時間割に入りません）
+            時間割に置けない候補（詳細を読めていません）
           </h2>
           <ul className="lines">
             {outside.map((code) => (

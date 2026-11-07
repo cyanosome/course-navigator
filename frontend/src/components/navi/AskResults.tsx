@@ -24,7 +24,7 @@ interface AskResultsProps {
  * 旗 assistant=on のときだけ出す（呼ぶ側の SearchList）。行は AI の出典カードで、押すと result_click と citation_click を記録する。
  */
 export default function AskResults({ session, currentCode }: AskResultsProps) {
-  const { dept, shortlist, focusTerm, assumedTerm, cancelAsk, closeAsk, markAskSeen, sendAsk } = useNavi()
+  const { dept, shortlist, placement, focusTerm, assumedTerm, cancelAsk, closeAsk, markAskSeen, sendAsk } = useNavi()
   const flags = useFlags()
   const { log } = useResearchLog()
   const waiting = session.status === 'waiting'
@@ -105,7 +105,7 @@ export default function AskResults({ session, currentCode }: AskResultsProps) {
   const origin: Origin = { kind: 'ask', localId: session.localId }
   const root = rootEntry(dept, origin)
   const reasons = extractReasons(result.answer)
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, placement }
   const rows = result.sources.map((s) => {
     const why = reasons.get(s.code) ?? AI_WHY_FALLBACK
     const course = findCourse(dept, s.code)

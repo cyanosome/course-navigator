@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { findCourse } from '../../navi/graph'
 import { courseHref, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
-import { DAYS, gridSlots, isRequired, PERIODS, placedInTerm, shortName, slotMap, termLabel } from '../../navi/timetable'
+import { DAYS, gridSlots, isRequired, PERIODS, placedInTerm, resolveCourse, shortName, slotMap, termLabel } from '../../navi/timetable'
 import type { TermKey } from '../../navi/timetable'
 import type { Course } from '../../navi/types'
 
@@ -22,9 +21,9 @@ interface TimetableGridProps {
  * 空きは細い枠だけ。マスを押すとその科目の詳細へ。
  */
 export default function TimetableGrid({ term, previewCode = null, pc = false, tab }: TimetableGridProps) {
-  const { dept, shortlist } = useNavi()
-  const map = slotMap(placedInTerm(dept, shortlist, term))
-  const preview = previewCode === null ? undefined : findCourse(dept, previewCode)
+  const { dept, shortlist, placement } = useNavi()
+  const map = slotMap(placedInTerm(dept, shortlist, term, placement))
+  const preview = previewCode === null ? undefined : resolveCourse(dept, previewCode, placement)
   const previewSlots = new Set(preview === undefined ? [] : gridSlots(preview))
 
   const cellLink = (course: Course, className: string, label: string, children: ReactNode) => {

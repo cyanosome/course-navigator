@@ -13,12 +13,12 @@ import SearchList from './SearchList'
  * スマホは一覧そのもの。PC は一覧を左の段（NaviLayout）に出し、ここは中央に一覧の1件目の詳細を出す（UX 仕様 S1 の PC、E1 RM8）。
  */
 export default function SearchScreen() {
-  const { dept, isPc, ask, lastDir, setLastDir, shortlist, focusTerm, assumedTerm } = useNavi()
+  const { dept, isPc, ask, lastDir, setLastDir, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const [keyword] = useKeywordQuery()
   const { localId } = useParams()
   const [params] = useSearchParams()
-  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const dirParam = params.get('dir')
   // 系統図を出さない変種（graph=off）では ?dir= を使わない
   const validDir = dirParam !== null && listInterest(ctx, dirParam) !== undefined ? dirParam : 'default'
