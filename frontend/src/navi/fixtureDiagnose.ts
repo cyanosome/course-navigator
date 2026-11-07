@@ -5,7 +5,8 @@
  * 動的に読み込む。本番のビルドには入らない。
  * - 設定は事前登録（protocol.md）の「設定の形」に合わせた見本。質問・重みは診断のコンペで決めるので、ここの中身は仮。
  * - プランの組み方は事前登録のエンジンの決まり（学期ごとに点の高い順、同じ曜限に2つ入れない、上限を超えない、同点は
- *   syllabus_id）を、見本の学科（fixtureDepartment.ts）の上でまねたもの。見本だけの簡略: 学期と配当の学年が合わない科目は
+ *   syllabus_id、同じ科目名はプランに1つまで（前の学期までに入った名前も入れない）。同じ名前の別クラスは点の順に見て、
+ *   上のクラスが曜限か上限で入らなければ次のクラスを見る（backend の P-a、9e23f1f））を、見本の学科（fixtureDepartment.ts）の上でまねたもの。見本だけの簡略: 学期と配当の学年が合わない科目は
  *   点にかかわらず入れない。scale5 は答えの n 番目の選択肢の点の付け方を使う（API と同じ）。理由の文は、選んだ選択肢の効果と
  *   base の in_group・reaches_group・on_curriculum だけから作る（backend のエンジンと同じ決まり。理由が空の科目もある）。
  */
@@ -203,10 +204,11 @@ function digest(answers: DiagnoseAnswers): string {
 function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAnswers): DiagnosePlanOut {
   const effects = activeEffects(config, answers)
   const cap = config.scope.credit_cap_per_term
-  const chosen = new Set<string>()
+  /** プランに入った科目名（同じ名前はプランに1つまで。前の学期までに入った名前も入れない） */
+  const placedNames = new Set<string>()
   const terms = config.scope.terms.map((t) => {
     const scored = dept.courses
-      .filter((c) => c.year === t.year && (c.term === t.term || c.term === '通年') && !chosen.has(c.code))
+      .filter((c) => c.year === t.year && (c.term === t.term || c.term === '通年') && !placedNames.has(c.name))
       .map((c) => {
         const parts = effects.map(({ e, reason }) => ({ e, reason, v: e.weight * primitiveValue(dept, c, e) }))
         // 理由は点を足した効果のうち、理由にしてよいものだけ（無ければ理由は空。画面は理由の無い行も出す）
@@ -223,11 +225,13 @@ function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAns
     const used = new Set<string>()
     let credits = 0
     for (const { c, score, reasons } of scored) {
+      // 同じ名前のクラスは点の順に見る。上のクラスが曜限か上限で入らなければ、名前は残して次のクラスを見る（P-a）
+      if (placedNames.has(c.name)) continue
       if (score <= 0 || c.slots.some((s) => used.has(s))) continue
       if (cap !== null && credits + (c.credits ?? 0) > cap) continue
       c.slots.forEach((s) => used.add(s))
       credits += c.credits ?? 0
-      chosen.add(c.code)
+      placedNames.add(c.name)
       picked.push({ syllabus_id: c.code, name: c.name, credits: c.credits, slots: c.slots, slot_note: c.slotNote, score, reasons })
     }
     return { year: t.year, term: t.term, credits_total: credits, courses: picked }
