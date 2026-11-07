@@ -1,0 +1,12 @@
+[
+  {
+    "id": "kansai-enechem-2026",
+    "university": "関西大学",
+    "faculty": "環境都市工学部",
+    "name": "エネルギー環境・化学工学科",
+    "syllabus_year": 2026,
+    "data_version": "unset",
+    "pg": {"academic_year": 2026, "faculty_code": "320", "department_code": "031"},
+    "neo4j": {"faculty": "環境都市工学部", "department": "エネルギー環境・化学工学科"}
+  }
+]
