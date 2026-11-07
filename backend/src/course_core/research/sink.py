@@ -1,4 +1,4 @@
-"""サーバーのイベントを研究のログに書く口（型だけ。中身の JSONL の保存は研究のログの実装が埋める）。
+"""サーバーのイベントを研究のログに書く口（実装の JSONL の保存は store.py）。
 
 AI の口（api/routers/assist.py）など、研究のログ以外の場所はこの型だけを使う:
 - session_id_from_request でリクエストから調査のセッションの ID を取り出す。
@@ -69,27 +69,12 @@ class ResearchSink(Protocol):
         ...
 
 
-class _NotImplementedSink:
-    """研究のログの実装が入るまでの口。呼ばれたら止める（記録したふりをしない）。"""
-
-    async def current_variant(self, session_id: str) -> SessionVariant | None:
-        raise NotImplementedError("研究のログ（セッションの状態）はまだ実装されていません。")
-
-    async def append_server_event(
-        self,
-        session_id: str,
-        event_type: ServerEventType,
-        payload: Mapping[str, Any],
-    ) -> None:
-        raise NotImplementedError("研究のログ（JSONL の追記）はまだ実装されていません。")
-
-
-_NOT_IMPLEMENTED_SINK: Final = _NotImplementedSink()
-
-
 def get_research_sink() -> ResearchSink:
-    """FastAPI の依存。研究のログの実装が、本物の口を返すように中身を埋める。"""
-    return _NOT_IMPLEMENTED_SINK
+    """FastAPI の依存。環境変数 RESEARCH_DATA_DIR（既定 backend/logs/research）の JSONL に書く口を返す。"""
+    # store は SessionVariant などこのモジュールの型を使うので、循環を避けて呼ぶときに読み込む。
+    from course_core.research.store import JsonlResearchSink, default_store
+
+    return JsonlResearchSink(default_store())
 
 
 def session_id_from_request(request: Request) -> str | None:
