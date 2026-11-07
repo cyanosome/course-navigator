@@ -1,0 +1,94 @@
+{
+  "version": "draft-20261107a",
+  "department_id": "kansai-enechem-2026",
+  "scope": {
+    "terms": [
+      {"year": 1, "term": "春"},
+      {"year": 1, "term": "秋"}
+    ],
+    "credit_cap_per_term": 20
+  },
+  "questions": [
+    {
+      "id": "interest",
+      "text": "気になる分野はどれ？（2つまで）",
+      "kind": "multi",
+      "max_select": 2,
+      "options": [
+        {
+          "id": "chemeng",
+          "label": "化学工学・プロセス",
+          "effects": [
+            {"primitive": "reaches_group", "args": {"target": "G_3Y_AppChemEng"}, "weight": 2},
+            {"primitive": "keyword", "args": {"words": ["化学工学", "プロセス", "反応"], "fields": ["name"]}, "weight": 1}
+          ]
+        },
+        {
+          "id": "energy",
+          "label": "エネルギー・材料",
+          "effects": [
+            {"primitive": "reaches_group", "args": {"target": "G_3Y_MatEnergy"}, "weight": 2},
+            {"primitive": "keyword", "args": {"words": ["エネルギー", "材料", "電池"], "fields": ["name"]}, "weight": 1}
+          ]
+        },
+        {
+          "id": "organic",
+          "label": "有機化学・触媒",
+          "effects": [
+            {"primitive": "reaches_group", "args": {"target": "G_3Y_OrgCatal"}, "weight": 2},
+            {"primitive": "keyword", "args": {"words": ["有機", "触媒"], "fields": ["name"]}, "weight": 1}
+          ]
+        },
+        {
+          "id": "environment",
+          "label": "環境・安全",
+          "effects": [
+            {"primitive": "reaches_group", "args": {"target": "G_3Y_SafetySeminar"}, "weight": 2},
+            {"primitive": "keyword", "args": {"words": ["環境", "安全"], "fields": ["name"]}, "weight": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "morning",
+      "text": "1限（朝いちばん）の授業は？",
+      "kind": "single",
+      "options": [
+        {"id": "ok", "label": "平気", "effects": []},
+        {"id": "avoid", "label": "できれば避けたい", "effects": [
+          {"primitive": "slot_avoid", "args": {"periods": [1]}, "weight": -2}
+        ]}
+      ]
+    },
+    {
+      "id": "breadth",
+      "text": "学科の専門のほかに、教養の科目も広く取りたい？",
+      "kind": "scale5",
+      "options": [
+        {"id": "s1", "label": "取りたくない", "effects": [
+          {"primitive": "on_curriculum", "args": {}, "weight": 2}
+        ]},
+        {"id": "s2", "label": "あまり", "effects": [
+          {"primitive": "on_curriculum", "args": {}, "weight": 1}
+        ]},
+        {"id": "s3", "label": "どちらでも", "effects": []},
+        {"id": "s4", "label": "少し", "effects": [
+          {"primitive": "keyword", "args": {"words": ["社会", "文化", "歴史", "心理", "経済"], "fields": ["name", "summary"]}, "weight": 1}
+        ]},
+        {"id": "s5", "label": "広く取りたい", "effects": [
+          {"primitive": "keyword", "args": {"words": ["社会", "文化", "歴史", "心理", "経済"], "fields": ["name", "summary"]}, "weight": 2}
+        ]}
+      ]
+    }
+  ],
+  "base_effects": [
+    {"primitive": "on_curriculum", "args": {}, "weight": 1},
+    {"primitive": "keyword", "args": {"words": ["留学生"], "fields": ["name", "summary"]}, "weight": -3}
+  ],
+  "tie_break": "year_then_syllabus_id",
+  "reason_templates": {
+    "reaches_group": "{target}につながる",
+    "keyword": "「{words}」を扱う",
+    "on_curriculum": "学科の系統図に載っている"
+  }
+}
