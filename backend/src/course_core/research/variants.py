@@ -1,6 +1,7 @@
 """変種（機能フラグの組み合わせ）の表と、組み合わせの制約の検査。
 
-表は設計 ab-variants.md の付録 A（flags_version "1"）の写し。各変種の旗は、BASE_FLAGS に
+表は設計 ab-variants.md の付録 A（flags_version "1"）の写しに、11/7 の決定（人の A/B を「診断のみ」対
+「診断＋対話」にする）で因子 F20 diagnose と V30・V31 を足したもの（flags_version "2"）。各変種の旗は、BASE_FLAGS に
 差の "$ai_off" が真なら AI_OFF を重ね、さらに書いた差を重ねたもの。
 モジュールを読み込んだ時点で全変種を validate_flags にかけ、外れたら import を失敗させる
 （壊れた表をサイレントに直して動かさない）。
@@ -39,7 +40,7 @@ __all__ = [
     "validate_flags",
 ]
 
-FLAGS_VERSION: Final = "1"
+FLAGS_VERSION: Final = "2"
 # 埋め込みの生成がキー無し・API 失敗のときに黙って切り替わる偽物のモデル名
 # （ingestion/src/transformers/kansai/embedding_generator.py）。これ由来の SIMILAR_TO は意味を持たない。
 MOCK_EMBEDDING_MODEL: Final = "deterministic-mock-768"
@@ -47,7 +48,7 @@ _AI_OFF_MARKER: Final = "$ai_off"
 
 
 class VariantFlags(BaseModel):
-    """19 個の旗（F01〜F19）。AI の旗は assistant=off のとき None（C3）。"""
+    """20 個の旗（F01〜F20）。AI の旗は assistant=off のとき None（C3）。"""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -70,6 +71,7 @@ class VariantFlags(BaseModel):
     retrieval: Literal["agent_tools", "vector_seed"] | None
     similar_panel: Literal["off", "on"]
     requirements: Literal["shown", "hidden"]
+    diagnose: Literal["off", "quiz"]  # F20（11/7）。quiz: 質問に答えるとプランを出す画面を足す
 
 
 AI_FLAG_NAMES: Final = (
@@ -106,6 +108,7 @@ BASE_FLAGS: Final[Mapping[str, str]] = {
     "retrieval": "agent_tools",
     "similar_panel": "off",
     "requirements": "shown",
+    "diagnose": "off",
 }
 
 AI_OFF: Final[Mapping[str, str | None]] = {
@@ -150,6 +153,9 @@ VARIANT_DIFFS: Final[Mapping[str, Mapping[str, str | bool]]] = {
     "V27": {_AI_OFF_MARKER: True, "similar_panel": "on"},
     "V28": {"ai_edges": "with_inferred"},
     "V29": {_AI_OFF_MARKER: True, "requirements": "hidden"},
+    # 11/7 に足した診断の変種（表の版 2）。V30 は診断のみ、V31 は診断＋対話（差は assistant と AI の旗だけ）
+    "V30": {_AI_OFF_MARKER: True, "diagnose": "quiz"},
+    "V31": {"diagnose": "quiz"},
 }
 
 # ab-variants.md 3 章の名前（CLI の一覧とログを人が読むため）。
@@ -184,6 +190,8 @@ VARIANT_NAMES: Final[Mapping[str, str]] = {
     "V27": "noai_similar_panel",
     "V28": "ai_with_inferred",
     "V29": "noai_req_hidden",
+    "V30": "noai_diag",
+    "V31": "ai_diag",
 }
 
 # 凍結（11/8）までに画面と AI の口で効かせる水準（ab-variants.md 8 章）。人の study はこの水準だけで作る（C11）。
@@ -209,6 +217,7 @@ IMPLEMENTED_LEVELS: Final[Mapping[str, frozenset[str]]] = {
     "retrieval": frozenset({"agent_tools"}),
     "similar_panel": frozenset({"off"}),
     "requirements": frozenset({"shown", "hidden"}),
+    "diagnose": frozenset({"off", "quiz"}),
 }
 
 # 本物の埋め込み（と、それから作った SIMILAR_TO）が要る水準（C9）。
