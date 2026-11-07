@@ -3,7 +3,7 @@
  * - draft: true の文は〈仮〉。出どころの文が手元に無いか、まだ決まっていない。画面にも〈仮〉と出るので、確定したら外す。
  * - 質問票は2組を定義し、ACTIVE_QUESTIONNAIRE_SET で選ぶ。Study 1（事前登録 2026-11-07 の 4.5）は ibuki_sus。
  *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。最後に画面1/2 の二択と理由。
- *   Q11 はペルソナの形に言い換えた文（事前登録 4.5）。
+ *   Q11 はペルソナの形に言い換えた文（事前登録 4.5）。同意の後、練習の前に事前の質問（学年・学部・前に見たか。事前登録 2.5）。
  *   plan_seq_ueq: 計画 4.1 の SEQ と自信（課題ごと）、UEQ-S（画面ごと）、最後に画面1/2 の二択と理由。
  *   Q11・Q12・Q13・自由記述の文は「Ibuki の評価 PDF の要点」ノートの文（問いの形を言い切りにした）。それ以外は〈仮〉。
  */
@@ -55,6 +55,8 @@ export interface Questionnaire {
 
 export interface QuestionnaireSet {
   id: QuestionnaireSetId
+  /** 同意の後、最初のブロック（練習）の前に1回 */
+  pre: readonly Questionnaire[]
   /** 課題ごと（練習の課題では出さない） */
   task: readonly Questionnaire[]
   /** 画面（ブロック）ごと（練習では出さない） */
@@ -191,11 +193,59 @@ const PREFERENCE: Questionnaire = {
   ],
 }
 
+/**
+ * 事前の質問（事前登録 2.5。学部は 5.5 の E6〈環境都市工学部の外の学生〉を分けるため、自学部かそれ以外の2つ）。
+ * 学年の選択肢は事前登録に無いので〈仮〉。ログは questionnaire_submit（scale は「事前の質問」、scope は pre、block は null）
+ */
+const BACKGROUND: Questionnaire = {
+  id: 'background',
+  scale: '事前の質問',
+  intro: null,
+  items: [
+    {
+      kind: 'choice',
+      id: 'grade',
+      text: '学年',
+      options: [
+        { value: '1', label: '1年' },
+        { value: '2', label: '2年' },
+        { value: '3', label: '3年' },
+        { value: '4', label: '4年' },
+        { value: 'other', label: 'それ以外' },
+      ],
+      required: true,
+      draft: true,
+    },
+    {
+      kind: 'choice',
+      id: 'faculty',
+      text: '学部',
+      options: [
+        { value: 'own', label: '環境都市工学部' },
+        { value: 'other', label: 'それ以外' },
+      ],
+      required: true,
+      draft: false,
+    },
+    {
+      kind: 'choice',
+      id: 'seen_before',
+      text: 'このアプリを前に見たことがありますか',
+      options: [
+        { value: 'yes', label: 'ある' },
+        { value: 'no', label: 'ない' },
+      ],
+      required: true,
+      draft: false,
+    },
+  ],
+}
+
 export const QUESTIONNAIRE_SETS: Record<QuestionnaireSetId, QuestionnaireSet> = {
-  // ログの questionnaire_submit は尺度ごとに1件: ibuki_sus はブロックごとに2件（SUS、Q11・Q12＋自由記述）と最後に二択1件、
-  // plan_seq_ueq はブロックごとに5件（課題ごとに SEQ と自信を2課題分、UEQ-S を1つ）と最後に二択1件
-  ibuki_sus: { id: 'ibuki_sus', task: [], block: [SUS, IBUKI_FIT], final: [PREFERENCE] },
-  plan_seq_ueq: { id: 'plan_seq_ueq', task: [SEQ, CONFIDENCE], block: [UEQ_S], final: [PREFERENCE] },
+  // ログの questionnaire_submit は尺度ごとに1件: ibuki_sus は同意の後に事前の質問1件、ブロックごとに2件（SUS、Q11・Q12＋
+  // 自由記述）、最後に二択1件。plan_seq_ueq はブロックごとに5件（課題ごとに SEQ と自信を2課題分、UEQ-S を1つ）と最後に二択1件
+  ibuki_sus: { id: 'ibuki_sus', pre: [BACKGROUND], task: [], block: [SUS, IBUKI_FIT], final: [PREFERENCE] },
+  plan_seq_ueq: { id: 'plan_seq_ueq', pre: [], task: [SEQ, CONFIDENCE], block: [UEQ_S], final: [PREFERENCE] },
 }
 
 /** いまの調査で使う質問票の組 */

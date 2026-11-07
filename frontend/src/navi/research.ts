@@ -72,6 +72,8 @@ export function useSyllabusViewLog(syllabusId: string, from: string) {
 export type StudyPhase =
   | { kind: 'consent' }
   | { kind: 'declined' }
+  /** 同意の後、最初のブロックの前の事前の質問 */
+  | { kind: 'preQuestions' }
   | { kind: 'blockIntro'; block: number }
   | { kind: 'taskIntro'; block: number; taskIndex: number }
   | { kind: 'task'; block: number; taskIndex: number }
@@ -102,6 +104,7 @@ export interface StudyState {
 const PHASE_KINDS: readonly string[] = [
   'consent',
   'declined',
+  'preQuestions',
   'blockIntro',
   'taskIntro',
   'task',

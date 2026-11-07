@@ -49,7 +49,7 @@ type Open = { status: 'pending' } | { status: 'ready' } | { status: 'error'; tex
 
 /**
  * 調査の入口（/navi/s/<トークン>）。カードの URL から開く。学科はセッションから決まるので、学科えらびより先に出す。
- * 同意 → ブロックの前の画面 → 課題の前の画面 →（画面で探して答える）→ 質問票 → … → おわり、を段階ごとに出す。
+ * 同意 → 事前の質問 → ブロックの前の画面 → 課題の前の画面 →（画面で探して答える）→ 質問票 → … → おわり、を段階ごとに出す。
  * 課題のあいだだけ画面（/navi）へ移り、それ以外の段階で画面を開くと、ここへ戻す（NaviApp の NaviProviders）。
  */
 export default function StudyGate({ token, chooseDept }: StudyGateProps) {
@@ -216,6 +216,19 @@ function PhaseView({ study, busy, run, onEnterTask, onBackToTask }: PhaseViewPro
         <>
           <h1 className="title">ここで終わりです</h1>
           <p className="lead">お時間をいただき、ありがとうございました。</p>
+        </>
+      )
+    case 'preQuestions':
+      return (
+        <>
+          <h1 className="title">はじめに</h1>
+          <QuestionnaireForm
+            key="pre"
+            questionnaires={set.pre}
+            submitLabel="次へ"
+            busy={busy}
+            onSubmit={(answers) => run(() => submitQuestionnaire('pre', answers))}
+          />
         </>
       )
     case 'blockIntro':

@@ -1,8 +1,8 @@
 /**
- * 調査の段階の進め方（同意 → ブロック → 課題 → 質問票 → 終了）。状態は research.ts に持ち、サーバーは R1〜R7。
- * 段階: consent → blockIntro → taskIntro → task（画面で探す）→ taskQuestions → … → blockQuestions → blockEnd（R5）
- *       → 次のブロックの blockIntro … → finalQuestions → finishing（session_end と R7）→ done
- * 練習のブロック（0）では質問票を出さない。
+ * 調査の段階の進め方（同意 → 事前の質問 → ブロック → 課題 → 質問票 → 終了）。状態は research.ts に持ち、サーバーは R1〜R7。
+ * 段階: consent → preQuestions → blockIntro → taskIntro → task（画面で探す）→ taskQuestions → … → blockQuestions
+ *       → blockEnd（R5）→ 次のブロックの blockIntro … → finalQuestions → finishing（session_end と R7）→ done
+ * 練習のブロック（0）では質問票を出さない。事前の質問が無い組（pre が空）では、同意の後すぐ blockIntro。
  */
 import { FORM_SERIAL_PATTERN } from './apiTypes'
 import type { BlockStartOut, EventPayload, JsonValue, SessionOut } from './apiTypes'
@@ -24,7 +24,7 @@ import { clearAppState } from './storage'
 import { ACTIVE_QUESTIONNAIRE_SET, CONSENT, isPracticeBlock, QUESTIONNAIRE_SETS, QUESTIONNAIRE_VERSION } from './studyConfig'
 import type { QuestionnaireSet } from './studyConfig'
 
-export type QuestionScope = 'task' | 'block' | 'final'
+export type QuestionScope = 'pre' | 'task' | 'block' | 'final'
 
 /** 質問票の答え（尺度の ID → 項目の ID → 値。答えていない任意の項目は null） */
 export type QuestionnaireAnswers = Record<string, Record<string, number | string | null>>
@@ -49,11 +49,18 @@ function firstBlock(session: SessionOut): number {
   return first
 }
 
+/** 同意の後の段階（事前の質問があればそれ、無ければ最初のブロックの前の画面） */
+function afterConsent(session: SessionOut): StudyPhase {
+  return activeQuestionnaires().pre.length > 0 ? { kind: 'preQuestions' } : { kind: 'blockIntro', block: firstBlock(session) }
+}
+
 /** サーバーの状態だけから段階を決める（このタブに前の状態が無いとき） */
 function phaseFromServer(session: SessionOut): StudyPhase {
   if (!session.consent_recorded) return { kind: 'consent' }
   // ブロックの途中で状態を失ったときは、そのブロックの最初の課題からやり直す（どこまで答えたかはサーバーのログにある）
   if (session.current_block !== null && session.variant !== null) return { kind: 'taskIntro', block: session.current_block, taskIndex: 0 }
+  // 同意の後、最初のブロックを始める前なら事前の質問から（答えた後に状態を失ったときは、答えが2件残る）
+  if (session.current_block === null && session.completed_blocks.length === 0) return afterConsent(session)
   const next = blockNumbers(session).find((b) => !session.completed_blocks.includes(b))
   if (next !== undefined) return { kind: 'blockIntro', block: next }
   // 全部のブロックを終えている。最後の質問票が無ければ R7 だけ（クライアントの session_end が無いので、サーバーが書く）
@@ -131,7 +138,7 @@ export async function recordConsent(agreed: boolean, formSerial: string): Promis
   setStudy({
     ...now,
     session: { ...now.session, consent_recorded: true, consent_version: CONSENT.version },
-    phase: { kind: 'blockIntro', block: firstBlock(now.session) },
+    phase: afterConsent(now.session),
   })
 }
 
@@ -233,8 +240,13 @@ function enterFinishing(study: StudyState): StudyState {
 export function submitQuestionnaire(scope: QuestionScope, answers: QuestionnaireAnswers): void {
   const study = need()
   const { phase } = study
-  const expected = scope === 'task' ? 'taskQuestions' : scope === 'block' ? 'blockQuestions' : 'finalQuestions'
-  if (phase.kind !== expected) return
+  const expected: Record<QuestionScope, StudyPhase['kind']> = {
+    pre: 'preQuestions',
+    task: 'taskQuestions',
+    block: 'blockQuestions',
+    final: 'finalQuestions',
+  }
+  if (phase.kind !== expected[scope]) return
   const block = 'block' in phase ? phase.block : null
   const taskId = scope === 'task' ? currentTaskId(study) : null
   const set = activeQuestionnaires()
@@ -250,7 +262,8 @@ export function submitQuestionnaire(scope: QuestionScope, answers: Questionnaire
     }
     logEvent('questionnaire_submit', payload, taskId)
   }
-  if (phase.kind === 'taskQuestions') setStudy({ ...study, phase: afterTask(study, phase.block, phase.taskIndex) })
+  if (phase.kind === 'preQuestions') setStudy({ ...study, phase: { kind: 'blockIntro', block: firstBlock(study.session) } })
+  else if (phase.kind === 'taskQuestions') setStudy({ ...study, phase: afterTask(study, phase.block, phase.taskIndex) })
   else if (phase.kind === 'blockQuestions') setStudy({ ...study, phase: { kind: 'blockEnd', block: phase.block } })
   else enterFinishing(study)
 }
