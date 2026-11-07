@@ -1,12 +1,14 @@
 """データベースの初期シードデータ（courses.json）自動投入モジュール。
 
-FastAPI の lifespan 起動時に呼び出され、PostgreSQL または Neo4j に
-科目データが存在しない場合に、`backend/seed/courses.json` から
-20件のシラバス・前提関係・トピックを一括投入します。
+FastAPI の lifespan 起動時に呼び出され、`AUTO_SEED_DATA=true` のときに限り、
+PostgreSQL または Neo4j に科目データが存在しない場合に、`backend/seed/courses.json` から
+20件のシラバス・前提関係・トピックを一括投入します（ADR-0013: 既定は投入しない）。
+手動投入（`python -m course_core.seeder`）は旗に関係なく投入します。
 """
 
 import json
 import logging
+import os
 import uuid
 from pathlib import Path
 
@@ -18,6 +20,7 @@ from course_core.repositories import neo4j_repo, postgres_repo
 logger = logging.getLogger(__name__)
 
 _SEED_RELATIVE = Path("seed") / "courses.json"
+_AUTO_SEED_ENV = "AUTO_SEED_DATA"
 _PLACEHOLDER_INSTRUCTOR = "未設定"
 _PLACEHOLDER_SCHEDULE = "未設定"
 _PLACEHOLDER_CREDITS = 0
@@ -31,6 +34,14 @@ def _find_seed_path() -> Path:
         if candidate.is_file():
             return candidate
     raise FileNotFoundError(f"{_SEED_RELATIVE} が見つかりません。")
+
+
+def _auto_seed_enabled() -> bool:
+    """起動時の自動投入が許されているか（ADR-0013: 未設定なら無効のオプトイン）。
+
+    呼び出しのたびに環境変数を読む（モジュール読み込み時に固定しない）。
+    """
+    return os.getenv(_AUTO_SEED_ENV, "false").lower() in ("true", "1", "yes")
 
 
 def load_seed_courses() -> list[dict]:
@@ -60,7 +71,15 @@ async def is_db_empty(conn: asyncpg.Connection, driver: AsyncDriver) -> bool:
 async def seed_initial_data_if_empty(
     pool: asyncpg.Pool, driver: AsyncDriver, *, force: bool = False
 ) -> None:
-    """DB が空の場合、または force=True の場合にシードデータを投入する。"""
+    """DB が空の場合、または force=True の場合にシードデータを投入する。
+
+    force=False（起動時の自動投入）は `AUTO_SEED_DATA=true` のときだけ動き、
+    それ以外は DB に触れずに戻る。force=True（手動 CLI）は旗を見ない。
+    """
+    if not force and not _auto_seed_enabled():
+        logger.info("シードデータの自動投入は無効です（%s が true ではない）。スキップします。", _AUTO_SEED_ENV)
+        return
+
     async with pool.acquire() as conn:
         empty = await is_db_empty(conn, driver)
         if not empty and not force:
