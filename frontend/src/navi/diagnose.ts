@@ -264,6 +264,17 @@ export function planCourseAsCourse(plan: WorkingPlan, code: string): Course | un
   }
 }
 
+/**
+ * プランに入っている科目を、プランの学年と学期に置いた形にする（通年は学年だけ）。プランに無ければそのまま。
+ * 「１〜４年次」の科目は詳細では1年の科目だが、プランでは2年春などに入ることがあり、詳細の学年のまま重なりを数えると
+ * 別の学年の科目と「重なる」と出てしまう
+ */
+export function atPlanTerm(plan: WorkingPlan, course: Course): Course {
+  const hit = findPlanCourse(plan, course.code)
+  if (hit === undefined) return course
+  return { ...course, year: hit.term.year, term: course.term === '通年' ? course.term : hit.term.term }
+}
+
 /** 学期の単位の合計（単位の分からない科目は数えず、その数を unknown に） */
 export function workingTermCredits(term: WorkingTerm): { credits: number; unknown: number } {
   return {

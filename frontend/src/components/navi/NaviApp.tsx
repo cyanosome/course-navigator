@@ -16,7 +16,7 @@ import type { FakeWaitMode } from '../../navi/ask'
 import { createHttpAskAdapter } from '../../navi/askAdapter'
 import { createCourseStore, createNaviDataSource, NaviDataContext } from '../../navi/dataSource'
 import type { NaviData, NaviDataSource } from '../../navi/dataSource'
-import { createDiagnoseSource, inPlan, planCodes, planCourseAsCourse } from '../../navi/diagnose'
+import { atPlanTerm, createDiagnoseSource, inPlan, planCodes, planCourseAsCourse } from '../../navi/diagnose'
 import type { DiagnoseSource } from '../../navi/diagnose'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
@@ -383,10 +383,8 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       const hit = fetched.get(code) ?? (mapped !== undefined && mapped.ok ? mapped.course : undefined)
       const placed = working === null ? undefined : planCourseAsCourse(working, code)
       if (hit === undefined) return placed
-      // 診断の変種では、プランの科目はプランの学年と学期に置く。「１〜４年次」の科目は詳細では1年の科目だが、
-      // プランでは2年春などに入ることがあり、詳細の学年のまま置くと別の学年の科目と「重なる」と出てしまう
-      if (!planMode || placed === undefined) return hit
-      return { ...hit, year: placed.year, term: hit.term === '通年' ? hit.term : placed.term }
+      // 診断の変種では、プランの科目はプランの学年と学期に置く
+      return planMode && working !== null ? atPlanTerm(working, hit) : hit
     },
     [fetched, peekCourse, planMode, working],
   )

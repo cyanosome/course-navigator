@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../../navi/plan.css'
-import { findPlanCourse, planTermLabel } from '../../navi/diagnose'
+import { atPlanTerm, findPlanCourse, planTermLabel } from '../../navi/diagnose'
 import { sequenceOf } from '../../navi/graph'
 import { useResearchLog, useSyllabusViewLog } from '../../navi/research'
 import { courseHref, useNavi } from '../../navi/state'
@@ -50,8 +50,10 @@ export default function PlanCourseBody({ course, origin, from, back }: PlanCours
   const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const placed = isKept(course.code)
   const entry = working === null ? undefined : findPlanCourse(working, course.code)
-  const clash = course.slots.length > 0 ? clashText(ctx, course) : null
-  const fit = clash ?? (placed || course.slots.length === 0 ? '' : `${isOtherTerm(course, focusTerm) ? `${courseTermLabel(course)}は` : ''}空き`)
+  // 重なりと空きは、プランに入っていればプランの学年と学期で見る（詳細の学年は「１〜４年次」の最初の学年のため）
+  const at = working === null ? course : atPlanTerm(working, course)
+  const clash = course.slots.length > 0 ? clashText(ctx, at) : null
+  const fit = clash ?? (placed || course.slots.length === 0 ? '' : `${isOtherTerm(at, focusTerm) ? `${courseTermLabel(at)}は` : ''}空き`)
   const lead = leadText(course)
   const clampable = !lead.missing && lead.text.length > LEARN_CLAMP_CHARS
   const why = planWhy(entry?.course, detailWhy(ctx, course, origin, ask))
