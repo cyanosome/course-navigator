@@ -6,7 +6,8 @@
  * - 設定は事前登録（protocol.md）の「設定の形」に合わせた見本。質問・重みは診断のコンペで決めるので、ここの中身は仮。
  * - プランの組み方は事前登録のエンジンの決まり（学期ごとに点の高い順、同じ曜限に2つ入れない、上限を超えない、同点は
  *   syllabus_id）を、見本の学科（fixtureDepartment.ts）の上でまねたもの。見本だけの簡略: 学期と配当の学年が合わない科目は
- *   点にかかわらず入れない。scale5 は答えの n 番目の選択肢の点の付け方を使う（API と同じ）。
+ *   点にかかわらず入れない。scale5 は答えの n 番目の選択肢の点の付け方を使う（API と同じ）。理由の文は、選んだ選択肢の効果と
+ *   base の in_group・reaches_group・on_curriculum だけから作る（backend のエンジンと同じ決まり。理由が空の科目もある）。
  */
 import { ApiError } from './api'
 import type { DiagnoseAnswers, DiagnoseConfig, DiagnoseEffect, DiagnosePlanIn, DiagnosePlanOut, PlanCourse, PlanReason } from './apiTypes'
@@ -164,15 +165,25 @@ function reasonText(config: DiagnoseConfig, dept: Department, e: DiagnoseEffect)
   return template.replace('{group}', frameName(dept, e.args.target)).replace('{word}', stringList(e.args.words).join('・'))
 }
 
+/** base の効果のうち、理由の文にしてよいもの（backend のエンジンの決まり。year_fit・term_fit・keyword などは点だけ） */
+const BASE_REASON_PRIMITIVES: readonly string[] = ['in_group', 'reaches_group', 'on_curriculum']
+
+interface ActiveEffect {
+  e: DiagnoseEffect
+  /** 理由の文にしてよいか（選んだ選択肢の効果と、base の BASE_REASON_PRIMITIVES） */
+  reason: boolean
+}
+
 /** 答えで効く点の付け方（scale5 は答えの n 番目の選択肢） */
-function activeEffects(config: DiagnoseConfig, answers: DiagnoseAnswers): DiagnoseEffect[] {
-  const out = [...config.base_effects]
+function activeEffects(config: DiagnoseConfig, answers: DiagnoseAnswers): ActiveEffect[] {
+  const out: ActiveEffect[] = config.base_effects.map((e) => ({ e, reason: BASE_REASON_PRIMITIVES.includes(e.primitive) }))
+  const chosen = (effects: readonly DiagnoseEffect[]) => out.push(...effects.map((e) => ({ e, reason: true })))
   for (const q of config.questions) {
     const a = answers[q.id]
     if (q.kind === 'scale5' && typeof a === 'number') {
-      out.push(...(q.options[a - 1]?.effects ?? []))
+      chosen(q.options[a - 1]?.effects ?? [])
     } else if (Array.isArray(a)) {
-      for (const o of q.options.filter((x) => a.includes(x.id))) out.push(...o.effects)
+      for (const o of q.options.filter((x) => a.includes(x.id))) chosen(o.effects)
     }
   }
   return out
@@ -197,9 +208,10 @@ function makePlan(config: DiagnoseConfig, dept: Department, answers: DiagnoseAns
     const scored = dept.courses
       .filter((c) => c.year === t.year && (c.term === t.term || c.term === '通年') && !chosen.has(c.code))
       .map((c) => {
-        const parts = effects.map((e) => ({ e, v: e.weight * primitiveValue(dept, c, e) }))
+        const parts = effects.map(({ e, reason }) => ({ e, reason, v: e.weight * primitiveValue(dept, c, e) }))
+        // 理由は点を足した効果のうち、理由にしてよいものだけ（無ければ理由は空。画面は理由の無い行も出す）
         const reasons: PlanReason[] = parts
-          .filter((p) => p.v > 0)
+          .filter((p) => p.v > 0 && p.reason)
           .sort((a, b) => b.v - a.v)
           .map((p) => ({ primitive: p.e.primitive, text: reasonText(config, dept, p.e) }))
           .filter((r): r is PlanReason => r.text !== null)
