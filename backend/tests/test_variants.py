@@ -1,9 +1,12 @@
 """変種の表（course_core/research/variants.py）と制約の検査のテスト。
 
-_APPENDIX_A は設計 ab-variants.md の付録 A の JSON の写し。コードの表と食い違えばここで落ちる。
+_APPENDIX_A は設計 ab-variants.md の付録 A の JSON の写しに、11/7 の決定で足した因子 F20 diagnose と V30・V31
+（表の版 2。事前登録 Study 1 の 2.1）を重ねたもの。コードの表と食い違えばここで落ちる。
+_FRONTEND_DIGESTS は frontend（f3c866a）の devResearch.ts の devVariantOut の旗に variant.ts の flagsDigest をかけた値。
 """
 
 import json
+from collections.abc import Mapping
 
 import pytest
 from pydantic import ValidationError
@@ -24,13 +27,13 @@ from course_core.research.variants import (
 _APPENDIX_A = json.loads(
     """
 {
-  "flags_version": "1",
+  "flags_version": "2",
   "base": {
     "search": "kw", "graph": "on", "recommend": "reach", "assistant": "on",
     "ai_route": "mcp_grounded", "verify": "on", "citations": "cards", "first_suggestion": "rule",
     "style": "standard", "timetable": "on", "detail": "full", "question_frame": "composed",
     "toolset": "reused", "rule_edges": "official_all", "ai_edges": "official", "model": "default",
-    "retrieval": "agent_tools", "similar_panel": "off", "requirements": "shown"
+    "retrieval": "agent_tools", "similar_panel": "off", "requirements": "shown", "diagnose": "off"
   },
   "ai_off": {"assistant": "off", "ai_route": null, "verify": null, "citations": null, "style": null,
              "question_frame": null, "toolset": null, "model": null, "ai_edges": null, "retrieval": null},
@@ -64,15 +67,24 @@ _APPENDIX_A = json.loads(
     "V26": {"retrieval": "vector_seed"},
     "V27": {"$ai_off": true, "similar_panel": "on"},
     "V28": {"ai_edges": "with_inferred"},
-    "V29": {"$ai_off": true, "requirements": "hidden"}
+    "V29": {"$ai_off": true, "requirements": "hidden"},
+    "V30": {"$ai_off": true, "diagnose": "quiz"},
+    "V31": {"diagnose": "quiz"}
   }
 }
 """
 )
 
-_ALL_IDS = [f"V{n:02d}" for n in range(30)]
+_ALL_IDS = [f"V{n:02d}" for n in range(32)]
 # 凍結までの水準（8 章）だけでできていて、C4・C7 にもかからない変種。
-_HUMAN_USABLE = {"V00", "V01", "V02", "V03", "V04", "V29"}
+_HUMAN_USABLE = {"V00", "V01", "V02", "V03", "V04", "V29", "V30", "V31"}
+# frontend の flagsDigest の値（f3c866a の devVariantOut の旗。node で計算した）
+_FRONTEND_DIGESTS = {
+    "V00": "fnv1a32:9dceb921",
+    "V01": "fnv1a32:ee6dfb25",
+    "V30": "fnv1a32:37a1f183",
+    "V31": "fnv1a32:ef5b9837",
+}
 
 
 def _with(variant_id: str, **changes: str | None) -> VariantFlags:
@@ -90,14 +102,15 @@ def test_table_matches_appendix_a():
     assert {key: dict(value) for key, value in variants.VARIANT_DIFFS.items()} == _APPENDIX_A["variants"]
 
 
-def test_thirty_variants_with_names():
+def test_thirty_two_variants_with_names():
     assert sorted(VARIANTS) == _ALL_IDS
     assert sorted(variants.VARIANT_NAMES) == _ALL_IDS
-    assert len(set(variants.VARIANT_NAMES.values())) == 30
+    assert len(set(variants.VARIANT_NAMES.values())) == 32
+    assert (variants.VARIANT_NAMES["V30"], variants.VARIANT_NAMES["V31"]) == ("noai_diag", "ai_diag")
 
 
-def test_flags_have_nineteen_fields():
-    assert len(VariantFlags.model_fields) == 19
+def test_flags_have_twenty_fields():
+    assert len(VariantFlags.model_fields) == 20
     assert set(VariantFlags.model_fields) == set(_APPENDIX_A["base"])
     assert set(variants.IMPLEMENTED_LEVELS) == set(VariantFlags.model_fields)
 
@@ -119,6 +132,29 @@ def test_named_variants_from_section_3():
     assert VARIANTS["V02"] == _with("V01", graph="off", recommend="off", first_suggestion="none")
     assert VARIANTS["V03"] == _with("V00", graph="off", recommend="off", first_suggestion="none")
     assert VARIANTS["V22"] == _with("V02", search="kw_filter")
+    assert VARIANTS["V30"] == _with("V01", diagnose="quiz")
+    assert VARIANTS["V31"] == _with("V00", diagnose="quiz")
+    assert all(flags.diagnose == "off" for variant_id, flags in VARIANTS.items() if variant_id not in {"V30", "V31"})
+
+
+def test_diag_variants_differ_only_in_the_ai_flags():
+    """診断のみ（V30）と診断＋対話（V31）の差は assistant と AI の旗9つだけ（事前登録 Study 1 の 2.1）。"""
+    v30, v31 = VARIANTS["V30"].model_dump(), VARIANTS["V31"].model_dump()
+    assert {name for name in v30 if v30[name] != v31[name]} == {"assistant", *variants.AI_FLAG_NAMES}
+
+
+def _fnv1a32(flags: Mapping[str, str | None]) -> str:
+    """frontend/src/navi/variant.ts の flagsDigest と同じ計算（キー順・空白なしの JSON の UTF-8 に FNV-1a 32 ビット）。"""
+    value = 0x811C9DC5
+    for byte in json.dumps(dict(flags), sort_keys=True, separators=(",", ":")).encode("utf-8"):
+        value = ((value ^ byte) * 0x01000193) & 0xFFFFFFFF
+    return f"fnv1a32:{value:08x}"
+
+
+@pytest.mark.parametrize(("variant_id", "digest"), sorted(_FRONTEND_DIGESTS.items()))
+def test_flags_digest_matches_frontend(variant_id: str, digest: str):
+    """表の版 2 の旗の全量（diagnose を含む）の指紋が、frontend の開発用の表で計算した値と一致する。"""
+    assert _fnv1a32(VARIANTS[variant_id].model_dump()) == digest
 
 
 # --- 制約 C1〜C11 -----------------------------------------------------------------
