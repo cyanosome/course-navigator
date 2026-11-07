@@ -3,7 +3,8 @@
  * - 変種の表: ab-variants.md 付録 A の写し。正本は backend の course_core/research/variants.py で、これは画面の確認用
  *   （/navi?variant=V02 で R9 に届かないとき）。
  * - 偽の研究 API（R1〜R7）: /navi/s/dev-a1 のように dev- で始まるトークンで開くと、backend なしで調査の流れを通せる。
- *   a は分岐 A（N=V01 記号 K、A=V00 記号 M）、b は分岐 B（N=V02 J、A=V01 L）、c は H3（N=V02 J、A=V03 H）。
+ *   a は分岐 A（N=V01 記号 K、A=V00 記号 M）、b は分岐 B（N=V02 J、A=V01 L）、c は H3（N=V02 J、A=V03 H）、
+ *   d は診断の A/B（N=V30 診断のみ 記号 W、A=V31 診断＋対話 記号 Y。事前登録 study1 の 2.1 の記号）。
  *   数字は系列（1: N+P1→A+P2、2: A+P1→N+P2、3: N+P2→A+P1、4: A+P2→N+P1）。練習（ブロック0）は1つ目のブロックの旗。
  *   受け取ったイベントは sessionStorage の navi.devResearch.events に積み、console.debug にも出す。
  */
@@ -63,6 +64,9 @@ const VARIANTS: Record<string, { aiOff: boolean; diff: Partial<VariantFlags> }> 
   V27: { aiOff: true, diff: { similar_panel: 'on' } },
   V28: { aiOff: false, diff: { ai_edges: 'with_inferred' } },
   V29: { aiOff: true, diff: { requirements: 'hidden' } },
+  /* 11/7 に足した診断の変種（backend の表に足す案と同じ。表の版 2） */
+  V30: { aiOff: true, diff: { diagnose: 'quiz' } },
+  V31: { aiOff: false, diff: { diagnose: 'quiz' } },
 }
 
 export function devVariantOut(variantId: string, conditionId: string | null = null): VariantOut | null {
@@ -81,6 +85,7 @@ const ARMS: Record<string, Record<Role, [string, string]>> = {
   a: { N: ['V01', 'K'], A: ['V00', 'M'] },
   b: { N: ['V02', 'J'], A: ['V01', 'L'] },
   c: { N: ['V02', 'J'], A: ['V03', 'H'] },
+  d: { N: ['V30', 'W'], A: ['V31', 'Y'] },
 }
 
 /** 系列（計画 4.1 の Q1〜Q4）: ブロック1・2の役割と課題セット */
@@ -109,7 +114,7 @@ const TASK_SETS: Record<string, string[]> = {
   P2: ['P2-a', 'P2-b'],
 }
 
-const DEV_TOKEN = /^dev-([abc])([1-4])$/
+const DEV_TOKEN = /^dev-([abcd])([1-4])$/
 /** 見本の学科（fixtureDepartment.ts の id） */
 const DEV_DEPARTMENT = 'enechem'
 /** 偽の study の同意文の版（画面の文の版と同じにする） */

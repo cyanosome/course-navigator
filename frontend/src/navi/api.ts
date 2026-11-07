@@ -16,11 +16,21 @@ import type {
   DepartmentGraph,
   DepartmentOverview,
   DepartmentSummary,
+  DiagnoseConfig,
+  DiagnoseEffect,
+  DiagnoseOption,
+  DiagnosePlanIn,
+  DiagnosePlanOut,
+  DiagnoseQuestion,
   GraduationRequirements,
   GroupEdge,
   GroupEdgeType,
   GroupNode,
   InterestOut,
+  PlanCourse,
+  PlanSuggestion,
+  PlanSuggestions,
+  PlanTerm,
   RequirementsOut,
 } from './apiTypes'
 import { CONTRACT_VERSION } from './apiTypes'
@@ -89,6 +99,11 @@ function shape<T>(spec: Shape<T>): Guard<T> {
 
 function nullable<T>(guard: Guard<T>): Guard<T | null> {
   return (v: unknown): v is T | null => v === null || guard(v)
+}
+
+/** 項目が無くてもよい（古いサーバーが送らない項目） */
+function optional<T>(guard: Guard<T>): Guard<T | undefined> {
+  return (v: unknown): v is T | undefined => v === undefined || guard(v)
 }
 
 function arrayOf<T>(guard: Guard<T>): Guard<T[]> {
@@ -274,6 +289,27 @@ const isAssistOptions = shape({
   citations: oneOf(['cards', 'text']),
 })
 
+const isPlanSuggestion = shape<PlanSuggestion>({
+  syllabus_id: isString,
+  title: isNullableString,
+  reason: isString,
+  year: optional(isNumber),
+  term: optional(oneOf(['春', '秋'])),
+})
+
+/** プランの微修正の提案（A1 の plan_suggestions）。端末に保存した回答を読み直すときにも使う */
+export const isPlanSuggestions = shape<PlanSuggestions>({
+  add: arrayOf(isPlanSuggestion),
+  remove: arrayOf(isPlanSuggestion),
+  dropped: arrayOf(
+    shape({
+      action: oneOf(['add', 'remove']),
+      syllabus_id: isString,
+      reason: oneOf(['not_in_db', 'already_in_plan', 'not_in_plan', 'not_candidate', 'locked']),
+    }),
+  ),
+})
+
 const isAssistOut = shape<AssistOut>({
   route: oneOf(['mcp', 'static']),
   answer: isString,
@@ -291,6 +327,69 @@ const isAssistOut = shape<AssistOut>({
   options_ignored: isBoolean,
   route_requested: oneOf(['mcp_grounded', 'static']),
   unverified_items: arrayOf(shape({ code: isString, reason: oneOf(['not_in_db', 'lookup_failed']) })),
+  plan_suggestions: optional(nullable(isPlanSuggestions)),
+})
+
+const isDiagnoseTerm = oneOf(['春', '秋'])
+
+const isDiagnoseEffect = shape<DiagnoseEffect>({ primitive: isString, args: isRecord, weight: isNumber })
+
+const isDiagnoseOption = shape<DiagnoseOption>({ id: isString, label: isString, effects: arrayOf(isDiagnoseEffect) })
+
+const isDiagnoseQuestionBase = shape<Omit<DiagnoseQuestion, 'max_select'>>({
+  id: isString,
+  text: isString,
+  kind: oneOf(['single', 'multi', 'scale5']),
+  options: arrayOf(isDiagnoseOption),
+})
+
+/** max_select は multi のときだけ要る（それ以外は省いてよい） */
+function isDiagnoseQuestion(v: unknown): v is DiagnoseQuestion {
+  if (!isDiagnoseQuestionBase(v)) return false
+  const max: unknown = (v as Record<string, unknown>).max_select
+  if (v.kind === 'multi') return isNumber(max) && max >= 1
+  return max === undefined || max === null || isNumber(max)
+}
+
+function isStringRecord(v: unknown): v is Record<string, string> {
+  return isRecord(v) && Object.values(v).every(isString)
+}
+
+const isDiagnoseConfig = shape<DiagnoseConfig>({
+  version: isString,
+  department_id: isString,
+  scope: shape({
+    terms: arrayOf(shape({ year: isNumber, term: isDiagnoseTerm })),
+    credit_cap_per_term: isNullableNumber,
+  }),
+  questions: arrayOf(isDiagnoseQuestion),
+  base_effects: arrayOf(isDiagnoseEffect),
+  tie_break: isString,
+  reason_templates: isStringRecord,
+})
+
+const isPlanCourse = shape<PlanCourse>({
+  syllabus_id: isString,
+  name: isString,
+  credits: isNullableNumber,
+  slots: isStringArray,
+  slot_note: isNullableString,
+  score: isNumber,
+  reasons: arrayOf(shape({ primitive: isString, text: isString })),
+})
+
+const isPlanTerm = shape<PlanTerm>({
+  year: isNumber,
+  term: isDiagnoseTerm,
+  credits_total: isNumber,
+  courses: arrayOf(isPlanCourse),
+})
+
+/** 端末に保存したプランを読み直すときにも使う */
+export const isDiagnosePlanOut = shape<DiagnosePlanOut>({
+  config_version: isString,
+  answers_digest: isString,
+  terms: arrayOf(isPlanTerm),
 })
 
 /* ---------- 呼び出し ---------- */
@@ -399,5 +498,32 @@ export function ask(input: AssistIn, signal: AbortSignal): Promise<AssistOut> {
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal },
     isAssistOut,
     'AI の回答',
+  )
+}
+
+/** 診断の設定の応答（設定の JSON は config にそのまま入る） */
+const isDiagnoseConfigOut = shape<{ department_id: string; version: string; config: DiagnoseConfig }>({
+  department_id: isString,
+  version: isString,
+  config: isDiagnoseConfig,
+})
+
+/** 診断の設定（応答の版と設定の中の版が違えば、どちらで答えるか決められないので形の誤りにする） */
+export async function getDiagnoseConfig(deptId: string, signal: AbortSignal): Promise<DiagnoseConfig> {
+  const q = new URLSearchParams({ department_id: deptId })
+  const out = await get(`/diagnose/config?${q.toString()}`, isDiagnoseConfigOut, '診断の設定', signal)
+  if (out.config.version !== out.version) {
+    throw new ApiError('shape', 200, null, `診断の設定: 版が合いません（応答 ${out.version}、設定 ${out.config.version}）`)
+  }
+  return out.config
+}
+
+/** 診断の答えからプラン（422 は答えの誤り、409 は設定の版の違い。どちらも ApiError の status で分かる） */
+export function makeDiagnosePlan(input: DiagnosePlanIn, signal: AbortSignal): Promise<DiagnosePlanOut> {
+  return request(
+    '/diagnose/plan',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal },
+    isDiagnosePlanOut,
+    'プラン',
   )
 }

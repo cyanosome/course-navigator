@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import '../../navi/study.css'
 import { currentTaskId, useStudy } from '../../navi/research'
 import type { StudyState } from '../../navi/research'
-import { blockLabel, isPracticeBlock, TASKS } from '../../navi/studyConfig'
+import { BLOCK_GUIDE, blockLabel, DRAFT_MARK, isPracticeBlock, TASKS } from '../../navi/studyConfig'
 import {
   activeQuestionnaires,
   endBlock,
@@ -49,7 +49,7 @@ type Open = { status: 'pending' } | { status: 'ready' } | { status: 'error'; tex
 
 /**
  * 調査の入口（/navi/s/<トークン>）。カードの URL から開く。学科はセッションから決まるので、学科えらびより先に出す。
- * 同意 → ブロックの前の画面 → 課題の前の画面 →（画面で探して答える）→ 質問票 → … → おわり、を段階ごとに出す。
+ * 同意 → 事前の質問 → ブロックの前の画面 → 課題の前の画面 →（画面で探して答える）→ 質問票 → … → おわり、を段階ごとに出す。
  * 課題のあいだだけ画面（/navi）へ移り、それ以外の段階で画面を開くと、ここへ戻す（NaviApp の NaviProviders）。
  */
 export default function StudyGate({ token, chooseDept }: StudyGateProps) {
@@ -218,6 +218,19 @@ function PhaseView({ study, busy, run, onEnterTask, onBackToTask }: PhaseViewPro
           <p className="lead">お時間をいただき、ありがとうございました。</p>
         </>
       )
+    case 'preQuestions':
+      return (
+        <>
+          <h1 className="title">はじめに</h1>
+          <QuestionnaireForm
+            key="pre"
+            questionnaires={set.pre}
+            submitLabel="次へ"
+            busy={busy}
+            onSubmit={(answers) => run(() => submitQuestionnaire('pre', answers))}
+          />
+        </>
+      )
     case 'blockIntro':
       return (
         <BlockIntro
@@ -230,14 +243,32 @@ function PhaseView({ study, busy, run, onEnterTask, onBackToTask }: PhaseViewPro
       )
     case 'taskIntro': {
       const taskId = study.plan?.task_ids[phase.taskIndex] ?? ''
+      const task = TASKS[taskId]
+      // ブロック2の初めに画面の案内（事前登録 study1 の 2.5）。AI の欄の段落は、AI の欄がある画面のときだけ
+      const guide = !isPracticeBlock(phase.block) && phase.block !== firstMain && phase.taskIndex === 0
       return (
         <>
           <h1 className="title">
             {blockLabel(phase.block)}{WIDE_SPACE}課題{phase.taskIndex + 1}/{taskCount}
           </h1>
+          {guide && (
+            <section className="sec" aria-label="画面の案内">
+              <p className="lead">
+                {BLOCK_GUIDE.common}
+                {BLOCK_GUIDE.draft && <span className="draft">{DRAFT_MARK}</span>}
+              </p>
+              {study.variant?.flags.assistant === 'on' && <p className="lead">{BLOCK_GUIDE.ai}</p>}
+            </section>
+          )}
           <section className="sec">
-            <TaskBrief taskId={taskId} task={TASKS[taskId]} />
-            <p className="text">その人になったつもりで、画面を使って探してください。答えは、画面の上の［答える］から送ります。</p>
+            <TaskBrief taskId={taskId} task={task} />
+            <p className="text">
+              {task === undefined || task.kind === 'pick'
+                ? 'その人になったつもりで、画面を使って探してください。答えは、画面の上の［答える］から送ります。'
+                : task.kind === 'diagnose'
+                  ? 'プランが出たら、同じ画面のまま次の課題に進みます。'
+                  : '出すときは、画面の上の［これで出す］を押します。'}
+            </p>
           </section>
           <div className="page-acts">
             <button className="primary" type="button" onClick={onEnterTask}>

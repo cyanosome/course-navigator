@@ -37,7 +37,7 @@ interface SearchListProps {
  * - assistant: on のときだけ［AIに聞く］と AI の結果
  */
 export default function SearchList({ dirId, pc, currentCode }: SearchListProps) {
-  const { dept, shortlist, focusTerm, assumedTerm, ask, askDraft, askDraftUnsent } = useNavi()
+  const { dept, shortlist, placement, focusTerm, assumedTerm, ask, askDraft, askDraftUnsent } = useNavi()
   const flags = useFlags()
   const [keyword, setKeyword] = useKeywordQuery()
   const navigate = useNavigate()
@@ -48,9 +48,9 @@ export default function SearchList({ dirId, pc, currentCode }: SearchListProps) 
   const askOpen = askFocused || draftUnsent
   /** 一度隠したチップは、戻すときに開閉の中身と同じフェードで出す（最初から出ているときは動かさない） */
   const [chipsWereHidden, setChipsWereHidden] = useState(draftUnsent)
-  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags }
+  const ctx: ListContext = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
   const interest = listInterest(ctx, dirId)
-  const required = placedInTerm(dept, shortlist, focusTerm).filter(isRequired)
+  const required = placedInTerm(dept, shortlist, focusTerm, placement).filter(isRequired)
   const showField = flags.search !== 'off' || flags.assistant === 'on'
   const searching = flags.search !== 'off' && keyword !== ''
   /** キーワード検索の結果を出しているあいだは、どのチップも選ばない */
@@ -73,7 +73,7 @@ export default function SearchList({ dirId, pc, currentCode }: SearchListProps) 
       {!pc && <h1 className="vh">さがす</h1>}
       {showField && <SearchField open={askOpen} onFocusChange={onAskFocusChange} onSearch={setKeyword} onSent={onSent} />}
       {flags.graph === 'on' && !askOpen && <InterestChips selected={selectedChip} reveal={chipsWereHidden} />}
-      {required.length > 0 && (
+      {flags.diagnose !== 'quiz' && required.length > 0 && (
         <Link className="status" to={TIMETABLE_HREF}>
           {termLabel(focusTerm)}の必修 {required.length}科目は、時間割に入れてあります
           <Icon name="next" small />
@@ -110,6 +110,7 @@ function DefaultRows({ ctx, currentCode }: DefaultRowsProps) {
         key={r.code}
         row={r}
         current={r.code === currentCode}
+        keepFrom="recommend"
         linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
         onOpen={() => log('result_click', { syllabus_id: r.code, rank: ranked.indexOf(r.code) + 1, list: 'recommend' })}
       />
@@ -191,6 +192,7 @@ function InterestRows({ ctx, interest, currentCode }: InterestRowsProps) {
                   key={r.code}
                   row={r}
                   current={r.code === currentCode}
+                  keepFrom="interest"
                   linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
                   onOpen={() =>
                     log('result_click', { syllabus_id: r.code, rank: order.indexOf(r.code) + 1, list: 'interest', interest_id: interest.id })

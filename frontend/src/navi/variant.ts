@@ -1,5 +1,5 @@
 /**
- * 変種の旗（ab-variants.md 2 章の 19 個）と、旗の文脈（React context）。
+ * 変種の旗（ab-variants.md 2 章の 19 個と、11/7 に足した diagnose）と、旗の文脈（React context）。
  * 旗の正本は backend の変種の表（course_core/research/variants.py）で、画面はサーバーから受け取った旗だけで出し分ける。
  * 受け取る前と、調査でないときの既定は V00 相当（何も隠さない）。
  */
@@ -28,6 +28,11 @@ export interface VariantFlags {
   retrieval: 'agent_tools' | 'vector_seed' | null
   similar_panel: 'off' | 'on'
   requirements: 'shown' | 'hidden'
+  /**
+   * 診断（F20、11/7 に足した）。quiz: 質問に答えるとプランを出す画面を足す。
+   * 表の版 1 のサーバーは送ってこないので省けるようにし、省いたときは off と同じに扱う（指紋も省いたまま計算する）
+   */
+  diagnose?: 'off' | 'quiz'
 }
 
 type FlagKey = keyof VariantFlags
@@ -53,6 +58,7 @@ const FLAG_VALUES: { [K in FlagKey]: readonly NonNullable<VariantFlags[K]>[] } =
   retrieval: ['agent_tools', 'vector_seed'],
   similar_panel: ['off', 'on'],
   requirements: ['shown', 'hidden'],
+  diagnose: ['off', 'quiz'],
 }
 
 /** null を取りうる旗（AI の旗） */
@@ -68,8 +74,11 @@ const NULLABLE_FLAGS: readonly FlagKey[] = [
   'retrieval',
 ]
 
-/** 変種の表の版（付録 A の flags_version） */
-export const FLAGS_VERSION = '1'
+/** 省いてよい旗（表の版 1 に無かった因子）。省けば off と同じ */
+const OPTIONAL_FLAGS: readonly FlagKey[] = ['diagnose']
+
+/** 変種の表の版（付録 A の flags_version。diagnose を足して 2） */
+export const FLAGS_VERSION = '2'
 
 /** 基準 V00（付録 A の base） */
 export const V00_FLAGS: VariantFlags = {
@@ -92,6 +101,7 @@ export const V00_FLAGS: VariantFlags = {
   retrieval: 'agent_tools',
   similar_panel: 'off',
   requirements: 'shown',
+  diagnose: 'off',
 }
 
 export interface VariantState {
@@ -121,11 +131,12 @@ export function useFlags(): VariantFlags {
   return useContext(VariantContext).flags
 }
 
-/** 受け取った旗の形の検査（19 個すべてがあり、値が一覧にあるか。AI の旗だけ null を許す） */
+/** 受け取った旗の形の検査（旗がすべてあり、値が一覧にあるか。AI の旗だけ null を、diagnose だけ省くのを許す） */
 export function isVariantFlags(v: unknown): v is VariantFlags {
   if (!isRecord(v)) return false
   return (Object.keys(FLAG_VALUES) as FlagKey[]).every((key) => {
     const value = v[key]
+    if (value === undefined) return OPTIONAL_FLAGS.includes(key)
     if (value === null) return NULLABLE_FLAGS.includes(key)
     return isString(value) && (FLAG_VALUES[key] as readonly string[]).includes(value)
   })

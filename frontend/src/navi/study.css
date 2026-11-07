@@ -25,6 +25,21 @@
   .task-answer[hidden] { display: none; }
   .task-answer .page-acts { padding-top: 0; }
 
+  /* ペルソナのカード（診断の課題。事前登録 study1 の 3.2） */
+  .task-brief { display: flex; flex-direction: column; gap: 8px; }
+  .task-brief[hidden] { display: none; }
+  .task-card { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  .task-card .task-persona { font-size: 16px; }
+  .task-sub { padding-top: 4px; font-size: 14px; color: var(--muted); }
+  .task-list { padding-left: 24px; list-style: disc; font-size: 14px; color: var(--ink); }
+  .task-list.is-num { list-style: decimal; }
+  .task-keep { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  .task-keep > div { display: grid; grid-template-columns: 48px 1fr; gap: 8px; }
+  .task-keep dt { color: var(--muted); }
+  .task-acts, .task-confirm .page-acts { padding-top: 8px; }
+  .task-band .page-acts .primary { height: 40px; }
+  .ps > .task-band { padding: 16px max(16px, calc((100% - 960px) / 2 + 24px)); }
+
   /* ---------- 質問票・同意 ---------- */
   .q-form { display: flex; flex-direction: column; }
   .q-sec { display: flex; flex-direction: column; padding-top: 24px; }

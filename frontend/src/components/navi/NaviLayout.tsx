@@ -17,7 +17,7 @@ const COURSE_IN_HREF = /\/navi\/course\/([^?]+)/
  * 中央を移っても左の一覧はそのまま（UX 仕様 C03）。
  */
 export default function NaviLayout() {
-  const { dept, isPc, lastDir, ask, shortlist, focusTerm, assumedTerm } = useNavi()
+  const { dept, isPc, lastDir, ask, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const [keyword] = useKeywordQuery()
   const location = useLocation()
@@ -30,7 +30,7 @@ export default function NaviLayout() {
   const pane = readPaneState(location.state)
   const origin = parseOrigin(params.get('from'))
   const tab: PcTab = ttMatch !== null ? 'tt' : (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search'))
-  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, flags, placement }
 
   if (tab === 'tt') {
     return (

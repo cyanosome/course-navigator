@@ -1,5 +1,5 @@
 /**
- * 線のアイコン13種（E1 11章）。24 の格子に線 1.5、端は四角、角は直角。既成のアイコン集は使わない。
+ * 線のアイコン14種（E1 11章の13種と、判定できないチェックの横線）。24 の格子に線 1.5、端は四角、角は直角。既成のアイコン集は使わない。
  * どれも文字と並べ、読み上げは文字か aria-label で行う（印は aria-hidden）。
  */
 export type IconName =
@@ -16,6 +16,7 @@ export type IconName =
   | 'grid'
   | 'warn'
   | 'close'
+  | 'dash'
 
 interface IconProps {
   name: IconName
@@ -71,6 +72,8 @@ function Paths({ name }: { name: IconName }) {
       )
     case 'close':
       return <path d="M6 6l12 12M18 6L6 18" />
+    case 'dash':
+      return <path d="M6 12h12" />
   }
 }
 

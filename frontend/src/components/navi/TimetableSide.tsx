@@ -1,7 +1,6 @@
-import { findCourse } from '../../navi/graph'
 import { useNavi } from '../../navi/state'
-import { clashesOf, courseTermLabel, gridSlots, inTerm, isRequired, termCredits, termLabel } from '../../navi/timetable'
-import type { TermKey } from '../../navi/timetable'
+import { clashesOf, courseTermLabel, gridSlots, inTerm, isRequired, resolveCourse, termCredits, termLabel } from '../../navi/timetable'
+import type { Placement, TermKey } from '../../navi/timetable'
 import type { Course, Department } from '../../navi/types'
 import TimetableGrid from './TimetableGrid'
 
@@ -15,9 +14,9 @@ interface TimetableSideProps {
  * 下に1文で「月2は空いています。入れると7単位です。」のように書く。1199px 以下では隠す（CSS）。
  */
 export default function TimetableSide({ previewCode }: TimetableSideProps) {
-  const { dept, shortlist, focusTerm, isKept } = useNavi()
-  const credits = termCredits(dept, shortlist, focusTerm)
-  const course = previewCode === null ? undefined : findCourse(dept, previewCode)
+  const { dept, shortlist, placement, focusTerm, isKept } = useNavi()
+  const credits = termCredits(dept, shortlist, focusTerm, placement)
+  const course = previewCode === null ? undefined : resolveCourse(dept, previewCode, placement)
   const kept = course !== undefined && isKept(course.code)
   const canPreview = course !== undefined && !kept && !isRequired(course) && inTerm(course, focusTerm)
   return (
@@ -42,17 +41,25 @@ export default function TimetableSide({ previewCode }: TimetableSideProps) {
         </li>
       </ul>
       <TimetableGrid term={focusTerm} previewCode={canPreview ? course.code : null} pc tab="search" />
-      {course !== undefined && <p className="pc-tt-note">{sideNote(dept, shortlist, focusTerm, course, kept, credits)}</p>}
+      {course !== undefined && <p className="pc-tt-note">{sideNote(dept, shortlist, placement, focusTerm, course, kept, credits)}</p>}
     </>
   )
 }
 
-function sideNote(dept: Department, shortlist: string[], focusTerm: TermKey, course: Course, kept: boolean, credits: number): string {
+function sideNote(
+  dept: Department,
+  shortlist: string[],
+  placement: Placement,
+  focusTerm: TermKey,
+  course: Course,
+  kept: boolean,
+  credits: number,
+): string {
   if (!inTerm(course, focusTerm)) return `${course.name}は${courseTermLabel(course)}の科目です。この表は${termLabel(focusTerm)}です。`
   const where = gridSlots(course).join('・')
   if (isRequired(course)) return `${course.name}は必修なので、${where === '' ? '曜限なし' : where}に入れてあります。`
   if (kept) return `${course.name}は${where === '' ? '曜限なし' : where}に入っています。`
-  const clash = clashesOf(dept, shortlist, course)[0]
+  const clash = clashesOf(dept, shortlist, course, placement)[0]
   if (clash !== undefined) return `${clash.slot}は${clash.other.name}と重なります。`
   const after = credits + (course.credits ?? 0)
   if (where === '') return `${course.name}は曜限がありません。入れると${after}単位です。`

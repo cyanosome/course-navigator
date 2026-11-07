@@ -161,6 +161,13 @@ export const FIXTURE_DEPARTMENT: Department = {
       summary: '物の運動を、力とエネルギーの考え方で式に表して説明する。',
       grading: '期末試験 80%、演習の提出 20%',
     }),
+    // 同じ名前の別クラス（AI の微修正の「移す」の見本。系統図には載せない）
+    course({
+      code: 'GE1316', name: '物理学を学ぶ（力学）', short: '力学', frameId: null, year: 1, term: '春', slots: ['木2'], credits: 2,
+      kind: '選択', grad: '教養', teacher: '高瀬 陽介',
+      learn: '運動の法則とエネルギーの保存',
+      summary: '物の運動を、力とエネルギーの考え方で式に表して説明する（木曜のクラス）。',
+    }),
     course({
       code: 'EC1102', name: '入門エネルギー環境学', short: 'エネ環', frameId: 'g1a', year: 1, term: '春', slots: ['金1'], credits: 2,
       kind: '選択', grad: '選択', teacher: '片桐 恵',

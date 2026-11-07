@@ -1,0 +1,53 @@
+/*
+ * 診断・プラン・履修状況のチェックの仮の見た目（配置と見た目はデザインのコンペで差し替える）。
+ * navi.css と同じトークンと同じ規則（強調は文字の濃さと大きさだけ、太字なし、余白は 8 の倍数、区切りは rule の 1px の線）。
+ */
+.navi-app {
+  /* 下の行き先にプランを足したとき（旗 diagnose=quiz）は3つに分ける */
+  .tabs.is-3 { grid-template-columns: repeat(3, 1fr); }
+
+  :where(select) { font: inherit; color: var(--ink); letter-spacing: 0; background: var(--paper); }
+  select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .diag-count { padding-top: 8px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chk-note { padding-top: 16px; font-size: 14px; }
+
+  /* プラン（ページの枠の中なので、一覧の左右の余白はページに任せる） */
+  .page .diag-plan .list { padding: 0; }
+  .page .diag-plan .group-label { padding: 24px 0 8px; }
+  .page .diag-plan .group-label + .text { padding-bottom: 8px; }
+  .plan-answers { padding-top: 24px; }
+  .plan-answers .kv { grid-template-columns: 1fr 1fr; }
+
+  /* 履修状況のチェック */
+  .chk-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .chk-total { padding-bottom: 8px; font-size: 14px; }
+  .chk-item {
+    display: grid; grid-template-columns: 24px 1fr auto; align-items: start; gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .chk-item:last-child { border-bottom: 1px solid var(--rule); }
+  .chk-mark { display: grid; place-items: center; height: 24px; font-size: 14px; color: var(--muted); }
+  .chk-item.is-met .chk-mark { color: var(--accent); }
+  .chk-item.is-unmet .chk-mark { color: var(--error); }
+  .chk-body { display: flex; flex-direction: column; min-width: 0; }
+  .chk-reason { font-size: 14px; color: var(--muted); }
+  .chk-item .text-btn { height: 24px; }
+  .chk .acc { margin-top: 16px; }
+  .chk-form { display: flex; flex-direction: column; }
+  .chk-fields { display: flex; flex-wrap: wrap; gap: 0 16px; }
+  .chk-fields .q-field { padding-top: 8px; }
+  .chk-fields .q-input { display: block; width: 136px; margin-top: 8px; }
+  .chk-form > .q-input { margin-bottom: 8px; }
+  .chk-form .page-acts { padding-top: 16px; }
+
+  /* プランの微修正 */
+  .refine-form { display: flex; flex-direction: column; }
+  .refine-result { padding-top: 16px; }
+  .refine-result .ask-full { padding: 0 0 16px; }
+  .refine-list li { grid-template-columns: 1fr auto; padding: 8px 0; }
+  .refine-item { display: flex; flex-direction: column; min-width: 0; }
+  .refine-kind { font-size: 14px; color: var(--muted); }
+  .refine-result .msg-acts { padding-top: 8px; }
+}
