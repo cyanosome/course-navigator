@@ -8,6 +8,11 @@
   埋める学期（診断の設定の terms）に無い学期には出さない
 - 系統図に載る（外さない）: プランの科目のうち、系統図のまとまりに属するもの（Catalog の group_id がある）。
   同じ学期の同じ名前の別クラスへ移す（外す＋足すの組）のはよい（事前登録 study1 の K5 のとおり）
+- 履修の状況（course_core.diagnose.history.PlanHistory。任意で、無ければ上のとおり）:
+  - start より前の学期には選べる科目を出さない
+  - 履修済みの科目と同じ名前の科目は、3つの経路のどれにも入れない（照合でも completed で外す。completed_ids）
+  - 登録済みの科目は terms の同じ学期にも入っている（route_options が確かめる）ので、プランの科目と同じに扱う。
+    「今のプラン」で印を付け、外す案は照合で dropped にせず「登録済み」として残す（registered_ids）
 - 科目名・曜限・単位・まとまりは Catalog（DB の行を診断と同じ読み方にしたもの）から引く
 I/O を持たない（設定と科目の一覧は呼ぶ側が読む）。
 """
@@ -21,6 +26,7 @@ from typing import Final, Literal, Protocol
 from agent.grounding import normalize_codes
 from course_core.diagnose.answers import Answers
 from course_core.diagnose.engine import DiagnoseEngine
+from course_core.diagnose.history import NO_HISTORY, PlanHistory
 from course_core.diagnose.model import TERM_ORDER, Catalog, DiagCourse, PlanTerm, normalize_text
 
 __all__ = [
@@ -31,6 +37,7 @@ __all__ = [
     "NAMED_PER_TERM",
     "NAME_PART_MIN_CHARS",
     "PLAN_HEADING",
+    "REGISTERED_MARK",
     "CandidateCourse",
     "CandidateSource",
     "RefineContext",
@@ -56,6 +63,7 @@ CANDIDATES_HEADING: Final = (
     "点は診断の答えに合う度合いで、高いほど合う）"
 )
 LOCK_MARK: Final = "［系統図の科目・外さない。同じ学期の別クラスへ移すのはよい］"
+REGISTERED_MARK: Final = "［登録済み。外す案を出すなら、履修登録の変更が要ると書き添える］"
 _SAME_NAME_MARK: Final = "［今のプランの {plan_id} の別クラス。{plan_id} を外す案と組にして移すときだけ足せる］"
 _NAMED_MARK: Final = "［頼みに名前が出た科目］"
 _SUMMARY_PREFIX: Final = "診断のまとめ: "
@@ -102,6 +110,9 @@ class RefineContext:
     locked_ids: frozenset[str]  # 系統図に載るプランの科目（外す提案は、移す組でなければ locked で外す）
     candidates: tuple[TermCandidates, ...]
     block: str  # 「今のプラン」と「選べる科目」の文（相談の後ろに付ける）
+    # 履修済みの科目と同じ名前の科目（別クラスも。足す提案は completed で外す）。履修の状況が無ければ空
+    completed_ids: frozenset[str] = frozenset()
+    registered_ids: frozenset[str] = frozenset()  # 登録済みの科目（外す提案は dropped にせず「登録済み」として残す）
 
     @property
     def candidate_ids(self) -> frozenset[str]:
@@ -168,15 +179,23 @@ def term_candidates(
     request_text: str = "",
     limit: int = CANDIDATES_PER_TERM,
     named_limit: int = NAMED_PER_TERM,
+    history: PlanHistory = NO_HISTORY,
 ) -> tuple[TermCandidates, ...]:
     """プランの学期ごとの選べる科目（top・same_name・named。モジュールの説明のとおり）。"""
     plan_ids = set(normalize_codes(syllabus_id for term in terms for syllabus_id in term.syllabus_ids))
     plan_names = frozenset(courses_by_id[syllabus_id].name for syllabus_id in plan_ids if syllabus_id in courses_by_id)
+    completed_names = history.completed_names
     text = normalize_text(request_text)
     result: list[TermCandidates] = []
     for term in terms:
         plan_term = _plan_term(term)
-        ranked = engine.ranked_candidates(answers, plan_term) if plan_term is not None else []
+        if plan_term is not None and history.start is not None and plan_term.sort_key < history.start.sort_key:
+            plan_term = None  # start より前の学期には足さない
+        ranked = [
+            (course, score)
+            for course, score in (engine.ranked_candidates(answers, plan_term) if plan_term is not None else [])
+            if course.name not in completed_names
+        ]
         picked: dict[str, CandidateCourse] = {}
         for course, score in ranked:
             if len(picked) >= limit:
@@ -236,8 +255,9 @@ def render_refine_block(
     courses_by_id: Mapping[str, DiagCourse],
     locked_ids: frozenset[str],
     candidates: Sequence[TermCandidates],
+    registered_ids: frozenset[str] = frozenset(),
 ) -> str:
-    """「今のプラン」（学期ごとの合計単位と、系統図の科目の印）と「選べる科目」（経路の印つき）の文。"""
+    """「今のプラン」（学期ごとの合計単位と、系統図の科目・登録済みの科目の印）と「選べる科目」（経路の印つき）の文。"""
     lines = [PLAN_HEADING]
     if answers_summary.strip():
         lines.append(_SUMMARY_PREFIX + answers_summary.strip())
@@ -254,6 +274,8 @@ def render_refine_block(
                 lines.append(f"- {syllabus_id}{_NOT_IN_CATALOG}")
                 continue
             mark = LOCK_MARK if syllabus_id in locked_ids else ""
+            if syllabus_id in registered_ids:
+                mark += REGISTERED_MARK
             lines.append(f"- {syllabus_id} {_course_text(course, catalog)}{mark}")
 
     lines.append("")
@@ -274,12 +296,16 @@ def build_refine_context(
     answers_summary: str,
     terms: Sequence[PlanTermLike],
     request_text: str = "",
+    history: PlanHistory = NO_HISTORY,
 ) -> RefineContext:
-    """診断の答え（answers.validate_answers を通したもの）と今のプランと頼みの文から、LLM に渡す文と照合の集合を作る。"""
+    """診断の答え（answers.validate_answers を通したもの）と今のプランと頼みの文（と履修の状況。history.validate_history を
+    通したもの）から、LLM に渡す文と照合の集合を作る。"""
     courses_by_id = {course.syllabus_id: course for course in catalog.courses}
     plan_ids = normalize_codes(syllabus_id for term in terms for syllabus_id in term.syllabus_ids)
     locked = locked_plan_ids(plan_ids, courses_by_id)
-    candidates = term_candidates(engine, answers, terms, courses_by_id, request_text)
+    candidates = term_candidates(engine, answers, terms, courses_by_id, request_text, history=history)
+    registered_ids = frozenset(course.syllabus_id for course in history.registered_courses)
+    completed_names = history.completed_names
     block = render_refine_block(
         answers_summary=answers_summary,
         terms=terms,
@@ -287,5 +313,13 @@ def build_refine_context(
         courses_by_id=courses_by_id,
         locked_ids=locked,
         candidates=candidates,
+        registered_ids=registered_ids,
     )
-    return RefineContext(plan_ids=plan_ids, locked_ids=locked, candidates=candidates, block=block)
+    return RefineContext(
+        plan_ids=plan_ids,
+        locked_ids=locked,
+        candidates=candidates,
+        block=block,
+        completed_ids=frozenset(course.syllabus_id for course in catalog.courses if course.name in completed_names),
+        registered_ids=registered_ids,
+    )

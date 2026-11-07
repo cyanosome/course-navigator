@@ -212,12 +212,15 @@ def course_sources_node(
     candidate_ids: Collection[str] | None = None,
     locked_ids: Collection[str] | None = None,
     move_pairs: Mapping[str, Collection[str]] | None = None,
+    completed_ids: Collection[str] | None = None,
+    registered_ids: Collection[str] | None = None,
 ) -> Callable[[PlanAnswerPayload, Context], Awaitable[Event]]:
     """関西（courses）向けの出典付与ノードを作る（A1 用。LLM 0回）。
 
     plan_ids は今のプランの syllabus_id（プランが渡されなければ None）。ノードの入力しか受け取れない
     ADK の関数ノードにプランを渡すため、1問ごとに閉包で作る（ワークフローも1問ごとに作っている）。
-    candidate_ids・locked_ids・move_pairs は診断の答えがある微修正だけ（grounding.ground_plan_suggestions のとおり）。
+    candidate_ids・locked_ids・move_pairs・completed_ids・registered_ids は診断の答えがある微修正だけ
+    （grounding.ground_plan_suggestions のとおり）。
     ノードの名前は attach_sources のまま（node_sequence がシードの経路と同じ並びになる）。
     """
 
@@ -240,6 +243,8 @@ def course_sources_node(
                 candidate_ids=candidate_ids,
                 locked_ids=locked_ids,
                 move_pairs=move_pairs,
+                completed_ids=completed_ids,
+                registered_ids=registered_ids,
             )
         )
 

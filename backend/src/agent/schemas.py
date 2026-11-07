@@ -111,19 +111,24 @@ class PlanAnswerPayload(AnswerPayload):
 
 
 class PlanSuggestion(BaseModel):
-    """照合を通った提案1件。title は DB の科目名（外す科目がプランにだけあって DB に無いときは None）。"""
+    """照合を通った提案1件。title は DB の科目名（外す科目がプランにだけあって DB に無いときは None）。
+
+    status は外す科目が登録済み（plan_context.registered にある）なら registered。ほかは planned。
+    """
 
     syllabus_id: str
     title: str | None = None
     reason: str = ""
+    status: Literal["planned", "registered"] = "planned"
 
 
 # already_in_plan: 足す科目がもうプランにある。診断の答えがある微修正では、同じ名前の別クラスを、元の科目を外す案と
 #   組にせずに足す案も含む（同じ科目が2つになるため）
 # not_candidate: 足す科目が、サーバーが渡した「選べる科目」に無い（診断の答えがある微修正だけ）
 # locked: 外す科目が、系統図に載る科目（外さない印を付けて渡したもの）で、同じ学期の別クラスへ移す組でもない
-#   （診断の答えがある微修正だけ）
-DropReason = Literal["not_in_db", "already_in_plan", "not_in_plan", "not_candidate", "locked"]
+#   （診断の答えがある微修正だけ。登録済みの科目は locked にしない）
+# completed: 足す科目が、履修済み（plan_context.completed）の科目と同じ名前（診断の答えがある微修正で、completed を送ったときだけ）
+DropReason = Literal["not_in_db", "already_in_plan", "not_in_plan", "not_candidate", "locked", "completed"]
 
 
 class DroppedSuggestion(BaseModel):
@@ -139,6 +144,7 @@ class PlanSuggestions(BaseModel):
 
     診断の答えがある微修正では、さらに足す科目は「選べる科目」の中のもの、外す科目は系統図に載らないものだけ。
     ただし同じ学期の同じ名前の別クラスへ移す組（外す＋足す）は、系統図の科目でも残す。
+    登録済みの科目を外す案は残し、status を registered にする。履修済みと同じ名前の科目を足す案は completed で外す。
     """
 
     add: list[PlanSuggestion] = Field(default_factory=list)

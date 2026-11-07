@@ -457,8 +457,8 @@ def test_plan_context_grounds_suggestions_and_is_recorded(client, sink, built_op
 
     # 足す科目は DB にありプランに無いものだけ、外す科目はプランにあるものだけが残る
     assert body["plan_suggestions"] == {
-        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水曜"}],
-        "remove": [{"syllabus_id": _PLAN_CODE, "title": "架空の月曜の科目", "reason": "月曜"}],
+        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水曜", "status": "planned"}],
+        "remove": [{"syllabus_id": _PLAN_CODE, "title": "架空の月曜の科目", "reason": "月曜", "status": "planned"}],
         "dropped": [
             {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
             {"action": "add", "syllabus_id": _PLAN_CODE, "reason": "already_in_plan"},
@@ -745,8 +745,10 @@ def test_plan_answers_use_the_static_path_with_candidates_and_locks(client, sink
     assert body["model"] == "refine-fake-llm"
     assert body["tool_calls"] == []
     assert body["plan_suggestions"] == {
-        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": f"足す {_EXTRA_CODE}"}],
-        "remove": [{"syllabus_id": _FREE_CODE, "title": "架空の教養", "reason": f"外す {_FREE_CODE}"}],
+        "add": [
+            {"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": f"足す {_EXTRA_CODE}", "status": "planned"}
+        ],
+        "remove": [{"syllabus_id": _FREE_CODE, "title": "架空の教養", "reason": f"外す {_FREE_CODE}", "status": "planned"}],
         "dropped": [
             {"action": "add", "syllabus_id": _KNOWN_CODE, "reason": "not_candidate"},
             {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
@@ -864,3 +866,83 @@ def test_plan_context_digest_ignores_unsent_answers():
     with_answers = route_options.PlanContext.model_validate(_STATIC_PLAN)
     assert set(plan.model_dump(exclude_none=True)) == {"answers_summary", "terms"}
     assert route_options.plan_context_sha256(plan) != route_options.plan_context_sha256(with_answers)
+    # 履修の状況（start・completed・registered）も、送らなければ指紋に入らない
+    assert set(with_answers.model_dump(exclude_none=True)) == {"answers_summary", "terms", "config_version", "answers"}
+
+
+# --- 履修の状況（start・completed・registered）がある微修正 ---------------------------------------
+
+
+def test_history_on_the_static_path(client, sink, built_options, refine_llm):
+    """履修済みと同じ名前の科目は選べる科目に出さず、足す案は completed で外す。
+    登録済みの科目を外す案は、系統図の科目でも dropped にせず status=registered で残す。"""
+    refine_llm.payload = _payload(add=[_EXTRA_CODE, _NAMED_CODE], remove=[_LOCKED_CODE])
+    sink.add("sess-1", "V00")
+    plan = {
+        **_STATIC_PLAN,
+        "start": {"year": 1, "term": "春"},
+        "completed": [_EXTRA_CODE],
+        "registered": [{"year": 1, "term": "春", "syllabus_ids": [_LOCKED_CODE]}],
+    }
+    response = _ask(client, session="sess-1", plan_context=plan)
+    assert response.status_code == 200, response.text
+
+    lines = refine_llm.received[0].splitlines()
+    locked_line = f"- {_LOCKED_CODE} 架空の月曜の科目（月2、2単位、まとまり: 架空基礎系）"
+    assert locked_line + plan_candidates.LOCK_MARK + plan_candidates.REGISTERED_MARK in lines
+    assert not any(line.startswith(f"- {_EXTRA_CODE} ") for line in lines)
+    suggestions = response.json()["plan_suggestions"]
+    assert suggestions == {
+        "add": [{"syllabus_id": _NAMED_CODE, "title": "架空の珍しい科目", "reason": f"足す {_NAMED_CODE}", "status": "planned"}],
+        "remove": [
+            {"syllabus_id": _LOCKED_CODE, "title": "架空の月曜の科目", "reason": f"外す {_LOCKED_CODE}", "status": "registered"}
+        ],
+        "dropped": [{"action": "add", "syllabus_id": _EXTRA_CODE, "reason": "completed"}],
+    }
+    payload = sink.events[0][2]
+    assert payload["candidate_sources"] == {"top": 1, "same_name": 1, "named": 0}  # 履修済みの 900003 が top から抜ける
+    expected =route_options.plan_context_sha256(route_options.PlanContext.model_validate(plan))
+    assert payload["plan_context_sha256"] == expected != route_options.plan_context_sha256(
+        route_options.PlanContext.model_validate(_STATIC_PLAN)
+    )
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        {"completed": [_KNOWN_CODE]},
+        {"start": {"year": 1, "term": "春"}},
+        {"registered": [{"year": 1, "term": "春", "syllabus_ids": [_PLAN_CODE]}]},
+    ],
+)
+def test_history_without_plan_answers_is_422(client, sink, built_options, refine_llm, history):
+    """履修の状況は静的の経路だけが使うので、診断の答えが無ければ形の誤り（FastAPI が断り、記録しない）。"""
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context={**_PLAN, **history}).status_code == 422
+    assert built_options == [] and refine_llm.received == []
+    assert sink.events == []
+
+
+def test_empty_history_without_plan_answers_keeps_the_mcp_path(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context={**_PLAN, "completed": [], "registered": []}).status_code == 200
+    assert len(built_options) == 1 and refine_llm.received == []
+
+
+@pytest.mark.parametrize(
+    ("history", "fragment"),
+    [
+        ({"completed": [_UNKNOWN_CODE]}, "知らない科目です"),
+        ({"start": {"year": 2, "term": "春"}}, "start の 2年春"),
+        ({"registered": [{"year": 1, "term": "秋", "syllabus_ids": [_FREE_CODE]}]}, "terms の同じ学期にありません"),
+        ({"completed": [_FREE_CODE], "registered": [{"year": 1, "term": "春", "syllabus_ids": [_FREE_CODE]}]}, "両方"),
+    ],
+)
+def test_wrong_history_is_422_and_recorded(client, sink, built_options, refine_llm, history, fragment):
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1", plan_context={**_STATIC_PLAN, **history})
+    assert response.status_code == 422
+    assert fragment in response.json()["detail"]
+    assert refine_llm.received == []
+    payload = sink.events[0][2]
+    assert (payload["path"], payload["plan_delivery"], payload["error"]) == ("static", "not_delivered", "other")

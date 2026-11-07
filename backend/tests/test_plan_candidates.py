@@ -8,9 +8,11 @@ from agent import plan_candidates
 from agent.route_options import PlanTerm
 from course_core.diagnose.answers import validate_answers
 from course_core.diagnose.engine import DiagnoseEngine
+from course_core.diagnose.history import NO_HISTORY, validate_history
+from course_core.schemas.diagnose import RegisteredTermIn, TermIn
 
 
-def _context(courses, terms, *, raw_answers=None, summary="架空のまとめ", request_text=""):
+def _context(courses, terms, *, raw_answers=None, summary="架空のまとめ", request_text="", history=NO_HISTORY):
     config = make_config()
     selected, errors = validate_answers(config, raw_answers or answers())
     assert errors == []
@@ -22,7 +24,14 @@ def _context(courses, terms, *, raw_answers=None, summary="架空のまとめ", 
         answers_summary=summary,
         terms=[PlanTerm.model_validate(term) for term in terms],
         request_text=request_text,
+        history=history,
     )
+
+
+def _history(courses, **values):
+    history, errors = validate_history(make_config(), catalog(courses), **values)
+    assert errors == [], errors
+    return history
 
 
 def _candidate_ids(context):
@@ -173,3 +182,34 @@ def test_block_without_summary_and_with_full_year_course():
     block = _context(courses, [{"year": 1, "term": "春", "syllabus_ids": ["20"]}], summary="  ").block
     assert "診断のまとめ" not in block
     assert "- 20 通年の科目（月2、通年、2単位）" in block.splitlines()
+
+
+# --- 履修の状況（start・completed・registered） ------------------------------------------------
+
+
+def test_completed_names_leave_every_source_and_registered_courses_are_marked():
+    courses = [*_COURSES, course("18", name="足せる科目", slots=("土1",))]  # 13 と同じ名前の別クラス
+    terms = [{"year": 1, "term": "春", "syllabus_ids": ["10", "11"]}, {"year": 1, "term": "秋", "syllabus_ids": []}]
+    history = _history(
+        courses, completed=["13"], registered=[RegisteredTermIn(year=1, term="春", syllabus_ids=["11"])]
+    )
+    context = _context(courses, terms, history=history)
+
+    # 履修済みの 13 と、同じ名前の別クラス 18 は選べる科目に出さない（照合で completed にする集合には入る）
+    assert _candidate_ids(context) == [[("14", "top"), ("12", "same_name")], [("15", "top")]]
+    assert context.completed_ids == {"13", "18"}
+    assert context.registered_ids == {"11"}
+    assert "- 11 教養の科目（火2、1単位）" + plan_candidates.REGISTERED_MARK in context.block.splitlines()
+    assert "- 10 系統図の科目（月1、2単位、まとまり: 架空基礎系）" + plan_candidates.LOCK_MARK in context.block.splitlines()
+
+
+def test_start_leaves_earlier_terms_without_candidates():
+    context = _context(_COURSES, _TERMS, history=_history(_COURSES, start=TermIn(year=1, term="秋")))
+    assert _candidate_ids(context) == [[], [("15", "top")]]
+    assert context.move_pairs == {}
+
+
+def test_without_history_the_sets_are_empty():
+    context = _context(_COURSES, _TERMS)
+    assert context.completed_ids == frozenset() and context.registered_ids == frozenset()
+    assert plan_candidates.REGISTERED_MARK not in context.block

@@ -160,6 +160,8 @@ def ground_plan_suggestions(
     candidate_ids: Collection[str] | None = None,
     locked_ids: Collection[str] | None = None,
     move_pairs: Mapping[str, Collection[str]] | None = None,
+    completed_ids: Collection[str] | None = None,
+    registered_ids: Collection[str] | None = None,
 ) -> PlanSuggestions:
     """足す・外すの提案を DB の行と今のプランで照合する。
 
@@ -170,6 +172,8 @@ def ground_plan_suggestions(
     - move_pairs（プランの科目 → 同じ学期の同じ名前の別クラス）: 別クラスを足す案は、元の科目を外す案と組のときだけ
       「移す」として残す（組でなければ、同じ名前の科目がもうプランにあるので already_in_plan）
     - locked_ids（系統図に載るプランの科目）: 外す案は locked で外す。ただし移す組（別クラスを足す案が残ったもの）は残す
+    - completed_ids（履修済みと同じ名前の科目）: 足す案は completed で外す（not_candidate より先に見る）
+    - registered_ids（登録済みの科目）: 外す案は locked でも外さず、status を registered にして残す
     """
     plan = set(normalize_codes(plan_ids))
     pairs = move_pairs or {}
@@ -194,6 +198,9 @@ def ground_plan_suggestions(
         if syllabus_id in plan:
             dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="already_in_plan"))
             continue
+        if completed_ids is not None and syllabus_id in completed_ids:
+            dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="completed"))
+            continue
         if candidate_ids is not None and syllabus_id not in candidate_ids:
             dropped.append(DroppedSuggestion(action="add", syllabus_id=syllabus_id, reason="not_candidate"))
             continue
@@ -214,12 +221,20 @@ def ground_plan_suggestions(
             dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="not_in_plan"))
             continue
         moved = any(target in accepted_adds for target in pairs.get(syllabus_id, ()))
-        if locked_ids is not None and syllabus_id in locked_ids and not moved:
+        registered = registered_ids is not None and syllabus_id in registered_ids
+        if locked_ids is not None and syllabus_id in locked_ids and not moved and not registered:
             dropped.append(DroppedSuggestion(action="remove", syllabus_id=syllabus_id, reason="locked"))
             continue
         row = rows_by_id.get(syllabus_id)
         title = row["subject_name"] if row is not None else None
-        remove.append(PlanSuggestion(syllabus_id=syllabus_id, title=title, reason=change.reason))
+        remove.append(
+            PlanSuggestion(
+                syllabus_id=syllabus_id,
+                title=title,
+                reason=change.reason,
+                status="registered" if registered else "planned",
+            )
+        )
 
     return PlanSuggestions(add=add, remove=remove, dropped=dropped)
 
@@ -232,11 +247,13 @@ def build_course_grounded_answer(
     candidate_ids: Collection[str] | None = None,
     locked_ids: Collection[str] | None = None,
     move_pairs: Mapping[str, Collection[str]] | None = None,
+    completed_ids: Collection[str] | None = None,
+    registered_ids: Collection[str] | None = None,
 ) -> CourseGroundedAnswer:
     """cited_codes（syllabus_id）を courses の行と突き合わせ、出典と未検証に振り分ける。
 
     plan_ids（今のプランの syllabus_id）があれば、足す・外すの提案も照合して plan_suggestions に入れる
-    （candidate_ids・locked_ids・move_pairs は ground_plan_suggestions のとおり）。
+    （candidate_ids・locked_ids・move_pairs・completed_ids・registered_ids は ground_plan_suggestions のとおり）。
     無ければ plan_suggestions は None で、LLM が提案を出していたら使わなかったことを notes に残す。
     """
     cited = normalize_codes(payload.cited_codes)
@@ -245,7 +262,14 @@ def build_course_grounded_answer(
     plan_suggestions: PlanSuggestions | None = None
     if plan_ids is not None:
         plan_suggestions = ground_plan_suggestions(
-            payload, rows_by_id, plan_ids, candidate_ids=candidate_ids, locked_ids=locked_ids, move_pairs=move_pairs
+            payload,
+            rows_by_id,
+            plan_ids,
+            candidate_ids=candidate_ids,
+            locked_ids=locked_ids,
+            move_pairs=move_pairs,
+            completed_ids=completed_ids,
+            registered_ids=registered_ids,
         )
     elif payload.add or payload.remove:
         notes.append(_NO_PLAN_NOTE.format(count=len(payload.add) + len(payload.remove)))
