@@ -55,8 +55,9 @@ function PlanFrame({ plan }: { plan: WorkingPlan }) {
   }, [viewTerm, focusTerm, setFocusTerm])
 
   // 詳細で見ている科目がほかの学期（プランの学期）の科目なら、その学期の時間割を出す。
-  // 詳細を開いたときに1回だけ合わせる（そのあと利用者が学期を変えたら、それに従う）
-  const terms = view.terms
+  // 詳細を開いたときに1回だけ合わせる（そのあと利用者が学期を変えたら、それに従う）。
+  // 取った科目を記録しているときは、今の学期から先の学期だけに合わせる（前の学期は時間割を出さない）
+  const terms = view.planTerms
   const followed = useRef<string | null>(null)
   useEffect(() => {
     if (focusCode === null) {

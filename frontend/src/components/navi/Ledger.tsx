@@ -2,6 +2,8 @@ import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import '../../navi/plan.css'
+import '../../navi/term.css'
+import { historyHref } from '../../navi/history'
 import { checkDetail, checkShortLabel, checkValue, CHECK_STATUS_WORD, ledgerGrid } from '../../navi/ledger'
 import type { ClassMove, LedgerGrid } from '../../navi/ledger'
 import { useResearchLog } from '../../navi/research'
@@ -11,17 +13,28 @@ import { inTerm, resolveCourse, sameTerm, termLabel } from '../../navi/timetable
 import type { TermKey } from '../../navi/timetable'
 import { useClassMoves } from '../../navi/useClassMoves'
 import { useDiagnose } from '../../navi/useDiagnose'
-import type { LedgerView } from '../../navi/useLedger'
+import { TERM_WORD } from '../../navi/useLedger'
+import type { LedgerView, RepeatCourse } from '../../navi/useLedger'
 import { useCheckpoints } from '../../navi/useStatus'
 import { WIDE_SPACE } from '../../navi/views'
 import Icon from './Icon'
 import { CheckpointForm } from './StatusPanel'
+import { TermTable } from './TermTable'
 
 /*
  * 診断の変種の「確かめる場所」（デザインのコンペの U-a）。履修状況（学期・単位・時間割）とチェックの一覧。
  * PC の半分の幅（640px 以上）は右の列に、スマホは上に貼りつく帯（StatusBand）とプランの下の一覧に出す。
  * どの画面でも、どの変種でも同じものを出す。AI の案を入れた場合の値はここには出さない（AI の欄の中だけ）。
  */
+
+/** スマホの帯で学期名のすぐ後ろに置く状態の語（短く） */
+const BAND_WORD: Record<keyof typeof TERM_WORD, string> = {
+  past: '取った',
+  unrecorded: '未記入',
+  current: '今',
+  planned: '予定',
+  none: 'プランなし',
+}
 
 interface CellView {
   className: string
@@ -128,9 +141,19 @@ function GridNotes({ view, grid }: { view: LedgerView; grid: LedgerGrid }) {
   )
 }
 
-/** 学期の切り替え（プランの学期の中で前後へ） */
-function TermNav({ view }: { view: LedgerView }) {
+interface TermToggle {
+  open: boolean
+  controls: string
+  onToggle: () => void
+}
+
+/**
+ * 学期の切り替え（プランの学期の中で前後へ。取った科目を記録しているときは1年春〜4年秋）。
+ * toggle があれば、学期名を押すと学期の表が開く（スマホの帯）。学期名のすぐ後ろに状態の語を置く
+ */
+function TermNav({ view, toggle }: { view: LedgerView; toggle?: TermToggle }) {
   const { setFocusTerm } = useNavi()
+  const word = view.history === null ? null : BAND_WORD[view.history.viewKind]
   const i = view.terms.findIndex((t) => sameTerm(t, view.term))
   const prev = i > 0 ? view.terms[i - 1] : undefined
   const next = i >= 0 ? view.terms[i + 1] : undefined
@@ -145,9 +168,19 @@ function TermNav({ view }: { view: LedgerView }) {
       >
         <Icon name="back" />
       </button>
-      <span className="lg-term-name" aria-live="polite">
-        {termLabel(view.term)}
-      </span>
+      {toggle === undefined ? (
+        <span className="lg-term-name" aria-live="polite">
+          {termLabel(view.term)}
+        </span>
+      ) : (
+        <button className="lg-term-btn" type="button" aria-expanded={toggle.open} aria-controls={toggle.controls} onClick={toggle.onToggle}>
+          <span aria-live="polite">
+            {termLabel(view.term)}
+            {word !== null && <span className="lg-word">{word}</span>}
+          </span>
+          <Icon name="down" />
+        </button>
+      )}
       <button
         className="icon-btn"
         type="button"
@@ -178,8 +211,38 @@ interface LedgerStatusProps {
 
 /** 右の列の履修状況（PC の半分の幅から） */
 export function LedgerStatus({ view, focusCode }: LedgerStatusProps) {
+  const { setFocusTerm } = useNavi()
   const grid = ledgerGrid(view.here.status, view.checkpoints)
   const focus = useFocusCourse(focusCode, view.term, view.status)
+  const history = view.history
+  if (history !== null) {
+    // 取った科目を記録しているとき: 学期の表（切り替えと履歴の目次）と、見ている学期の名前・状態の語・単位。
+    // 今の学期より前の学期は時間割を出さない（クラスの分からない科目がある）
+    return (
+      <section className="lg-status" data-role="status" aria-label="履修状況">
+        <TermTable
+          cells={history.cells}
+          view={view.term}
+          onPick={setFocusTerm}
+          takenCredits={history.takenCredits}
+          unrecorded={history.unrecorded.length}
+        />
+        <div className="lg-now">
+          <p>
+            <span className="lg-now-name">{termLabel(view.term)}</span>
+            <span className="lg-word">{TERM_WORD[history.viewKind]}</span>
+          </p>
+          {history.viewKind !== 'unrecorded' && <Units view={view} />}
+        </div>
+        {!history.past && (
+          <>
+            <GridTable view={view} grid={grid} focus={focus} />
+            <GridNotes view={view} grid={grid} />
+          </>
+        )}
+      </section>
+    )
+  }
   return (
     <section className="lg-status" data-role="status" aria-label="履修状況">
       <div className="lg-status-head">
@@ -203,8 +266,14 @@ interface StatusBandProps {
 
 /** スマホの上に貼りつく帯。学期・単位・要確認の数・小さな時間割（押すと表が広がる） */
 export function StatusBand({ view, focusCode, onChecks, checksId, checksOpen }: StatusBandProps) {
+  const { setFocusTerm } = useNavi()
   const [gridOpen, setGridOpen] = useState(false)
+  const [termsOpen, setTermsOpen] = useState(false)
   const gridId = useId()
+  const termsId = useId()
+  const history = view.history
+  /** 今の学期より前の学期は時間割を出さない */
+  const showGrid = history === null || !history.past
   const grid = ledgerGrid(view.here.status, view.checkpoints)
   const focus = useFocusCourse(focusCode, view.term, view.status)
   const shortOf = useShortName()
@@ -226,10 +295,18 @@ export function StatusBand({ view, focusCode, onChecks, checksId, checksOpen }: 
       </>
     )
   return (
-    <section className={gridOpen ? 'lg-band is-open' : 'lg-band'} data-role="status" aria-label="履修状況">
-      <TermNav view={view} />
+    <section
+      className={`lg-band${gridOpen && showGrid ? ' is-open' : ''}${history !== null ? ' has-terms' : ''}`}
+      data-role="status"
+      aria-label="履修状況"
+    >
+      {history === null ? (
+        <TermNav view={view} />
+      ) : (
+        <TermNav view={view} toggle={{ open: termsOpen, controls: termsId, onToggle: () => setTermsOpen((o) => !o) }} />
+      )}
       <div className="lg-band-line">
-        <Units view={view} />
+        {history?.viewKind !== 'unrecorded' && <Units view={view} />}
         <button
           className={view.unmet > 0 || view.others.length > 0 ? 'lg-sum is-ng' : 'lg-sum'}
           type="button"
@@ -240,29 +317,49 @@ export function StatusBand({ view, focusCode, onChecks, checksId, checksOpen }: 
           {sum}
         </button>
       </div>
-      <button
-        className={grid.days.length > 5 ? 'lg-mini is-6' : 'lg-mini'}
-        type="button"
-        aria-controls={gridId}
-        aria-expanded={gridOpen}
-        aria-label={gridOpen ? '時間割を閉じる' : '時間割を広げる'}
-        onClick={() => setGridOpen((o) => !o)}
-      >
-        {grid.periods.flatMap((p) =>
-          grid.days.map((d) => {
-            const cell = cellOf(grid, `${d}${p}`, focus, shortOf)
-            return <i key={`${d}${p}`} className={cell.className.replace('lg-cell', 'lg-m')} />
-          }),
-        )}
-      </button>
-      <div className="lg-band-tt" id={gridId} hidden={!gridOpen}>
-        {gridOpen && (
-          <>
-            <GridTable view={view} grid={grid} focus={focus} />
-            <GridNotes view={view} grid={grid} />
-          </>
-        )}
-      </div>
+      {showGrid && (
+        <button
+          className={grid.days.length > 5 ? 'lg-mini is-6' : 'lg-mini'}
+          type="button"
+          aria-controls={gridId}
+          aria-expanded={gridOpen}
+          aria-label={gridOpen ? '時間割を閉じる' : '時間割を広げる'}
+          onClick={() => setGridOpen((o) => !o)}
+        >
+          {grid.periods.flatMap((p) =>
+            grid.days.map((d) => {
+              const cell = cellOf(grid, `${d}${p}`, focus, shortOf)
+              return <i key={`${d}${p}`} className={cell.className.replace('lg-cell', 'lg-m')} />
+            }),
+          )}
+        </button>
+      )}
+      {history !== null && (
+        <div className="lg-band-terms" id={termsId} hidden={!termsOpen}>
+          {termsOpen && (
+            <TermTable
+              cells={history.cells}
+              view={view.term}
+              onPick={(t) => {
+                setFocusTerm(t)
+                setTermsOpen(false)
+              }}
+              takenCredits={history.takenCredits}
+              unrecorded={history.unrecorded.length}
+            />
+          )}
+        </div>
+      )}
+      {showGrid && (
+        <div className="lg-band-tt" id={gridId} hidden={!gridOpen}>
+          {gridOpen && (
+            <>
+              <GridTable view={view} grid={grid} focus={focus} />
+              <GridNotes view={view} grid={grid} />
+            </>
+          )}
+        </div>
+      )}
     </section>
   )
 }
@@ -275,13 +372,15 @@ interface CheckRowProps {
   status: CourseStatus
   removing: boolean
   move: ClassMove | undefined
+  /** 判定できない理由が未記入の学期のとき、取った科目を入れる画面へ（取った科目を記録しているときだけ） */
+  fillHref?: string
 }
 
 /**
  * チェックの1行。押すと開き、理由と原因の科目（詳細へのリンク）を出す（開いたら status_open を記録する）。
  * 満たさない行には、原因の科目の名前と、見つかれば直し方（同じ名前の別のクラスへ移す）を添える
  */
-function CheckRow({ cp, r, status, removing, move }: CheckRowProps) {
+function CheckRow({ cp, r, status, removing, move, fillHref }: CheckRowProps) {
   const { dept } = useNavi()
   const { remove } = useCheckpoints()
   const { log } = useResearchLog()
@@ -328,6 +427,13 @@ function CheckRow({ cp, r, status, removing, move }: CheckRowProps) {
               </ul>
             )}
           </>
+        ) : fillHref !== undefined ? (
+          <p className="lg-fix">
+            <span>{detail}</span>
+            <Link className="lg-tbtn" to={fillHref}>
+              入れる
+            </Link>
+          </p>
         ) : (
           detail !== '' && <p className="lg-chk-d">{detail}</p>
         )}
@@ -367,6 +473,49 @@ function MoveFix({ cp, move }: { cp: Checkpoint; move: ClassMove }) {
   )
 }
 
+/**
+ * チェック「もう取った科目」（取った科目を記録しているときだけ）。見ている学期のプランに、取った科目と同じ名前の科目が
+ * あれば、その科目と取った学期と［外す］を出す。利用者が足し外しするチェックではない（調査のモードでは出ない）
+ */
+function RepeatRow({ repeats }: { repeats: RepeatCourse[] }) {
+  const { announce } = useNavi()
+  const { removeFromPlan } = useDiagnose()
+  const ok = repeats.length === 0
+  return (
+    <li className={`lg-chk is-${ok ? 'met' : 'unmet'}`}>
+      <div className="lg-chk-row">
+        <Icon name={ok ? 'check' : 'warn'} small />
+        <span className="lg-chk-l">
+          もう取った科目<span className="vh">、{ok ? CHECK_STATUS_WORD.met : CHECK_STATUS_WORD.unmet}</span>
+        </span>
+        <span className="lg-chk-v">{ok ? 'なし' : repeats.length}</span>
+      </div>
+      {!ok && (
+        <div className="lg-chk-body">
+          {repeats.map((r) => (
+            <p key={r.code} className="lg-fix">
+              <span>
+                {r.name}は{termLabel(r.takenIn)}に取った
+              </span>
+              <button
+                className="lg-tbtn"
+                type="button"
+                aria-label={`${r.name}をプランから外す`}
+                onClick={() => {
+                  removeFromPlan(r.code, 'manual', { via: 'status' })
+                  announce(`${r.name}をプランから外しました。`)
+                }}
+              >
+                外す
+              </button>
+            </p>
+          ))}
+        </div>
+      )}
+    </li>
+  )
+}
+
 interface ChecklistProps {
   view: LedgerView
   id?: string
@@ -386,6 +535,15 @@ export function Checklist({ view, id }: ChecklistProps) {
   const here = pairs(view.here.results)
   const whole = pairs(view.planResults)
   const moves = useClassMoves(view)
+  const history = view.history
+  // 取った科目を記録しているときは、今の学期より前の学期に学期ごとのチェックを出さない
+  const showTerm = history === null ? here.length > 0 || view.others.length > 0 : !history.past
+  /** 前のまとまりの抜けが未記入の学期で判定できないとき、理由に挙がった最初の未記入の学期へ（取った科目の画面） */
+  const fillHref = (r: CheckResult): string | undefined => {
+    if (history === null || r.kind !== 'prerequisite' || r.status !== 'unknown') return undefined
+    const term = history.unrecorded.find((t) => r.reason.includes(termLabel(t)))
+    return term === undefined ? undefined : historyHref(term)
+  }
   return (
     <section className="lg-checks" id={id} data-role="checklist" aria-labelledby={headingId}>
       <div className="lg-checks-head">
@@ -396,13 +554,14 @@ export function Checklist({ view, id }: ChecklistProps) {
           </button>
         )}
       </div>
-      {(here.length > 0 || view.others.length > 0) && (
+      {showTerm && (
         <>
           <h3 className="lg-scope">{termLabel(view.term)}</h3>
           <ul>
             {here.map(({ cp, r }) => (
               <CheckRow key={cp.id} cp={cp} r={r} status={view.here.status} removing={removing} move={moves.get(cp.id)} />
             ))}
+            {history !== null && <RepeatRow repeats={history.repeats} />}
             {view.others.length > 0 && (
               <li className="lg-chk lg-other is-unmet">
                 <Icon name="warn" small />
@@ -423,10 +582,18 @@ export function Checklist({ view, id }: ChecklistProps) {
       )}
       {whole.length > 0 && (
         <>
-          <h3 className="lg-scope">プラン全体</h3>
+          <h3 className="lg-scope">{history === null ? 'プラン全体' : '取った科目とプラン'}</h3>
           <ul>
             {whole.map(({ cp, r }) => (
-              <CheckRow key={cp.id} cp={cp} r={r} status={view.status} removing={removing} move={undefined} />
+              <CheckRow
+                key={cp.id}
+                cp={cp}
+                r={r}
+                status={view.status}
+                removing={removing}
+                move={undefined}
+                fillHref={fillHref(r)}
+              />
             ))}
           </ul>
         </>

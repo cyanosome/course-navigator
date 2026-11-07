@@ -10,7 +10,7 @@ import type { WorkingPlan } from './diagnose'
 import { findCourse } from './graph'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
 import type { TermKey } from './timetable'
-import { ALL_TERMS, requiredCourses, sameTerm, termIndex, termLabel, termsOf } from './timetable'
+import { ALL_TERMS, inTerm, requiredCourses, sameTerm, termIndex, termLabel, termsOf } from './timetable'
 import type { Course, Department } from './types'
 
 /* ---------- 科目の一覧 ---------- */
@@ -213,6 +213,11 @@ export interface CheckContext {
   terms: TermKey[]
   /** 必修の区分のデータがあるか（無ければ必修のチェックは判定できない） */
   kindsAvailable: boolean
+  /**
+   * 未記入の学期（取った科目を記録しているときだけ。navi/history.ts）。前のまとまりの科目がこの学期にあれば、
+   * 取ったかどうか分からないので、抜けでなく「判定できない」にする（未記入を取っていないとはみなさない）
+   */
+  unrecorded?: readonly TermKey[]
 }
 
 /** はじめの一覧。数を決める必要が無いものだけ（学期の上限は学科のデータに無いので、数は利用者が決める） */
@@ -358,25 +363,39 @@ function checkGroupCount(cp: Extract<Checkpoint, { kind: 'group_count' }>, statu
   }
 }
 
-function checkPrerequisite(cp: Extract<Checkpoint, { kind: 'prerequisite' }>, status: CourseStatus, dept: Department): CheckResult {
+function checkPrerequisite(
+  cp: Extract<Checkpoint, { kind: 'prerequisite' }>,
+  status: CourseStatus,
+  dept: Department,
+  unrecorded: readonly TermKey[] = [],
+): CheckResult {
   const base = { id: cp.id, kind: cp.kind }
   const has = (frameId: string) => status.courses.some((c) => c.frameId === frameId)
   const missing: { code: string; frameId: string }[] = []
+  /** 前のまとまりの科目が未記入の学期にある（取ったか分からない） */
+  const pending: { code: string; terms: TermKey[] }[] = []
   const noData: string[] = []
   for (const c of status.courses) {
     // 必修は自分で選んだ科目ではない（時間割に最初から入る）ので、前の科目の抜けを問わない。前の科目としては数える
     if (c.frameId === null || c.required) continue
     for (const e of dept.edges.filter((x) => x.to === c.frameId)) {
       if (has(e.from)) continue
+      const before = dept.courses.filter((x) => x.frameId === e.from)
+      const open = unrecorded.filter((t) => before.some((x) => inTerm(x, t)))
       // 前のまとまりに学科のデータの科目が無ければ、入れようがないので「判定できない」に回す
-      if (dept.courses.some((x) => x.frameId === e.from)) missing.push({ code: c.code, frameId: e.from })
-      else noData.push(c.code)
+      if (before.length === 0) noData.push(c.code)
+      else if (open.length > 0) pending.push({ code: c.code, terms: open })
+      else missing.push({ code: c.code, frameId: e.from })
     }
   }
   if (missing.length > 0) {
     const codes = [...new Set(missing.map((m) => m.code))]
     const frames = [...new Set(missing.map((m) => m.frameId))].map((f) => `「${frameName(dept, f)}」`)
     return { ...base, status: 'unmet', reason: `${namesOf(status, codes)}の前の${frames.join('・')}がありません`, codes }
+  }
+  if (pending.length > 0) {
+    const terms = ALL_TERMS.filter((t) => pending.some((p) => p.terms.some((x) => sameTerm(x, t))))
+    return { ...base, status: 'unknown', reason: `${terms.map(termLabel).join('・')}が未記入`, codes: [...new Set(pending.map((p) => p.code))] }
   }
   if (noData.length > 0) {
     return { ...base, status: 'unknown', reason: '前のまとまりの科目がデータにありません', codes: [...new Set(noData)] }
@@ -421,7 +440,7 @@ export function evaluateCheckpoint(cp: Checkpoint, status: CourseStatus, ctx: Ch
     case 'group_count':
       return checkGroupCount(cp, status)
     case 'prerequisite':
-      return checkPrerequisite(cp, status, ctx.dept)
+      return checkPrerequisite(cp, status, ctx.dept, ctx.unrecorded)
     case 'no_overlap':
       return checkNoOverlap(cp, status)
     case 'required':

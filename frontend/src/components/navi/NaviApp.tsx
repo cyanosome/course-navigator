@@ -19,6 +19,7 @@ import type { NaviData, NaviDataSource } from '../../navi/dataSource'
 import { atPlanTerm, createDiagnoseSource, inPlan, planCodes, planCourseAsCourse } from '../../navi/diagnose'
 import type { DiagnoseSource } from '../../navi/diagnose'
 import { findCourse } from '../../navi/graph'
+import { historyPayload } from '../../navi/history'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
 import {
   isTaskRunning,
@@ -33,11 +34,13 @@ import type { ShortlistFrom } from '../../navi/research'
 import { ASK_TIMEOUT_MS, DIAGNOSE_HREF, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
 import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '../../navi/storage'
-import { resolveCourse } from '../../navi/timetable'
+import { ALL_TERMS, resolveCourse } from '../../navi/timetable'
 import type { CourseLookup, Placement, TermKey } from '../../navi/timetable'
 import type { Course, Department } from '../../navi/types'
 import { DiagnoseContext, useDiagnoseState } from '../../navi/useDiagnose'
 import type { DiagnoseState, PlanEditFrom } from '../../navi/useDiagnose'
+import { HistoryContext, useHistoryState } from '../../navi/useHistory'
+import type { HistoryState } from '../../navi/useHistory'
 import { useLoadable } from '../../navi/useLoadable'
 import { PlanRefineContext, usePlanRefineState } from '../../navi/usePlanRefine'
 import type { PlanRefineState, RefineTarget } from '../../navi/usePlanRefine'
@@ -50,6 +53,7 @@ import CourseScreen from './CourseScreen'
 import DepartmentScreen from './DepartmentScreen'
 import DiagnoseScreen from './DiagnoseScreen'
 import GroupScreen from './GroupScreen'
+import HistoryScreen from './HistoryScreen'
 import NaviLayout from './NaviLayout'
 import NaviShell from './NaviShell'
 import PageFrame from './PageFrame'
@@ -59,6 +63,7 @@ import SearchScreen from './SearchScreen'
 import StudyEndScreen from './StudyEndScreen'
 import StudyGate from './StudyGate'
 import StudyStartScreen from './StudyStartScreen'
+import { TermPicker } from './TermTable'
 import TimetableScreen from './TimetableScreen'
 
 const SESSION_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -305,15 +310,18 @@ interface PlanProvidersProps {
   diagnose: DiagnoseState
   refine: PlanRefineState
   checkpoints: CheckpointsState
+  history: HistoryState
   children: ReactNode
 }
 
-/** 診断・プランの微修正・履修状況のチェックの文脈 */
-function PlanProviders({ diagnose, refine, checkpoints, children }: PlanProvidersProps) {
+/** 診断・プランの微修正・履修状況のチェック・学期と取った科目の文脈 */
+function PlanProviders({ diagnose, refine, checkpoints, history, children }: PlanProvidersProps) {
   return (
     <DiagnoseContext.Provider value={diagnose}>
       <PlanRefineContext.Provider value={refine}>
-        <CheckpointsContext.Provider value={checkpoints}>{children}</CheckpointsContext.Provider>
+        <CheckpointsContext.Provider value={checkpoints}>
+          <HistoryContext.Provider value={history}>{children}</HistoryContext.Provider>
+        </CheckpointsContext.Provider>
       </PlanRefineContext.Provider>
     </DiagnoseContext.Provider>
   )
@@ -332,7 +340,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   const location = useLocation()
   const isPc = useMediaQuery(PC_QUERY)
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
-  const { log } = useResearchLog()
+  const { log, active: researching } = useResearchLog()
   const flags = useFlags()
   // 偽のアダプタは開発ビルドで ?wait= を付けたときだけ（本番のビルドには入らない）
   const adapter = useMemo<AskAdapter>(
@@ -345,6 +353,23 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   )
   const assumedTerm = useMemo<TermKey>(() => ({ year: initial.assumedYear, half: '春' }), [initial.assumedYear])
 
+  /* ---------- 調査モード ---------- */
+  const [study, setStudy] = useState<StudyRecord | null>(() => readJson('local', KEYS.study, isStudyRecord))
+  useEffect(() => writeJson('local', KEYS.study, study), [study])
+
+  /*
+   * ---------- 今の学期と取った科目（navi/useHistory。学期のコンペの T-a） ----------
+   * 診断の変種で、調査のモードでないときだけ。調査のモードでは学期の表・履歴を出さず、診断と AI に履修の状況を送らない
+   * （事前登録 study1 の調査の動きを変えない）
+   */
+  const history = useHistoryState({ deptId: dept.id, enabled: flags.diagnose === 'quiz' && !researching && study === null })
+  const { enabled: historyOn, stored: historyStored, current: currentTerm } = history
+  const historyIn = useMemo(
+    () => (historyOn ? historyPayload(historyStored, currentTerm, ALL_TERMS, null) : null),
+    [currentTerm, historyOn, historyStored],
+  )
+  const minPlace = useMemo(() => (currentTerm === null ? null : { year: currentTerm.year, term: currentTerm.half }), [currentTerm])
+
   /* ---------- 診断（プランは時間割の引き方にも使うので、先に作る。状態は navi/useDiagnose） ---------- */
   const [diagnoseSource] = useState<DiagnoseSource>(createDiagnoseSource)
   const diagnose = useDiagnoseState({
@@ -353,11 +378,26 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     source: diagnoseSource,
     log,
     loadCourse: naviData.loadCourse,
+    history: historyIn,
+    minPlace,
   })
   const working = diagnose.working
+  // プランから外れた科目は、登録済みの印も外す（AI の案やチェックの直し方で外したときも）
+  const { pruneRegistered } = history
+  useEffect(() => {
+    if (historyOn && working !== null) pruneRegistered(working)
+  }, [historyOn, pruneRegistered, working])
 
   /* ---------- 時間割の学期・読み上げ・知らせ ---------- */
-  const [focusTerm, setFocusTerm] = useState<TermKey>(assumedTerm)
+  // 見る学期の初めは今の学期（まだ決めていなければ、リンクの想定の学年の春）。今の学期は別に持つ（navi/useHistory）
+  const [focusTerm, setFocusTerm] = useState<TermKey>(() => currentTerm ?? assumedTerm)
+  // 旗はサーバーから後で届くので、今の学期が後から分かることがある。分かったときに1回だけ、見る学期を今の学期にする
+  const focusedCurrent = useRef(currentTerm !== null)
+  useEffect(() => {
+    if (focusedCurrent.current || currentTerm === null) return
+    focusedCurrent.current = true
+    setFocusTerm(currentTerm)
+  }, [currentTerm])
   const [announcement, setAnnouncement] = useState('')
   const announce = useCallback((text: string) => setAnnouncement(text), [])
   const [toast, setToast] = useState<ToastState | null>(null)
@@ -410,9 +450,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     return () => control.abort()
   }, [dept, keepList, loadCourse, peekCourse])
 
-  /* ---------- 調査モード ---------- */
-  const [study, setStudy] = useState<StudyRecord | null>(() => readJson('local', KEYS.study, isStudyRecord))
-  useEffect(() => writeJson('local', KEYS.study, study), [study])
+  /* ---------- 調査モードの記録 ---------- */
   const track = useCallback((event: StudyEvent) => {
     setStudy((s) => {
       if (s === null) return s
@@ -652,6 +690,11 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
 
   /* ---------- 診断・プランの微修正・履修状況のチェック（状態は navi/useDiagnose・usePlanRefine・useStatus） ---------- */
   // 微修正は、いまのプラン（足し外しの後）と、プランを作った答え・その版・指紋・要約を送る
+  // 取った科目を記録しているときは、履修の状況（start は診断の学期にあるときだけ）も送る
+  const scopeTerms = useMemo<TermKey[]>(
+    () => (diagnose.config?.status === 'ready' ? diagnose.config.value.scope.terms.map((t) => ({ year: t.year, half: t.term })) : ALL_TERMS),
+    [diagnose.config],
+  )
   const refineTarget = useMemo<RefineTarget | null>(
     () =>
       diagnose.plan === null || diagnose.planAnswers === null || diagnose.working === null
@@ -662,8 +705,9 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
             answers: diagnose.planAnswers,
             plan: diagnose.working,
             summary: diagnose.summary,
+            history: historyOn ? historyPayload(historyStored, currentTerm, scopeTerms, diagnose.working) : null,
           },
-    [diagnose.plan, diagnose.planAnswers, diagnose.working, diagnose.summary],
+    [diagnose.plan, diagnose.planAnswers, diagnose.working, diagnose.summary, currentTerm, historyOn, historyStored, scopeTerms],
   )
   const refine = usePlanRefineState({ adapter, dept, log, target: refineTarget })
   const checkpoints = useCheckpointsState(log)
@@ -756,7 +800,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       <title>コースナビ</title>
       <NaviContext.Provider value={ctx}>
         <NaviDataContext.Provider value={naviData}>
-          <PlanProviders diagnose={diagnose} refine={refine} checkpoints={checkpoints}>
+          <PlanProviders diagnose={diagnose} refine={refine} checkpoints={checkpoints} history={history}>
             <NaviShell>
               {planMode ? (
                 // 診断の変種: 左で作り、右で確かめる（PlanLayout）。時間割は確かめる場所の一部なので、別の画面にしない
@@ -766,8 +810,8 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
                       index
                       element={
                         studyRedirect ??
-                        // 最初に診断を出す（一度出したら、さがすはそのまま開く）
-                        (diagnose.shown ? <SearchScreen /> : <Navigate to={DIAGNOSE_HREF} replace />)
+                        // 最初に診断を出す（一度出したら、さがすはそのまま開く）。学期が切り替わったら、まず切り替わりの画面
+                        (diagnose.shown && history.change === null ? <SearchScreen /> : <Navigate to={DIAGNOSE_HREF} replace />)
                       }
                     />
                     <Route path="ask/:localId" element={<SearchScreen />} />
@@ -775,6 +819,19 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
                     <Route path="group/:frameId" element={<GroupScreen />} />
                     <Route path="diagnose" element={<DiagnoseScreen />} />
                     <Route path="diagnose/ai" element={<PlanAi />} />
+                    <Route path="history" element={<HistoryScreen />} />
+                    <Route
+                      path="term"
+                      element={
+                        history.enabled ? (
+                          <div className="page pl-page">
+                            <TermPicker mode="fix" />
+                          </div>
+                        ) : (
+                          <Navigate to={DIAGNOSE_HREF} replace />
+                        )
+                      }
+                    />
                   </Route>
                   <Route path="timetable" element={<Navigate to={DIAGNOSE_HREF} replace />} />
                   <Route path="shortlist" element={<Navigate to={DIAGNOSE_HREF} replace />} />

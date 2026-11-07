@@ -84,6 +84,8 @@ export const KEYS = {
   refineSeq: 'navi.refineSeq',
   /** 履修状況のチェックの一覧 */
   checkpoints: 'navi.checkpoints',
+  /** 今の学期と取った科目（学科ごと。調査のモードでは使わない） */
+  history: 'navi.history',
 } as const
 
 /** 研究のログの欄（画面の状態とは別に持ち、clearAppState では消さない） */

@@ -321,6 +321,21 @@ export function addCourseToPlan(
   return { terms }
 }
 
+/**
+ * プランの科目を別の学期へ移す（春に入れた通年の科目を、秋の登録済みとして秋に置くとき）。無ければそのまま。
+ * 移す先の学期がプランに無ければ学期を足す
+ */
+export function moveCourseInPlan(plan: WorkingPlan, code: string, to: PlanPlace): WorkingPlan {
+  const hit = findPlanCourse(plan, code)
+  if (hit === undefined || (hit.term.year === to.year && hit.term.term === to.term)) return plan
+  const without = removeCourseFromPlan(plan, code)
+  const exists = without.terms.some((t) => t.year === to.year && t.term === to.term)
+  const terms = exists
+    ? without.terms.map((t) => (t.year === to.year && t.term === to.term ? { ...t, courses: [...t.courses, hit.course] } : t))
+    : [...without.terms, { year: to.year, term: to.term, courses: [hit.course] }].sort(compareTerm)
+  return { terms }
+}
+
 /** 科目をプランから外す（学期は残す。空の学期も「この学期は空き」と分かるように） */
 export function removeCourseFromPlan(plan: WorkingPlan, code: string): WorkingPlan {
   if (!inPlan(plan, code)) return plan

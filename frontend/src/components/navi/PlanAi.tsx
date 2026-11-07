@@ -10,8 +10,7 @@ import { ledgerTerms, proposalEffects } from '../../navi/ledger'
 import type { CourseMapping } from '../../navi/mapping'
 import { useResearchLog } from '../../navi/research'
 import { courseHref, DIAGNOSE_AI_HREF, DIAGNOSE_HREF, useNavi } from '../../navi/state'
-import { buildStatus, statusCoursesFromPlan } from '../../navi/status'
-import { resolveCourse } from '../../navi/timetable'
+import { resolveCourse, sameTerm } from '../../navi/timetable'
 import { useDiagnose } from '../../navi/useDiagnose'
 import { useLedger } from '../../navi/useLedger'
 import { usePlanRefine } from '../../navi/usePlanRefine'
@@ -276,11 +275,12 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
       const m = added.get(r.code)
       if (m !== undefined && m !== 'failed' && m.ok) after = addCourseToPlan(after, m.course, 'refine', r.at ?? undefined)
     }
-    const afterStatus = buildStatus(statusCoursesFromPlan(dept, after, placement.lookup))
+    // 右の列と同じ作り方（取った科目を記録しているときは、取った科目＋今の学期から先）。変わり方はプランを作れる学期だけ
+    const afterStatus = view.statusOf(after)
     const terms = ledgerTerms(
-      [...view.terms, ...after.terms.map((t) => ({ year: t.year, half: t.term }))],
+      [...view.planTerms, ...after.terms.map((t) => ({ year: t.year, half: t.term }))],
       afterStatus,
-    )
+    ).filter((t) => view.history === null || view.planTerms.some((x) => sameTerm(x, t)))
     return proposalEffects(view.status, afterStatus, terms, view.checkTerm)
   })()
 

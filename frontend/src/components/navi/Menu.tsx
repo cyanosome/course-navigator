@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavi } from '../../navi/state'
-import { timetableText } from '../../navi/timetable'
+import { termLabel, timetableText } from '../../navi/timetable'
+import { useHistory } from '../../navi/useHistory'
 
 interface MenuProps {
   id: string
@@ -17,6 +18,7 @@ interface MenuProps {
  */
 export default function Menu({ id, ref }: MenuProps) {
   const { dept, shortlist, placement, study, assumedYear } = useNavi()
+  const history = useHistory()
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'failed'>('idle')
   const firstRef = useRef<HTMLAnchorElement>(null)
 
@@ -49,9 +51,15 @@ export default function Menu({ id, ref }: MenuProps) {
           学科<span className="sub">{dept.name}</span>
         </p>
       )}
-      <p className="menu-item">
-        想定の時点<span className="sub">{assumedYear === 1 ? '1年の入学直後' : `${assumedYear}年の春`}</span>
-      </p>
+      {history.enabled && history.current !== null ? (
+        <Link className="menu-item" to="/navi/term">
+          今の学期を直す<span className="sub">{termLabel(history.current)}</span>
+        </Link>
+      ) : (
+        <p className="menu-item">
+          想定の時点<span className="sub">{assumedYear === 1 ? '1年の入学直後' : `${assumedYear}年の春`}</span>
+        </p>
+      )}
       <button className="menu-item" type="button" onClick={copy}>
         時間割を文字でコピー
         <span className="sub" role="status">

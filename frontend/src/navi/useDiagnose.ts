@@ -20,6 +20,7 @@ import {
   isWorkingPlan,
   keepPastTerms,
   liftPlace,
+  moveCourseInPlan,
   pickOption,
   planCodes,
   planPayload,
@@ -133,6 +134,8 @@ export interface DiagnoseState {
   addToPlan: (code: string, from: PlanEditFrom, detail?: EventPayload, at?: PlanPlace) => Promise<PlanAddResult>
   /** プランから外す（plan_course_remove） */
   removeFromPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => void
+  /** プランの科目を別の学期へ移す（学期の切り替わりで、春の通年の科目を秋の登録済みにするとき。調査のモードでは使わない） */
+  moveInPlan: (code: string, to: PlanPlace) => void
 }
 
 interface DiagnoseDeps {
@@ -320,6 +323,15 @@ export function useDiagnoseState({
     [deptId, log, working],
   )
 
+  const moveInPlan = useCallback(
+    (code: string, to: PlanPlace) =>
+      setStored((s) => {
+        const base = s.deptId === deptId ? s : freshState(deptId)
+        return base.working === null ? base : { ...base, working: moveCourseInPlan(base.working, code, to) }
+      }),
+    [deptId],
+  )
+
   return {
     config,
     reloadConfig,
@@ -343,6 +355,7 @@ export function useDiagnoseState({
     backToPlan,
     addToPlan,
     removeFromPlan,
+    moveInPlan,
   }
 }
 
