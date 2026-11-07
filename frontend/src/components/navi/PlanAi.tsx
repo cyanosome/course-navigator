@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import '../../navi/plan.css'
-import type { EventPayload } from '../../navi/apiTypes'
+import type { EventPayload, PlanSuggestion, PlanSuggestions } from '../../navi/apiTypes'
 import { useNaviData } from '../../navi/dataSource'
 import { addCourseToPlan, findPlanCourse, inPlan, removeCourseFromPlan } from '../../navi/diagnose'
-import type { WorkingPlan } from '../../navi/diagnose'
+import type { PlanPlace, WorkingPlan } from '../../navi/diagnose'
 import { formatClock, useElapsedSeconds } from '../../navi/hooks'
 import { ledgerTerms, proposalEffects } from '../../navi/ledger'
 import type { CourseMapping } from '../../navi/mapping'
@@ -137,14 +137,69 @@ function Result({ session, plan, onResend, onClose }: ResultProps) {
 }
 
 interface ProposalRow {
+  /** 外す行は外す科目、ほかは入れる科目（移す行は移す先のクラス） */
   code: string
   title: string
   reason: string
-  /** add・remove は AI の案、source は案が無いとき（plan_context を知らないサーバー）の出典の科目で「入れる」の候補 */
-  kind: 'add' | 'remove' | 'source'
+  /**
+   * add・remove は AI の案、move は外す案と入れる案の組（同じ学期の同じ名前の別クラスへ移す。from のクラスから code のクラスへ）、
+   * source は案が無いとき（plan_context を知らないサーバー）の出典の科目で「入れる」の候補
+   */
+  kind: 'add' | 'remove' | 'move' | 'source'
+  /** move のときだけ、移す元（今のプランの科目）。ほかは null */
+  from: string | null
+  /** 入れる学年と学期（move は移す元の学期、add は案にあればそれ）。null なら科目の配当の学年と学期 */
+  at: PlanPlace | null
 }
 
-const rowKey = (r: ProposalRow) => `${r.kind}:${r.code}`
+const rowKey = (r: ProposalRow) => (r.kind === 'move' ? `move:${r.from}>${r.code}` : `${r.kind}:${r.code}`)
+
+const OP_WORD: Record<ProposalRow['kind'], string> = { remove: '外す', add: '入れる', source: '入れる', move: '移す' }
+
+/**
+ * AI の案の行。外す案と入れる案のうち科目名が同じ組は「移す」の1行にまとめ、移す先は元の科目と同じ学年・学期に入れる
+ * （backend は、プランの科目と同じ学期の同じ名前の別クラスを入れる案を、元の科目を外す案と組のときだけ残す）。
+ * 元の科目がもうプランに無い（移し終えた）組はまとめない（外す行・入れる行とも「入れてある」として出さない）
+ */
+function suggestionRows(s: PlanSuggestions, plan: WorkingPlan): ProposalRow[] {
+  const nameOf = (x: PlanSuggestion) => x.title ?? findPlanCourse(plan, x.syllabus_id)?.course.name ?? x.syllabus_id
+  const paired = new Set<string>()
+  const rows: ProposalRow[] = []
+  for (const out of s.remove) {
+    const hit = findPlanCourse(plan, out.syllabus_id)
+    const to =
+      hit === undefined
+        ? undefined
+        : s.add.find((a) => !paired.has(a.syllabus_id) && a.syllabus_id !== out.syllabus_id && nameOf(a) === nameOf(out))
+    if (hit === undefined || to === undefined) {
+      rows.push({ code: out.syllabus_id, title: nameOf(out), reason: out.reason, kind: 'remove', from: null, at: null })
+      continue
+    }
+    paired.add(to.syllabus_id)
+    const reason = [...new Set([out.reason, to.reason].filter((x) => x !== ''))].join('／')
+    rows.push({
+      code: to.syllabus_id,
+      title: nameOf(to),
+      reason,
+      kind: 'move',
+      from: out.syllabus_id,
+      at: { year: hit.term.year, term: hit.term.term },
+    })
+  }
+  for (const a of s.add) {
+    if (paired.has(a.syllabus_id)) continue
+    const at = a.year !== undefined && a.term !== undefined ? { year: a.year, term: a.term } : null
+    rows.push({ code: a.syllabus_id, title: nameOf(a), reason: a.reason, kind: 'add', from: null, at })
+  }
+  return rows
+}
+
+/** まだ今のプランに入れていない案の行か（外す行は科目がプランにある、移す行は元がプランにあり移す先が無い、ほかは科目が無い） */
+function pending(r: ProposalRow, plan: WorkingPlan): boolean {
+  if (r.kind === 'remove') return inPlan(plan, r.code)
+  if (r.from !== null && !inPlan(plan, r.from)) return false
+  return !inPlan(plan, r.code)
+}
 
 /** 案の「入れる」科目の詳細（学期・曜限・単位）。読めなければ 'failed' */
 function useAddedCourses(codes: string[]): ReadonlyMap<string, CourseMapping | 'failed'> {
@@ -184,17 +239,13 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
   const listId = useId()
   const result = session.result
   const suggestions = session.suggestions
-  const nameOf = (code: string, title: string | null) => title ?? findPlanCourse(plan, code)?.course.name ?? code
 
   // 案があればそれを、無ければ出典の科目を出す。もうプランに入れた（外した）行は出さない
   const all: ProposalRow[] =
     suggestions !== null
-      ? [
-          ...suggestions.remove.map((s): ProposalRow => ({ code: s.syllabus_id, title: nameOf(s.syllabus_id, s.title), reason: s.reason, kind: 'remove' })),
-          ...suggestions.add.map((s): ProposalRow => ({ code: s.syllabus_id, title: nameOf(s.syllabus_id, s.title), reason: s.reason, kind: 'add' })),
-        ]
-      : (result?.sources ?? []).map((s): ProposalRow => ({ code: s.code, title: s.title, reason: '', kind: 'source' }))
-  const rows = all.filter((r) => (r.kind === 'remove' ? inPlan(plan, r.code) : !inPlan(plan, r.code)))
+      ? suggestionRows(suggestions, plan)
+      : (result?.sources ?? []).map((s): ProposalRow => ({ code: s.code, title: s.title, reason: '', kind: 'source', from: null, at: null }))
+  const rows = all.filter((r) => pending(r, plan))
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(all.filter((r) => r.kind !== 'source').map(rowKey)))
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -211,8 +262,9 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
         after = removeCourseFromPlan(after, r.code)
         continue
       }
+      if (r.from !== null) after = removeCourseFromPlan(after, r.from)
       const m = added.get(r.code)
-      if (m !== undefined && m !== 'failed' && m.ok) after = addCourseToPlan(after, m.course, 'refine')
+      if (m !== undefined && m !== 'failed' && m.ok) after = addCourseToPlan(after, m.course, 'refine', r.at ?? undefined)
     }
     const afterStatus = buildStatus(statusCoursesFromPlan(dept, after, placement.lookup))
     const terms = ledgerTerms(
@@ -238,9 +290,13 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
     })
   }
 
-  /** 案を採った・採らなかったの判断（plan_refine_decide を1件。示した行のうち選んだ行と選ばなかった行） */
+  /**
+   * 案を採った・採らなかったの判断（plan_refine_decide を1件。示した行のうち選んだ行と選ばなかった行）。
+   * 移す行は組の両方を書く（moved_from: 外す元、moved_to: 入れる先。チェックの直し方の記録と同じ名前）
+   */
   const decide = (action: 'apply' | 'cancel') => {
-    const line = (r: ProposalRow): EventPayload => ({ kind: r.kind, syllabus_id: r.code })
+    const line = (r: ProposalRow): EventPayload =>
+      r.kind === 'move' ? { kind: r.kind, moved_from: r.from, moved_to: r.code } : { kind: r.kind, syllabus_id: r.code }
     const taken = action === 'apply' ? chosen : []
     log('plan_refine_decide', {
       refine_local_id: session.localId,
@@ -257,9 +313,21 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
     setBusy(true)
     setMessage(null)
     decide('apply')
-    const detail = (r: ProposalRow): EventPayload => ({ suggestion: r.kind, refine_local_id: session.localId })
+    const detail = (r: ProposalRow): EventPayload =>
+      r.kind === 'move'
+        ? { suggestion: r.kind, refine_local_id: session.localId, moved_from: r.from, moved_to: r.code }
+        : { suggestion: r.kind, refine_local_id: session.localId }
     for (const r of chosen.filter((x) => x.kind === 'remove')) removeFromPlan(r.code, 'refine', detail(r))
-    const results = await Promise.all(chosen.filter((x) => x.kind !== 'remove').map((r) => addToPlan(r.code, 'refine', detail(r))))
+    // 移す行は、移す先を入れられてから元の科目を外す（入れられなければ元のクラスのまま。チェックの直し方と同じ）
+    const results = await Promise.all(
+      chosen
+        .filter((x) => x.kind !== 'remove')
+        .map(async (r) => {
+          const got = await addToPlan(r.code, 'refine', detail(r), r.at ?? undefined)
+          if (r.from !== null && (got === 'added' || got === 'already')) removeFromPlan(r.from, 'refine', detail(r))
+          return got
+        }),
+    )
     setBusy(false)
     const failed = results.filter((x) => x === 'failed' || x === 'unmapped').length
     if (failed > 0) {
@@ -278,11 +346,18 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
     else navigate(DIAGNOSE_HREF, { replace: true })
   }
 
-  const slotsOf = (r: ProposalRow): string => {
-    if (r.kind === 'remove') return findPlanCourse(plan, r.code)?.course.slots.join('・') || 'なし'
-    const m = added.get(r.code)
+  const planSlots = (code: string): string => findPlanCourse(plan, code)?.course.slots.join('・') || 'なし'
+  const addSlots = (code: string): string => {
+    const m = added.get(code)
     if (m !== undefined && m !== 'failed' && m.ok) return m.course.slots.join('・') || 'なし'
-    return resolveCourse(dept, r.code, placement)?.slots.join('・') ?? ''
+    return resolveCourse(dept, code, placement)?.slots.join('・') ?? ''
+  }
+  /** 移す行は「元の曜限 → 移す先の曜限」（移す先が読めるまでは元の曜限だけ。折り返すときは → の前で） */
+  const slotsOf = (r: ProposalRow): string => {
+    if (r.kind === 'remove') return planSlots(r.code)
+    if (r.from === null) return addSlots(r.code)
+    const to = addSlots(r.code)
+    return to === '' ? planSlots(r.from) : `${planSlots(r.from)} →\u00a0${to}`
   }
   const creditsOf = (r: ProposalRow): number | null => {
     if (r.kind === 'remove') return findPlanCourse(plan, r.code)?.course.credits ?? null
@@ -314,7 +389,7 @@ function Proposal({ session, plan, onClose }: ProposalProps) {
               <li key={rowKey(r)} className={r.kind === 'remove' ? 'is-out' : undefined}>
                 <input type="checkbox" id={id} checked={picked.has(rowKey(r))} disabled={busy} onChange={() => toggle(r)} />
                 <label className={r.kind === 'remove' ? 'ai-op' : 'ai-op is-add'} htmlFor={id}>
-                  {r.kind === 'remove' ? '外す' : '入れる'}
+                  {OP_WORD[r.kind]}
                   <span className="vh">: {r.title}</span>
                 </label>
                 <span className="ai-slot">{slotsOf(r)}</span>

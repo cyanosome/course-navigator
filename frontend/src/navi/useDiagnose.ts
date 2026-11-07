@@ -12,6 +12,7 @@ import {
   addCourseToPlan,
   answersPayload,
   answersSummary,
+  coursePlace,
   findPlanCourse,
   firstUnanswered,
   inPlan,
@@ -25,7 +26,7 @@ import {
   setScale,
   toWorkingPlan,
 } from './diagnose'
-import type { AnswerSummaryItem, DiagnoseSource, WorkingPlan } from './diagnose'
+import type { AnswerSummaryItem, DiagnoseSource, PlanPlace, WorkingPlan } from './diagnose'
 import type { ResearchLog } from './research'
 import { isNumber, isRecord, isString, KEYS, readJson, writeJson } from './storage'
 import type { Loadable } from './useLoadable'
@@ -121,10 +122,10 @@ export interface DiagnoseState {
   /** 答え直しをやめてプランへ戻る（答えはプランを作った答えに戻す） */
   backToPlan: () => void
   /**
-   * 科目をプランに足す（科目の詳細を読んで学期を決める。plan_course_add。detail は記録に足す項目）。
+   * 科目をプランに足す（plan_course_add。detail は記録に足す項目）。入れる学年と学期は at、無ければ科目の詳細を読んで決める。
    * from が refine なら AI の案、それ以外は利用者が自分で足した科目として持つ
    */
-  addToPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => Promise<PlanAddResult>
+  addToPlan: (code: string, from: PlanEditFrom, detail?: EventPayload, at?: PlanPlace) => Promise<PlanAddResult>
   /** プランから外す（plan_course_remove） */
   removeFromPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => void
 }
@@ -257,7 +258,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
 
   const working = cur.working
   const addToPlan = useCallback(
-    async (code: string, from: PlanEditFrom, detail: EventPayload = {}): Promise<PlanAddResult> => {
+    async (code: string, from: PlanEditFrom, detail: EventPayload = {}, at?: PlanPlace): Promise<PlanAddResult> => {
       if (working === null) return 'failed'
       if (inPlan(working, code)) return 'already'
       let mapping: CourseMapping
@@ -269,13 +270,14 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
       }
       if (!mapping.ok) return 'unmapped'
       const course = mapping.course
+      const place = at ?? coursePlace(course)
       setStored((s) => {
         const base = s.deptId === deptId ? s : freshState(deptId)
         return base.working === null
           ? base
-          : { ...base, working: addCourseToPlan(base.working, course, from === 'refine' ? 'refine' : 'user') }
+          : { ...base, working: addCourseToPlan(base.working, course, from === 'refine' ? 'refine' : 'user', place) }
       })
-      log('plan_course_add', { ...detail, syllabus_id: code, year: course.year, term: course.term === '秋' ? '秋' : '春', from })
+      log('plan_course_add', { ...detail, syllabus_id: code, year: place.year, term: place.term, from })
       return 'added'
     },
     [deptId, loadCourse, log, working],

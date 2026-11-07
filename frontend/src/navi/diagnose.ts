@@ -283,13 +283,26 @@ export function workingTermCredits(term: WorkingTerm): { credits: number; unknow
   }
 }
 
+/** プランの中の置き場所（学年と学期） */
+export type PlanPlace = Pick<WorkingTerm, 'year' | 'term'>
+
+/** 置き場所の指定が無いときに科目を入れる学年と学期（科目の配当の学年と学期。通年は春に置く） */
+export function coursePlace(course: Course): PlanPlace {
+  return { year: course.year, term: course.term === '秋' ? '秋' : '春' }
+}
+
 /**
- * 科目をプランに足す（微修正の AI の回答から、か利用者が自分で）。入れる学期は科目の配当の学年と学期（通年は春に置く）。
- * その学期がプランに無ければ学期を足す。もう入っていれば変えない
+ * 科目をプランに足す（微修正の AI の回答から、か利用者が自分で）。入れる学期は at（微修正で別クラスへ移すときは元の科目の
+ * 学期、AI の案に学年と学期があればそれ）、無ければ coursePlace。その学期がプランに無ければ学期を足す。もう入っていれば変えない
  */
-export function addCourseToPlan(plan: WorkingPlan, course: Course, origin: Exclude<PlanOrigin, 'diagnose'> = 'refine'): WorkingPlan {
+export function addCourseToPlan(
+  plan: WorkingPlan,
+  course: Course,
+  origin: Exclude<PlanOrigin, 'diagnose'> = 'refine',
+  at?: PlanPlace,
+): WorkingPlan {
   if (inPlan(plan, course.code)) return plan
-  const term: DiagnoseTerm = course.term === '秋' ? '秋' : '春'
+  const { year, term } = at ?? coursePlace(course)
   const entry: WorkingCourse = {
     syllabus_id: course.code,
     name: course.name,
@@ -300,10 +313,10 @@ export function addCourseToPlan(plan: WorkingPlan, course: Course, origin: Exclu
     reasons: [],
     origin,
   }
-  const exists = plan.terms.some((t) => t.year === course.year && t.term === term)
+  const exists = plan.terms.some((t) => t.year === year && t.term === term)
   const terms = exists
-    ? plan.terms.map((t) => (t.year === course.year && t.term === term ? { ...t, courses: [...t.courses, entry] } : t))
-    : [...plan.terms, { year: course.year, term, courses: [entry] }].sort(compareTerm)
+    ? plan.terms.map((t) => (t.year === year && t.term === term ? { ...t, courses: [...t.courses, entry] } : t))
+    : [...plan.terms, { year, term, courses: [entry] }].sort(compareTerm)
   return { terms }
 }
 

@@ -28,6 +28,7 @@ import type {
   GroupNode,
   InterestOut,
   PlanCourse,
+  PlanSuggestion,
   PlanSuggestions,
   PlanTerm,
   RequirementsOut,
@@ -288,7 +289,13 @@ const isAssistOptions = shape({
   citations: oneOf(['cards', 'text']),
 })
 
-const isPlanSuggestion = shape({ syllabus_id: isString, title: isNullableString, reason: isString })
+const isPlanSuggestion = shape<PlanSuggestion>({
+  syllabus_id: isString,
+  title: isNullableString,
+  reason: isString,
+  year: optional(isNumber),
+  term: optional(oneOf(['春', '秋'])),
+})
 
 /** プランの微修正の提案（A1 の plan_suggestions）。端末に保存した回答を読み直すときにも使う */
 export const isPlanSuggestions = shape<PlanSuggestions>({

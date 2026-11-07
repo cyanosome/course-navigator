@@ -380,6 +380,9 @@ export interface PlanSuggestion {
   syllabus_id: string
   title: string | null
   reason: string
+  /** 足す案を入れる学年と学期（任意。今の backend は送らない。無ければ科目の配当の学年と学期に入れる） */
+  year?: number
+  term?: DiagnoseTerm
 }
 
 /** 照合で外した提案（not_candidate: 足す案が候補に無い、locked: 外す案が系統図の科目） */
