@@ -1,8 +1,9 @@
 """AI の口（POST /assist/ask）のテスト。実 LLM・実 DB を使わず CI で回る。
 
 - LLM は台本どおりに function_call を返す偽モデルの LlmAgent を route_options.build_agent に差し込み、
-  runner.run_mcp_grounded（ADK の Workflow・ツール実行・出典の照合）は本物を通す（test_mcp_grounded.py と同じやり方）。
-- PostgreSQL は seed の科目を返す偽プール、研究のログは記録する偽の口（dependency_overrides）。
+  runner.run_grounded（ADK の Workflow・ツール実行・出典の照合）は本物を通す（test_mcp_grounded.py と同じやり方）。
+- PostgreSQL は架空の courses の行（tests/catalog_rows.py）を返す偽プール、研究のログは記録する偽の口
+  （dependency_overrides）。
 """
 
 import asyncio
@@ -19,19 +20,31 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-import fake_graph
-from agent import deps, rdb_tools, route_options, runner
+from agent import courses_tools, deps, grounding, route_options, runner
 from agent.route_options import AssistOptions
-from agent.schemas import AnswerPayload
+from agent.schemas import PlanAnswerPayload
 from api.routers import assist as assist_router
+from catalog_rows import course_row
+from fake_toolset import RecordingToolset
 from course_core import config
 from course_core.research.sink import SessionVariant, get_research_sink
 from course_core.research.variants import VARIANTS
 
-_KNOWN_CODE = "GMS-303"  # seed にある
-_UNKNOWN_CODE = "GMS-999"  # seed に無い（照合で外れる役）
-_QUESTION = "架空の質問: 機械学習の次に取れる科目は?"
+_KNOWN_CODE = "900001"  # 架空の courses にある
+_UNKNOWN_CODE = "999999"  # courses に無い（照合で外れる役）
+_PLAN_CODE = "900002"  # 今のプランにある（courses にもある）
+_EXTRA_CODE = "900003"  # courses にあり、今のプランに無い（足す役）
+_QUESTION = "架空の質問: 反応工学の次に取れる科目は?"
 _EVENT_ID = "6f1c2b9e-0000-4000-8000-000000000001"
+_ROWS = [
+    course_row(),
+    course_row(syllabus_id=_PLAN_CODE, subject_name="架空の月曜の科目", term_schedule="月2"),
+    course_row(syllabus_id=_EXTRA_CODE, subject_name="架空の水曜の科目", term_schedule="水2"),
+]
+_PLAN = {
+    "answers_summary": "架空の診断のまとめ",
+    "terms": [{"year": 2, "term": "春", "syllabus_ids": [_PLAN_CODE, _UNKNOWN_CODE]}],
+}
 
 
 # --- 代役 -------------------------------------------------------------------------------
@@ -41,8 +54,8 @@ class _FakeConnection:
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         self._rows = rows
 
-    async def fetch(self, query: str, codes: list[str]) -> list[dict[str, Any]]:
-        return [row for row in self._rows if row["code"] in codes]
+    async def fetch(self, query: str, syllabus_ids: list[str]) -> list[dict[str, Any]]:
+        return [row for row in self._rows if row["syllabus_id"] in syllabus_ids]
 
 
 class _FakePool:
@@ -54,10 +67,24 @@ class _FakePool:
         yield self.connection
 
 
+def _user_text(llm_request: LlmRequest) -> str:
+    return "".join(
+        part.text or ""
+        for content in llm_request.contents
+        if content.role == "user"
+        for part in (content.parts or [])
+    )
+
+
 class _ScriptedLlm(BaseLlm):
-    """1ターン目は get_course_details、2ターン目は set_model_response を呼ぶ偽モデル。"""
+    """1ターン目は get_course_details、2ターン目は set_model_response を呼ぶ偽モデル。
+
+    入力に今のプランがあれば、足す・外すの提案も出す（照合で残るもの・外れるものを混ぜる）。
+    受け取った利用者の文は received に残す。
+    """
 
     model: str = "scripted-fake-llm"
+    received: list[str] = []
 
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
@@ -68,13 +95,28 @@ class _ScriptedLlm(BaseLlm):
             for part in (content.parts or [])
             if part.function_response
         }
+        text = _user_text(llm_request)
+        self.received.append(text)
         if "get_course_details" not in answered:
-            call = types.FunctionCall(name="get_course_details", args={"codes": [_KNOWN_CODE, _UNKNOWN_CODE]})
-        else:
             call = types.FunctionCall(
-                name="set_model_response",
-                args={"answer": f"機械学習 [{_KNOWN_CODE}] です。", "cited_codes": [_KNOWN_CODE, _UNKNOWN_CODE]},
+                name="get_course_details", args={"syllabus_ids": [_KNOWN_CODE, _UNKNOWN_CODE]}
             )
+        else:
+            args: dict[str, Any] = {
+                "answer": f"架空の反応工学１ [{_KNOWN_CODE}] です。",
+                "cited_codes": [_KNOWN_CODE, _UNKNOWN_CODE],
+            }
+            if "## 今のプラン" in text:
+                args["add"] = [
+                    {"syllabus_id": _EXTRA_CODE, "reason": "水曜"},
+                    {"syllabus_id": _UNKNOWN_CODE, "reason": "架空"},
+                    {"syllabus_id": _PLAN_CODE, "reason": "もうある"},
+                ]
+                args["remove"] = [
+                    {"syllabus_id": _PLAN_CODE, "reason": "月曜"},
+                    {"syllabus_id": _KNOWN_CODE, "reason": "プランに無い"},
+                ]
+            call = types.FunctionCall(name="set_model_response", args=args)
         yield LlmResponse(content=types.Content(role="model", parts=[types.Part(function_call=call)]))
 
 
@@ -88,13 +130,13 @@ class _FailingLlm(BaseLlm):
         yield  # 非同期ジェネレータにするための到達しない yield
 
 
-def _agent(llm: BaseLlm) -> LlmAgent:
+def _agent(llm: BaseLlm, extra_tools: list[Any] | None = None) -> LlmAgent:
     return LlmAgent(
         name="mcp_agent",
         model=llm,
         instruction="テスト用",
-        tools=[rdb_tools.get_course_details],
-        output_schema=AnswerPayload,
+        tools=[*(extra_tools or []), courses_tools.get_course_details],
+        output_schema=PlanAnswerPayload,
     )
 
 
@@ -122,18 +164,23 @@ class FakeSink:
 
 
 @pytest.fixture
-def built_options(monkeypatch) -> list[AssistOptions]:
+def scripted_llm() -> _ScriptedLlm:
+    return _ScriptedLlm(received=[])
+
+
+@pytest.fixture
+def built_options(monkeypatch, scripted_llm) -> list[AssistOptions]:
     """build_agent を偽モデルの LlmAgent に差し替え、渡された options を記録する。"""
     received: list[AssistOptions] = []
 
     def _build(options: AssistOptions) -> LlmAgent:
         received.append(options)
-        return _agent(_ScriptedLlm())
+        return _agent(scripted_llm)
 
     monkeypatch.setattr(route_options, "build_agent", _build)
     monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
     monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
-    deps.set_backends(_FakePool(fake_graph.courses()), None)
+    deps.set_backends(_FakePool(_ROWS), None)
     yield received
     deps.set_backends(None, None)
 
@@ -178,8 +225,13 @@ def test_study_session_uses_block_flags_and_ignores_options(client, sink, built_
     assert body["route"] == "mcp"
     assert body["route_requested"] == "mcp_grounded"
     assert [s["code"] for s in body["sources"]] == [_KNOWN_CODE]
+    source = body["sources"][0]
+    assert source["origin"] == "postgres:courses"
+    assert source["url"] == "https://example.invalid/900001"
+    assert source["credits"] == 2.0
     assert body["unverified_codes"] == [_UNKNOWN_CODE]
     assert body["unverified_items"] == []  # verify=on のときは埋めない
+    assert body["plan_suggestions"] is None  # plan_context が無い
     assert built_options == [AssistOptions()]
 
     assert len(sink.events) == 1
@@ -197,6 +249,9 @@ def test_study_session_uses_block_flags_and_ignores_options(client, sink, built_
     assert payload["unverified_codes"] == [_UNKNOWN_CODE]
     assert [call["name"] for call in payload["tool_calls"]] == ["get_course_details", "set_model_response"]
     assert "result_summary" not in payload["tool_calls"][0]
+    assert payload["plan_context_sha256"] is None
+    assert payload["plan_suggestions"] is None
+    assert payload["toolset"] == "per_request"  # lifespan の McpToolset が無い
     assert payload["error"] is None
     assert payload["latency_ms"] >= 0
 
@@ -305,7 +360,7 @@ def test_bad_question_is_422(client, built_options, question, monkeypatch):
 
 
 def test_timeout_is_504_and_recorded(client, sink, monkeypatch):
-    async def _slow(question: str, options: AssistOptions):
+    async def _slow(question: str, options: AssistOptions, plan_context=None):
         await asyncio.sleep(5)
 
     monkeypatch.setattr(route_options, "run_with_options", _slow)
@@ -334,7 +389,7 @@ def test_llm_failure_is_recorded_and_not_swallowed(client, sink, monkeypatch):
 
 
 def test_mcp_fallback_is_recorded_as_mcp_unavailable(client, sink, monkeypatch):
-    async def _fallback(question: str, options: AssistOptions):
+    async def _fallback(question: str, options: AssistOptions, plan_context=None):
         result = runner.McpAgentRunResult(route="static", answer="静的", notes=["MCP なし"], latency_ms=3)
         return route_options.AssistRun(result=result, prompt_sha256=None)
 
@@ -381,14 +436,142 @@ def test_classify_error():
     assert assist_router.classify_error(RuntimeError()) == "other"
 
 
+# --- 今のプラン（plan_context） --------------------------------------------------------------
+
+
+def test_plan_context_grounds_suggestions_and_is_recorded(client, sink, built_options, scripted_llm):
+    sink.add("sess-1", "V00")
+    response = _ask(client, session="sess-1", plan_context=_PLAN)
+    assert response.status_code == 200
+    body = response.json()
+
+    # LLM には相談の後ろに今のプランが付き、科目名はサーバーが courses で引いた値
+    first_text = scripted_llm.received[0]
+    assert first_text.startswith(_QUESTION)
+    assert "## 今のプラン" in first_text
+    assert "架空の診断のまとめ" in first_text
+    assert f"- {_PLAN_CODE} 架空の月曜の科目（春 月2 2単位）" in first_text
+    assert f"- {_UNKNOWN_CODE}（DB に無い syllabus_id）" in first_text
+
+    # 足す科目は DB にありプランに無いものだけ、外す科目はプランにあるものだけが残る
+    assert body["plan_suggestions"] == {
+        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水曜"}],
+        "remove": [{"syllabus_id": _PLAN_CODE, "title": "架空の月曜の科目", "reason": "月曜"}],
+        "dropped": [
+            {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
+            {"action": "add", "syllabus_id": _PLAN_CODE, "reason": "already_in_plan"},
+            {"action": "remove", "syllabus_id": _KNOWN_CODE, "reason": "not_in_plan"},
+        ],
+    }
+
+    payload = sink.events[0][2]
+    expected_digest = route_options.plan_context_sha256(route_options.PlanContext.model_validate(_PLAN))
+    assert payload["plan_context_sha256"] == expected_digest
+    assert len(expected_digest) == 64
+    assert "架空の診断のまとめ" not in str(payload)  # 診断のまとめの本文は記録に書かない
+    assert payload["plan_suggestions"] == {
+        "add": [_EXTRA_CODE],
+        "remove": [_PLAN_CODE],
+        "dropped": body["plan_suggestions"]["dropped"],
+    }
+
+
+def test_plan_context_digest_changes_with_the_plan():
+    plan = route_options.PlanContext.model_validate(_PLAN)
+    other = plan.model_copy(update={"answers_summary": "別のまとめ"})
+    assert route_options.plan_context_sha256(plan) == route_options.plan_context_sha256(
+        route_options.PlanContext.model_validate(_PLAN)
+    )
+    assert route_options.plan_context_sha256(plan) != route_options.plan_context_sha256(other)
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        {"answers_summary": "", "terms": [{"year": 0, "term": "春", "syllabus_ids": []}]},
+        {"answers_summary": "", "terms": [{"year": 1, "term": "", "syllabus_ids": []}]},
+        {"answers_summary": "あ" * 1001, "terms": []},
+        {"answers_summary": "", "terms": [{"year": 1, "term": "春", "syllabus_ids": [""]}]},
+        {"answers_summary": "", "terms": [{"year": 1, "term": "春", "syllabus_ids": ["1"] * 41}]},
+        {"answers_summary": "", "terms": [{"year": 1, "term": "春", "syllabus_ids": []}] * 17},
+    ],
+)
+def test_bad_plan_context_is_422(client, built_options, monkeypatch, plan):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    assert _ask(client, plan_context=plan).status_code == 422
+    assert built_options == []
+
+
+def test_render_plan_block():
+    plan = route_options.PlanContext.model_validate(
+        {
+            "answers_summary": "  ",
+            "terms": [
+                {"year": 1, "term": "秋", "syllabus_ids": [" 900001 ", "900001", _UNKNOWN_CODE]},
+                {"year": 2, "term": "春", "syllabus_ids": []},
+            ],
+        }
+    )
+    assert route_options.plan_syllabus_ids(plan) == ["900001", _UNKNOWN_CODE]
+    block = route_options.render_plan_block(plan, [course_row(credits=None, term_schedule=None)])
+    assert block.splitlines() == [
+        block.splitlines()[0],  # 見出し
+        "### 1年 秋",
+        "- 900001 架空の反応工学１（春）",
+        f"- {_UNKNOWN_CODE}（DB に無い syllabus_id）",
+        "### 2年 春",
+        "- （科目なし）",
+    ]
+    assert "診断のまとめ" not in block  # 空のまとめは書かない
+    failed = route_options.render_plan_block(plan, None)
+    assert "- 900001（DB を引けず確かめられませんでした）" in failed.splitlines()
+    assert route_options.compose_message("相談", None) == "相談"
+    assert route_options.compose_message("相談", "## 今のプラン") == "相談\n\n## 今のプラン"
+
+
+# --- McpToolset の使い回し --------------------------------------------------------------------
+
+
+def test_run_with_options_reuses_lifespan_toolset(monkeypatch, scripted_llm):
+    shared = RecordingToolset()
+    monkeypatch.setattr(route_options, "build_agent", lambda options: _agent(scripted_llm, [shared]))
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "dummy-key-for-routing")
+    deps.set_backends(_FakePool(_ROWS), None)
+    deps.set_mcp_toolset(shared)
+    try:
+        for _ in range(2):
+            run = asyncio.run(route_options.run_with_options(_QUESTION, AssistOptions()))
+            assert run.toolset_reused is True
+            assert run.result.route == "mcp"
+    finally:
+        deps.set_mcp_toolset(None)
+        deps.set_backends(None, None)
+    assert shared.get_tools_calls >= 2  # 事前確認は毎回する（死んだセッションは ADK がつなぎ直す）
+    assert shared.close_calls == 0  # 閉じるのは lifespan
+
+
+def test_build_agent_uses_lifespan_toolset(monkeypatch):
+    shared = RecordingToolset()
+    monkeypatch.setattr(config, "AGENT_ENABLE_MCP", True)
+    deps.set_mcp_toolset(shared)
+    try:
+        agent = route_options.build_agent(AssistOptions())
+    finally:
+        deps.set_mcp_toolset(None)
+    assert agent.tools[0] is shared
+    assert agent.tools[1] is courses_tools.get_course_details
+    assert agent.output_schema is PlanAnswerPayload
+
+
 # --- 文体の追補 -----------------------------------------------------------------------------
 
 
 def test_instruction_for_styles():
-    from agent.mcp_agent import build_grounded_mcp_agent
+    from agent.mcp_agent import build_kansai_mcp_agent
 
     assert route_options.instruction_for("standard") is None
-    default_instruction = build_grounded_mcp_agent().instruction
+    default_instruction = build_kansai_mcp_agent().instruction
     for style, marker in (("brief", "回答の長さ"), ("detailed", "回答の詳しさ")):
         text = route_options.instruction_for(style)
         assert text is not None

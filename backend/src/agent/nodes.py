@@ -10,22 +10,30 @@
 """
 
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 
 from google.adk import Context, Event
 from google.genai import types
 
 from agent import deps, grounding, intent_rules, rank
-from agent.schemas import AnswerPayload, Candidate, CandidateSet, SearchIntent
+from agent.schemas import (
+    AnswerPayload,
+    Candidate,
+    CandidateSet,
+    CourseGroundedAnswer,
+    PlanAnswerPayload,
+    SearchIntent,
+)
 from course_core import config
 from course_core.graph import traversal
-from course_core.repositories import postgres_repo
+from course_core.repositories import postgres_courses_repo, postgres_repo
 from course_core.schemas.traversal import Envelope
 
 __all__ = [
     "MODE_STATE_KEY",
     "attach_sources",
     "compose_answer",
+    "course_sources_node",
     "expand_backward",
     "expand_forward",
     "mcp_route_enabled",
@@ -196,6 +204,34 @@ async def attach_sources(node_input: AnswerPayload, ctx: Context) -> Event:
             conn, grounding.normalize_codes(node_input.cited_codes)
         )
     return Event(output=grounding.build_grounded_answer(node_input, rows))
+
+
+def course_sources_node(
+    plan_ids: Sequence[str] | None,
+) -> Callable[[PlanAnswerPayload, Context], Awaitable[Event]]:
+    """関西（courses）向けの出典付与ノードを作る（A1 用。LLM 0回）。
+
+    plan_ids は今のプランの syllabus_id（プランが渡されなければ None）。ノードの入力しか受け取れない
+    ADK の関数ノードにプランを渡すため、1問ごとに閉包で作る（ワークフローも1問ごとに作っている）。
+    ノードの名前は attach_sources のまま（node_sequence がシードの経路と同じ並びになる）。
+    """
+
+    async def attach_sources(node_input: PlanAnswerPayload, ctx: Context) -> Event:
+        """cited_codes と足す・外すの提案を courses で引き直し、出典と照合済みの提案を付ける。"""
+        pool = deps.db_pool()
+        if pool is None:
+            ungrounded = grounding.ungrounded_answer(node_input, _UNSET_POOL_NOTE)
+            return Event(output=CourseGroundedAnswer(**ungrounded.model_dump()))
+
+        async with pool.acquire() as conn:
+            rows = await postgres_courses_repo.fetch_courses_by_ids(
+                conn, grounding.course_lookup_ids(node_input)
+            )
+        return Event(
+            output=grounding.build_course_grounded_answer(node_input, rows, plan_ids=plan_ids)
+        )
+
+    return attach_sources
 
 
 def respond_unclear(node_input: SearchIntent, ctx: Context) -> Event:

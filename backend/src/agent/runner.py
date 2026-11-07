@@ -13,7 +13,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -222,14 +222,14 @@ def _model_name(agent: LlmAgent) -> str:
     return model if isinstance(model, str) else model.model
 
 
-async def _close_toolsets(agent: LlmAgent) -> None:
-    """McpToolset（stdio サブプロセス）を閉じる。
+async def _close_toolsets(agent: LlmAgent, keep: Collection[BaseToolset] = ()) -> None:
+    """McpToolset（stdio サブプロセス）を閉じる。keep に入れたもの（使い回しの1つ）は閉じない。
 
     Runner.close() が閉じるのは root が BaseAgent のときだけで、Workflow を node= で
     渡した場合は閉じてくれないため、ここで明示的に閉じる。
     """
     for tool in agent.tools:
-        if isinstance(tool, BaseToolset):
+        if isinstance(tool, BaseToolset) and not any(tool is kept for kept in keep):
             await tool.close()
 
 
@@ -285,10 +285,18 @@ async def run_mcp_grounded(
     return (await run_grounded(question, agent=active_agent)).result
 
 
-async def run_grounded(question: str, *, agent: LlmAgent) -> GroundedRun:
+async def run_grounded(
+    question: str,
+    *,
+    agent: LlmAgent,
+    grounding_node: Any = None,
+    keep_toolsets: Collection[BaseToolset] = (),
+) -> GroundedRun:
     """run_mcp_grounded の中身（振る舞いは run_mcp_grounded の説明のとおり）。
 
     出典付与ノードの出力（GroundedAnswer）も一緒に返す。
+    grounding_node は出典付与ノードの差し替え口（未指定ならシードの表を読む nodes.attach_sources）。
+    keep_toolsets は実行の後に閉じないツールセット（lifespan で作って使い回す McpToolset。閉じるのは lifespan）。
     """
     active_agent = agent
     # MCP の事前接続（従来は LLM フロー内で行われていた）も latency に含める。
@@ -299,7 +307,7 @@ async def run_grounded(question: str, *, agent: LlmAgent) -> GroundedRun:
     try:
         failure = await _preflight_toolsets(active_agent) if mcp_route_enabled() else None
         if failure is None:
-            node = build_mcp_grounded_workflow(agent_node=active_agent)
+            node = build_mcp_grounded_workflow(agent_node=active_agent, grounding_node=grounding_node)
         else:
             logger.warning("MCP ツールを取得できないため静的探索で回答します: %s", failure)
             notes.append(_MCP_UNAVAILABLE_NOTE.format(detail=failure))
@@ -318,7 +326,7 @@ async def run_grounded(question: str, *, agent: LlmAgent) -> GroundedRun:
         # ツールセットの終了処理（MCP サブプロセスの停止）は latency に含めない。
         latency_ms = int((time.perf_counter() - started) * 1000)
     finally:
-        await _close_toolsets(active_agent)
+        await _close_toolsets(active_agent, keep_toolsets)
 
     node_sequence = _collapse_repeats(
         name for event in events if (name := _node_name(event)) is not None

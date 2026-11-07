@@ -4,7 +4,9 @@ ADR-0011 に基づき、Google ADK の LlmAgent を構築し、
 neo4j-mcp-server を Stdio ツールとして常備して自律的な動的グラフ探索と回答生成を一貫して担う。
 """
 
+import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,16 +16,30 @@ from google.adk.tools.mcp_tool.mcp_toolset import (
     StdioConnectionParams,
     StdioServerParameters,
 )
+from pydantic import BaseModel
 
+from agent import courses_tools
 from agent.rdb_tools import get_course_details
-from agent.schemas import AnswerPayload
+from agent.schemas import AnswerPayload, PlanAnswerPayload
 from course_core import config
 
-__all__ = ["build_grounded_mcp_agent", "build_mcp_agent", "build_neo4j_toolset"]
+__all__ = [
+    "build_grounded_mcp_agent",
+    "build_kansai_mcp_agent",
+    "build_mcp_agent",
+    "build_neo4j_toolset",
+    "load_kansai_instruction",
+    "open_shared_mcp_toolset",
+]
+
+logger = logging.getLogger(__name__)
 
 # RDB ツールを持つ grounded 版だけに連結する追補プロンプト。共有プロンプト（compose_answer.md）に
 # 書くと、ツールを持たない adk web の mcp_agent / compose_agent が未宣言ツールを呼んで落ちうる。
 _GROUNDED_ADDENDUM_PATH = Path(__file__).resolve().parent / "prompts" / "grounded_addendum.md"
+# 関西のデータ（Course{syllabus_id}・CourseGroup・courses）向けの指示文（A1 用）。シードの形の
+# compose_answer.md・grounded_addendum.md は /test/agent/mcp と adk web がそのまま使う。
+_KANSAI_INSTRUCTION_PATH = Path(__file__).resolve().parent / "prompts" / "kansai_answer.md"
 _PROMPT_SEPARATOR = "\n\n"
 # MCP セッション確立の待ち時間（秒）。`uv run neo4j-mcp-server` は起動に約6秒かかり、
 # ADK 既定の 5.0 秒では接続前にタイムアウトしてツール無しで実行されてしまう。
@@ -83,6 +99,8 @@ def build_mcp_agent(
     instruction: str | None = None,
     enable_mcp: bool | None = None,
     extra_tools: list[Any] | None = None,
+    toolset: McpToolset | None = None,
+    output_schema: type[BaseModel] = AnswerPayload,
 ) -> LlmAgent:
     """MCP 先行型エージェント (LlmAgent) を構築する。
 
@@ -91,6 +109,8 @@ def build_mcp_agent(
         instruction: システムプロンプト。未指定時はプロンプトファイルから読み込み。
         enable_mcp: Neo4j MCP ツールを付与するか。未指定時は config.AGENT_ENABLE_MCP。
         extra_tools: MCP ツールに追加で持たせるツール。未指定時は追加しない。
+        toolset: 使い回す Neo4j の McpToolset。未指定時は新しく作る（enable_mcp が偽なら使わない）。
+        output_schema: 最終回答の形。未指定時は AnswerPayload。
     """
     active_model = model or config.AGENT_MODEL
     active_instruction = instruction or _load_instruction()
@@ -101,7 +121,7 @@ def build_mcp_agent(
     tools: list[Any] = []
     if active_enable_mcp:
         # ADR-0011 に従い、stdio 経由で neo4j-mcp-server を起動する
-        tools.append(build_neo4j_toolset())
+        tools.append(toolset if toolset is not None else build_neo4j_toolset())
     if extra_tools:
         tools.extend(extra_tools)
 
@@ -114,7 +134,7 @@ def build_mcp_agent(
         model=active_model,
         instruction=active_instruction,
         tools=tools,
-        output_schema=AnswerPayload,
+        output_schema=output_schema,
     )
 
 
@@ -142,3 +162,53 @@ def build_grounded_mcp_agent(
         extra_tools=[get_course_details],
         **agent_kwargs,
     )
+
+
+def load_kansai_instruction() -> str:
+    if not _KANSAI_INSTRUCTION_PATH.is_file():
+        raise FileNotFoundError(f"関西の指示文が見つかりません: {_KANSAI_INSTRUCTION_PATH}")
+    return _KANSAI_INSTRUCTION_PATH.read_text(encoding="utf-8")
+
+
+def build_kansai_mcp_agent(
+    instruction: str | None = None,
+    toolset: McpToolset | None = None,
+    **agent_kwargs: Any,
+) -> LlmAgent:
+    """A1（POST /api/assist/ask）用の mcp_agent。関西の Neo4j（MCP）と courses を読む get_course_details を持つ。
+
+    instruction 未指定時は kansai_answer.md。最終回答は PlanAnswerPayload（今のプランが渡されたら
+    足す・外すの提案も入る）。toolset を渡せばそれを使い（lifespan で作った使い回しの1つ）、無ければ1問ごとに作る。
+    """
+    return build_mcp_agent(
+        instruction=instruction if instruction is not None else load_kansai_instruction(),
+        extra_tools=[courses_tools.get_course_details],
+        toolset=toolset,
+        output_schema=PlanAnswerPayload,
+        **agent_kwargs,
+    )
+
+
+async def open_shared_mcp_toolset() -> McpToolset:
+    """lifespan で1回だけ作る、A1 で使い回す McpToolset。起動に約6秒かかるので先に繋いでおく。
+
+    繋げなくても起動は止めない（警告を残す）。リクエストごとの事前確認（runner._preflight_toolsets）が
+    繋ぎ直しを試み、それでも駄目なら静的経路に倒して理由を notes に残す。
+    """
+    toolset = build_neo4j_toolset()
+    started = time.perf_counter()
+    try:
+        tools = await toolset.get_tools()
+    except Exception as exc:  # 起動は続ける。理由はログに残し、各リクエストの事前確認に任せる
+        logger.warning(
+            "MCP ツールセットに起動時に繋げませんでした（リクエストのときに繋ぎ直します）: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+        return toolset
+    logger.info(
+        "MCP ツールセットに繋ぎました（%.1f 秒、ツール %s）",
+        time.perf_counter() - started,
+        [tool.name for tool in tools],
+    )
+    return toolset

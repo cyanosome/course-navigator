@@ -5,6 +5,8 @@
    調査のセッションの今のブロックの旗 → 開発（RESEARCH_DEV）なら本文の options → 既定の変種の旗。
 2. 調査のセッションがあれば、成功でも失敗でも chat_response を研究のログに1行書く。
 3. サーバー側の時間切れ（170 秒で 504。画面の上限 180 秒より短く）。
+関西のデータで答え、出典は syllabus_id と courses で照合する（E1）。本文に plan_context（今のプラン）があれば、
+足す・外すの提案を照合して plan_suggestions で返す。
 """
 
 import asyncio
@@ -75,8 +77,13 @@ def _chat_response_payload(
     error: ErrorKind | None,
     error_detail: str | None,
 ) -> Mapping[str, Any]:
-    """chat_response の payload（ab-variants.md 7.2）。トークン数は今の runner から取れないので null。"""
+    """chat_response の payload（ab-variants.md 7.2）。トークン数は今の runner から取れないので null。
+
+    7.2 に足した項目（E1）: plan_context_sha256（plan_context の指紋。診断のまとめの本文は書かない）、
+    plan_suggestions（照合の後の足す・外すの syllabus_id と外した理由）、toolset（McpToolset を使い回したか）。
+    """
     result = run.result if run is not None else None
+    suggestions = run.plan_suggestions if run is not None else None
     return {
         "request_id": request_id,
         "client_event_id": str(data.client_event_id) if data.client_event_id else None,
@@ -94,6 +101,17 @@ def _chat_response_payload(
         "cited_codes": result.cited_codes if result is not None else [],
         "source_codes": [source.code for source in result.sources] if result is not None else [],
         "unverified_codes": result.unverified_codes if result is not None else [],
+        "plan_context_sha256": route_options.plan_context_sha256(data.plan_context)
+        if data.plan_context is not None
+        else None,
+        "plan_suggestions": {
+            "add": [item.syllabus_id for item in suggestions.add],
+            "remove": [item.syllabus_id for item in suggestions.remove],
+            "dropped": [item.model_dump() for item in suggestions.dropped],
+        }
+        if suggestions is not None
+        else None,
+        "toolset": ("reused" if run.toolset_reused else "per_request") if run is not None else None,
         "tokens": None,
         "error": error,
         "error_detail": error_detail,
@@ -151,7 +169,7 @@ async def ask(
     deadline = asyncio.timeout(ASSIST_TIMEOUT_SECONDS)
     try:
         async with deadline:
-            run = await route_options.run_with_options(question, options)
+            run = await route_options.run_with_options(question, options, plan_context=data.plan_context)
     except route_options.UnsupportedLevelError as exc:
         await record(None, "other", str(exc))
         raise HTTPException(status_code=501, detail=str(exc)) from exc
@@ -176,4 +194,5 @@ async def ask(
         options_ignored=options_ignored,
         route_requested=options.route,
         unverified_items=_unverified_items(result.unverified_codes) if options.verify == "off" else [],
+        plan_suggestions=run.plan_suggestions,
     )
