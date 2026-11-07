@@ -379,13 +379,16 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   const [fetched, setFetched] = useState<ReadonlyMap<string, Course>>(() => new Map())
   const lookupCourse = useCallback<CourseLookup>(
     (code) => {
-      const hit = fetched.get(code)
-      if (hit !== undefined) return hit
       const mapped = peekCourse(code)
-      if (mapped !== undefined && mapped.ok) return mapped.course
-      return working === null ? undefined : planCourseAsCourse(working, code)
+      const hit = fetched.get(code) ?? (mapped !== undefined && mapped.ok ? mapped.course : undefined)
+      const placed = working === null ? undefined : planCourseAsCourse(working, code)
+      if (hit === undefined) return placed
+      // 診断の変種では、プランの科目はプランの学年と学期に置く。「１〜４年次」の科目は詳細では1年の科目だが、
+      // プランでは2年春などに入ることがあり、詳細の学年のまま置くと別の学年の科目と「重なる」と出てしまう
+      if (!planMode || placed === undefined) return hit
+      return { ...hit, year: placed.year, term: hit.term === '通年' ? hit.term : placed.term }
     },
-    [fetched, peekCourse, working],
+    [fetched, peekCourse, planMode, working],
   )
   // プランを時間割にするときは、学科の必修を最初から入れない（プランに入っている科目だけを置く）
   const placement = useMemo<Placement>(
