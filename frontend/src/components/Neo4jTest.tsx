@@ -9,6 +9,8 @@ interface GraphRecord {
   title: string
   description: string | null
   prerequisites: string[]
+  syllabus_id?: string | null
+  code?: string | null
 }
 
 export default function Neo4jTest() {

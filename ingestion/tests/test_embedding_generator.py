@@ -10,6 +10,7 @@ import pytest
 from src.transformers.kansai.embedding_generator import (
     build_course_text,
     EmbeddingGenerator,
+    GeminiEmbeddingError,
     GeminiConnectionError,
     run_generate_embeddings,
     DEFAULT_DIMENSION,
@@ -46,16 +47,13 @@ def test_missing_api_key_raises_error(monkeypatch):
 
 def test_api_failure_fails_fast_without_mock(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
-    generator = EmbeddingGenerator()
+    with patch("src.services.embedding.genai.Client") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_client.models.embed_content.side_effect = RuntimeError("API key not valid")
+        mock_client_cls.return_value = mock_client
 
-    # Mock httpx failure
-    with patch("httpx.Client.post") as mock_post:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 401
-        mock_resp.text = "API key not valid"
-        mock_post.return_value = mock_resp
-
-        with pytest.raises(GeminiConnectionError, match="事前疎通テストに失敗しました"):
+        generator = EmbeddingGenerator()
+        with pytest.raises(GeminiEmbeddingError, match="事前疎通テストに失敗しました"):
             generator.generate_embeddings_for_courses([
                 {"syllabus_id": "1", "course_code": "C01", "subject_name": "テスト"}
             ])
@@ -63,26 +61,22 @@ def test_api_failure_fails_fast_without_mock(monkeypatch):
 
 def test_embedding_generator_successful_batch(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "AQ.test_key")
-    generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION)
-
     dummy_vector = [0.1] * DEFAULT_DIMENSION
 
-    with patch("httpx.Client.post") as mock_post:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "embeddings": [
-                {"values": dummy_vector},
-                {"values": dummy_vector},
-            ]
-        }
-        mock_post.return_value = mock_resp
+    with patch("src.services.embedding.genai.Client") as mock_client_cls:
+        mock_client = MagicMock()
+        mock_res = MagicMock()
+        mock_emb = MagicMock()
+        mock_emb.values = dummy_vector
+        mock_res.embeddings = [mock_emb, mock_emb]
+        mock_client.models.embed_content.return_value = mock_res
+        mock_client_cls.return_value = mock_client
 
-        # Probe uses 1 text, so mock embed_texts_batch_gemini return for probe and batch
-        with patch.object(generator, "embed_texts_batch_gemini", side_effect=[
-            [dummy_vector],  # probe
-            [dummy_vector, dummy_vector],  # batch
-        ]):
+        generator = EmbeddingGenerator(dimension=DEFAULT_DIMENSION)
+
+        # Mock service.probe_connectivity and service.embed_texts
+        with patch.object(generator.service, "probe_connectivity", return_value=None), \
+             patch.object(generator.service, "embed_texts", return_value=[dummy_vector, dummy_vector]):
             courses = [
                 {"syllabus_id": "1001", "course_code": "C01", "subject_name": "科目A"},
                 {"syllabus_id": "1002", "course_code": "C02", "subject_name": "科目B"},

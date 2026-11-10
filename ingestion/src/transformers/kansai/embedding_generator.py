@@ -125,6 +125,7 @@ class CourseEmbeddingPipeline:
 
 # Alias for backwards compatibility if needed
 EmbeddingGenerator = CourseEmbeddingPipeline
+GeminiConnectionError = GeminiEmbeddingError
 
 
 def run_generate_embeddings(
