@@ -12,6 +12,9 @@
 - plan_context: 今のプラン（診断の結果）があれば、科目名などを DB で引いて相談の後ろに付け、
   足す・外すの提案を出させて照合する。静的の経路では、足す科目は選べる科目の中のもの（外れたら not_candidate）、
   外す科目は系統図に載らないもの（載るものは locked）だけを残す。ただし同じ学期の同じ名前の別クラスを足す組は「移す」として残す。
+- 履修の状況（plan_context の start・completed・registered。任意で、診断の答えといっしょのときだけ）: 静的の経路の
+  候補づくりと照合に使う（agent.plan_candidates のとおり。履修済みと同じ名前は足す案にしない、登録済みの科目を外す案は
+  status=registered で残す）。誤り（course_core.diagnose.history の検査、registered が terms の同じ学期に無い）は 422
 - McpToolset: lifespan で作った1つ（deps.mcp_toolset）があれば使い回し、閉じない。無ければ1問ごとに作って閉じる。
 型を course_core でなくここに置くのは、AssistOut が runner.McpAgentRunResult を継ぐため
 （course_core から agent を import すると向きが逆になる）。
@@ -37,9 +40,17 @@ from course_core.catalog.registry import load_departments
 from course_core.diagnose.answers import validate_answers
 from course_core.diagnose.config import DiagnoseConfig, load_config
 from course_core.diagnose.engine import DiagnoseEngine
+from course_core.diagnose.history import PlanHistory, validate_history
 from course_core.diagnose.model import Catalog
 from course_core.diagnose.source import load_catalog
 from course_core.repositories import postgres_courses_repo
+from course_core.schemas.diagnose import (
+    COMPLETED_MAX,
+    REGISTERED_TERMS_MAX,
+    HistorySyllabusId,
+    RegisteredTermIn,
+    TermIn,
+)
 
 __all__ = [
     "REFINE_DEPARTMENT_ID",
@@ -109,6 +120,8 @@ class PlanContext(BaseModel):
 
     config_version と answers（POST /diagnose/plan と同じ形の診断の答え）は任意で、送るなら両方とも送る。
     あれば静的の経路（道具なしの1回の生成）で、診断のエンジンの候補から選ばせる。
+    start・completed・registered（POST /diagnose/plan と同じ形の履修の状況）も任意で、静的の経路だけが使う
+    （診断の答えといっしょでなければ断る）。registered の科目は terms の同じ学期にも入れる。
     """
 
     answers_summary: str = Field("", max_length=PLAN_SUMMARY_MAX_CHARS)  # 診断の答えの短いまとめ
@@ -116,11 +129,18 @@ class PlanContext(BaseModel):
     config_version: str | None = Field(None, min_length=1, max_length=PLAN_CONFIG_VERSION_MAX_CHARS)
     # single・multi は選択肢の id の配列、scale5 は 1〜5（schemas.diagnose.DiagnosePlanIn.answers と同じ形）
     answers: dict[str, list[StrictStr] | StrictInt] | None = Field(None, max_length=PLAN_ANSWERS_MAX)
+    start: TermIn | None = None
+    completed: list[HistorySyllabusId] | None = Field(None, max_length=COMPLETED_MAX)
+    registered: list[RegisteredTermIn] | None = Field(None, max_length=REGISTERED_TERMS_MAX)
 
     @model_validator(mode="after")
     def _version_and_answers_together(self) -> "PlanContext":
         if (self.config_version is None) != (self.answers is None):
             raise ValueError("config_version と answers は両方とも送るか、両方とも送らないでください。")
+        if self.answers is None and (self.start is not None or self.completed or self.registered):
+            raise ValueError(
+                "start・completed・registered は、診断の答え（config_version と answers）といっしょに送ってください。"
+            )
         return self
 
     @property
@@ -329,8 +349,23 @@ async def load_refine_catalog(department_id: str) -> Catalog:
         return await load_catalog(conn, session, department)
 
 
+def _registered_outside_the_plan(plan_context: PlanContext, history: PlanHistory) -> list[str]:
+    """登録済みの科目のうち、plan_context.terms の同じ学期に無いもの（出現順）。"""
+    in_plan = {
+        (term.year, term.term, syllabus_id)
+        for term in plan_context.terms
+        for syllabus_id in normalize_codes(term.syllabus_ids)
+    }
+    return [
+        course.syllabus_id
+        for term, courses in history.registered.items()
+        for course in courses
+        if (term.year, term.term, course.syllabus_id) not in in_plan
+    ]
+
+
 async def _refine_context(plan_context: PlanContext, request_text: str) -> plan_candidates.RefineContext:
-    """診断の答えを検査し、診断のエンジンで選べる科目と系統図の科目の印を作る。使えない答えは PlanAnswersError。"""
+    """診断の答えと履修の状況を検査し、診断のエンジンで選べる科目と系統図の科目の印を作る。使えない答えは PlanAnswersError。"""
     config = load_refine_config(REFINE_DEPARTMENT_ID)
     if plan_context.config_version != config.version:
         raise PlanAnswersError(
@@ -341,6 +376,17 @@ async def _refine_context(plan_context: PlanContext, request_text: str) -> plan_
     if errors:
         raise PlanAnswersError(422, "診断の答えに誤りがあります: " + "; ".join(errors))
     catalog = await load_refine_catalog(REFINE_DEPARTMENT_ID)
+    history, history_errors = validate_history(
+        config,
+        catalog,
+        start=plan_context.start,
+        completed=plan_context.completed,
+        registered=plan_context.registered,
+    )
+    if not history_errors and (outside := _registered_outside_the_plan(plan_context, history)):
+        history_errors = [f"registered の科目が terms の同じ学期にありません: {', '.join(outside)}"]
+    if history_errors:
+        raise PlanAnswersError(422, "履修の状況に誤りがあります: " + "; ".join(history_errors))
     return plan_candidates.build_refine_context(
         engine=DiagnoseEngine(config, catalog),
         catalog=catalog,
@@ -348,6 +394,7 @@ async def _refine_context(plan_context: PlanContext, request_text: str) -> plan_
         answers_summary=plan_context.answers_summary,
         terms=plan_context.terms,
         request_text=request_text,
+        history=history,
     )
 
 
@@ -364,6 +411,8 @@ async def _run_static(question: str, options: AssistOptions, plan_context: PlanC
             candidate_ids=candidate_ids,
             locked_ids=context.locked_ids,
             move_pairs=context.move_pairs,
+            completed_ids=context.completed_ids,
+            registered_ids=context.registered_ids,
         ),
     )
     grounded = run.grounded

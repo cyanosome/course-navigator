@@ -8,6 +8,7 @@
 関西のデータで答え、出典は syllabus_id と courses で照合する（E1）。本文に plan_context（今のプラン）があれば、
 足す・外すの提案を照合して plan_suggestions で返す。plan_context に診断の答え（config_version と answers）があれば
 静的の経路（道具なしの1回の生成。route_options.select_path）で答える。答えの版が違えば 409、答えの誤りは 422。
+履修の状況（plan_context の start・completed・registered）は研究のログに入れないので、調査のセッションでは 422 で断る。
 """
 
 import asyncio
@@ -33,6 +34,8 @@ logger = logging.getLogger(__name__)
 # 画面の待ちの上限（frontend/src/navi/state.ts の 180 秒）より短くし、画面より先にサーバーが打ち切る。
 ASSIST_TIMEOUT_SECONDS: Final = 170.0
 _ERROR_DETAIL_MAX_CHARS: Final = 300
+# 調査のセッションで履修の状況を断るときの文（応答と記録の error_detail。syllabus_id も学期も入れない）
+HISTORY_IN_STUDY_DETAIL: Final = "調査のセッションでは履修の状況（start・completed・registered）を受けません。"
 
 ErrorKind = Literal["timeout", "mcp_unavailable", "db", "llm", "other"]
 # plan_context（今のプラン）が AI に届いたか（事前登録 Study 1 の 6.2 の6）。plan_context の無い問いは null
@@ -85,6 +88,13 @@ def _fell_back(run: route_options.AssistRun) -> bool:
     return run.path == "mcp" and run.result.route != "mcp"
 
 
+def _has_history(plan_context: route_options.PlanContext | None) -> bool:
+    """履修の状況（start・completed・registered）が入っているか。空の配列は送らないのと同じ（PlanContext の検査と同じ）。"""
+    if plan_context is None:
+        return False
+    return plan_context.start is not None or bool(plan_context.completed) or bool(plan_context.registered)
+
+
 def _unverified_items(codes: list[str]) -> list[UnverifiedItem]:
     reason = "lookup_failed" if deps.db_pool() is None else "not_in_db"
     return [UnverifiedItem(code=code, reason=reason) for code in codes]
@@ -110,6 +120,7 @@ def _chat_response_payload(
     candidate_count（静的の経路で渡した選べる科目の数。mcp と失敗は null）、
     candidate_sources（candidate_count の入った経路ごとの内訳 {top, same_name, named}。mcp と失敗は null）、
     llm_calls（LLM の呼び出しの回数。答えが返らなかったときは null）。
+    plan_context に履修の状況があれば plan_context_sha256 は null（履修の状況を指紋にも入れない。調査のセッションでは断る）。
     """
     result = run.result if run is not None else None
     suggestions = run.plan_suggestions if run is not None else None
@@ -132,7 +143,7 @@ def _chat_response_payload(
         "source_codes": [source.code for source in result.sources] if result is not None else [],
         "unverified_codes": result.unverified_codes if result is not None else [],
         "plan_context_sha256": route_options.plan_context_sha256(data.plan_context)
-        if data.plan_context is not None
+        if data.plan_context is not None and not _has_history(data.plan_context)
         else None,
         "plan_suggestions": {
             "add": [item.syllabus_id for item in suggestions.add],
@@ -200,6 +211,11 @@ async def ask(
             error_detail=detail[:_ERROR_DETAIL_MAX_CHARS] if detail else None,
         )
         await sink.append_server_event(session_id, "chat_response", payload)
+
+    if session_id is not None and _has_history(data.plan_context):
+        # 黙って捨てずに断る。記録は決まった文だけ（送られた syllabus_id・学期は書かない）
+        await record(None, "other", HISTORY_IN_STUDY_DETAIL)
+        raise HTTPException(status_code=422, detail=HISTORY_IN_STUDY_DETAIL)
 
     deadline = asyncio.timeout(ASSIST_TIMEOUT_SECONDS)
     try:

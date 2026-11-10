@@ -86,6 +86,7 @@ def test_plan(client, loaders):
     body = response.json()
     assert body["config_version"] == "test-1"
     assert body["answers_digest"].startswith("sha256:")
+    assert body["context_digest"] is None  # 履修の状況を送らなければ指紋は無い
     assert body["terms"] == [
         {
             "year": 1,
@@ -100,6 +101,7 @@ def test_plan(client, loaders):
                     "slot_note": None,
                     "score": 3.0,
                     "reasons": [{"primitive": "reaches_group", "text": "架空発展系につながる"}],
+                    "status": "planned",
                 },
                 {
                     "syllabus_id": "11",
@@ -109,6 +111,7 @@ def test_plan(client, loaders):
                     "slot_note": None,
                     "score": 1.0,
                     "reasons": [],  # year_fit（base）だけで入った科目には理由が無い
+                    "status": "planned",
                 },
             ],
         },
@@ -125,6 +128,7 @@ def test_plan(client, loaders):
                     "slot_note": None,
                     "score": 1.0,
                     "reasons": [],
+                    "status": "planned",
                 }
             ],
         },
@@ -174,6 +178,54 @@ def test_plan_with_groups_missing_from_the_curriculum_is_500(client, loaders):
     loaders.raw["base_effects"].append({"primitive": "in_group", "args": {"groups": ["G_GONE"]}, "weight": 1})
     response = client.post("/diagnose/plan", json=_plan_body())
     assert response.status_code == 500
+    assert "X-Navi-Contract" not in response.headers
+
+
+def test_plan_without_history_items_matches_empty_ones(client):
+    """履修の状況を送らないときと、空の配列を送るときは同じ応答（前と同じプラン、context_digest は null）。"""
+    plain = client.post("/diagnose/plan", json=_plan_body())
+    empty = client.post("/diagnose/plan", json=_plan_body(start=None, completed=[], registered=[]))
+    assert plain.status_code == empty.status_code == 200
+    assert plain.json() == empty.json()
+
+
+def test_plan_with_history(client):
+    body = _plan_body(
+        start={"year": 1, "term": "秋"},
+        completed=["10"],
+        registered=[{"year": 1, "term": "秋", "syllabus_ids": [" 11 "]}],  # 前後の空白は外す
+    )
+    response = client.post("/diagnose/plan", json=body)
+    assert response.status_code == 200, response.text
+    out = response.json()
+    plain = client.post("/diagnose/plan", json=_plan_body()).json()
+    assert out["answers_digest"] == plain["answers_digest"]
+    assert out["context_digest"].startswith("sha256:")
+    assert [(term["year"], term["term"]) for term in out["terms"]] == [(1, "秋")]
+    autumn = out["terms"][0]
+    # 登録済みの 11（春の科目でも、送られた学期にそのまま置く）が先、月1 の 12 が後
+    assert [(c["syllabus_id"], c["status"]) for c in autumn["courses"]] == [("11", "registered"), ("12", "planned")]
+    assert autumn["credits_total"] == 4.0
+
+
+@pytest.mark.parametrize(
+    ("history", "status"),
+    [
+        ({"start": {"year": 2, "term": "春"}}, 422),  # scope の外
+        ({"completed": ["99"]}, 422),  # 知らない科目
+        ({"completed": ["10", "10"]}, 422),
+        ({"registered": [{"year": 1, "term": "春", "syllabus_ids": ["10"]}], "completed": ["10"]}, 422),
+        ({"start": {"year": 1, "term": "秋"}, "registered": [{"year": 1, "term": "春", "syllabus_ids": ["10"]}]}, 422),
+        ({"start": {"year": 1, "term": "夏"}}, 422),  # 形の誤り
+        ({"start": {"year": "1", "term": "春"}}, 422),
+        ({"start": {"year": 1, "term": "春", "extra": 1}}, 422),
+        ({"registered": [{"year": 1, "term": "春"}]}, 422),
+        ({"completed": [""]}, 422),
+    ],
+)
+def test_plan_with_bad_history_is_422(client, history, status):
+    response = client.post("/diagnose/plan", json=_plan_body(**history))
+    assert response.status_code == status, response.text
     assert "X-Navi-Contract" not in response.headers
 
 

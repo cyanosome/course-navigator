@@ -434,6 +434,43 @@ def test_course_sources_node_passes_candidates_and_locks(fake_pool):
     ]
 
 
+def test_ground_plan_suggestions_with_completed_and_registered():
+    """履修済みと同じ名前の科目を足す案は completed で外す（not_candidate より先）。
+    登録済みの科目を外す案は、系統図の科目でも locked にせず status=registered で残す。"""
+    rows_by_id = {row["syllabus_id"]: row for row in _ROWS}
+    payload = PlanAnswerPayload(
+        answer="回答",
+        add=[PlanChange(syllabus_id=_OTHER), PlanChange(syllabus_id=_KNOWN)],
+        remove=[PlanChange(syllabus_id="888888"), PlanChange(syllabus_id="777777")],
+    )
+
+    suggestions = grounding.ground_plan_suggestions(
+        payload,
+        rows_by_id,
+        ["888888", "777777"],
+        candidate_ids={_KNOWN},
+        locked_ids={"888888"},
+        completed_ids={_OTHER},
+        registered_ids={"888888"},
+    )
+
+    assert [s.syllabus_id for s in suggestions.add] == [_KNOWN]
+    assert [(s.syllabus_id, s.status) for s in suggestions.remove] == [("888888", "registered"), ("777777", "planned")]
+    assert [(d.action, d.syllabus_id, d.reason) for d in suggestions.dropped] == [("add", _OTHER, "completed")]
+
+
+def test_course_sources_node_passes_completed_and_registered(fake_pool):
+    node = nodes.course_sources_node([_KNOWN], candidate_ids=set(), locked_ids={_KNOWN}, completed_ids={_OTHER}, registered_ids={_KNOWN})
+    payload = PlanAnswerPayload(
+        answer="回答", add=[PlanChange(syllabus_id=_OTHER)], remove=[PlanChange(syllabus_id=_KNOWN)]
+    )
+
+    event = asyncio.run(node(payload, None))
+
+    assert [(d.syllabus_id, d.reason) for d in event.output.plan_suggestions.dropped] == [(_OTHER, "completed")]
+    assert [(s.syllabus_id, s.status) for s in event.output.plan_suggestions.remove] == [(_KNOWN, "registered")]
+
+
 def test_build_kansai_refine_agent_has_no_tools():
     agent = mcp_agent.build_kansai_refine_agent()
 

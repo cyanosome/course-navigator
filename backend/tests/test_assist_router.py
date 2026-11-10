@@ -7,6 +7,7 @@
 """
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
@@ -457,8 +458,8 @@ def test_plan_context_grounds_suggestions_and_is_recorded(client, sink, built_op
 
     # 足す科目は DB にありプランに無いものだけ、外す科目はプランにあるものだけが残る
     assert body["plan_suggestions"] == {
-        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水曜"}],
-        "remove": [{"syllabus_id": _PLAN_CODE, "title": "架空の月曜の科目", "reason": "月曜"}],
+        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": "水曜", "status": "planned"}],
+        "remove": [{"syllabus_id": _PLAN_CODE, "title": "架空の月曜の科目", "reason": "月曜", "status": "planned"}],
         "dropped": [
             {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
             {"action": "add", "syllabus_id": _PLAN_CODE, "reason": "already_in_plan"},
@@ -745,8 +746,10 @@ def test_plan_answers_use_the_static_path_with_candidates_and_locks(client, sink
     assert body["model"] == "refine-fake-llm"
     assert body["tool_calls"] == []
     assert body["plan_suggestions"] == {
-        "add": [{"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": f"足す {_EXTRA_CODE}"}],
-        "remove": [{"syllabus_id": _FREE_CODE, "title": "架空の教養", "reason": f"外す {_FREE_CODE}"}],
+        "add": [
+            {"syllabus_id": _EXTRA_CODE, "title": "架空の水曜の科目", "reason": f"足す {_EXTRA_CODE}", "status": "planned"}
+        ],
+        "remove": [{"syllabus_id": _FREE_CODE, "title": "架空の教養", "reason": f"外す {_FREE_CODE}", "status": "planned"}],
         "dropped": [
             {"action": "add", "syllabus_id": _KNOWN_CODE, "reason": "not_candidate"},
             {"action": "add", "syllabus_id": _UNKNOWN_CODE, "reason": "not_in_db"},
@@ -864,3 +867,134 @@ def test_plan_context_digest_ignores_unsent_answers():
     with_answers = route_options.PlanContext.model_validate(_STATIC_PLAN)
     assert set(plan.model_dump(exclude_none=True)) == {"answers_summary", "terms"}
     assert route_options.plan_context_sha256(plan) != route_options.plan_context_sha256(with_answers)
+    # 履修の状況（start・completed・registered）も、送らなければ指紋に入らない
+    assert set(with_answers.model_dump(exclude_none=True)) == {"answers_summary", "terms", "config_version", "answers"}
+
+
+# --- 履修の状況（start・completed・registered）がある微修正 ---------------------------------------
+
+
+@pytest.mark.parametrize(("env", "value"), [("RESEARCH_DEV", "true"), ("NAVI_DEFAULT_VARIANT", "V00")])
+def test_history_on_the_static_path(client, sink, built_options, refine_llm, monkeypatch, env, value):
+    """履修済みと同じ名前の科目は選べる科目に出さず、足す案は completed で外す。
+    登録済みの科目を外す案は、系統図の科目でも dropped にせず status=registered で残す。
+    履修の状況は調査のセッションでは受けないので、開発と既定の変種（記録しない）で確かめる。"""
+    monkeypatch.setenv(env, value)
+    refine_llm.payload = _payload(add=[_EXTRA_CODE, _NAMED_CODE], remove=[_LOCKED_CODE])
+    plan = {
+        **_STATIC_PLAN,
+        "start": {"year": 1, "term": "春"},
+        "completed": [_EXTRA_CODE],
+        "registered": [{"year": 1, "term": "春", "syllabus_ids": [_LOCKED_CODE]}],
+    }
+    response = _ask(client, plan_context=plan)
+    assert response.status_code == 200, response.text
+
+    lines = refine_llm.received[0].splitlines()
+    locked_line = f"- {_LOCKED_CODE} 架空の月曜の科目（月2、2単位、まとまり: 架空基礎系）"
+    assert locked_line + plan_candidates.LOCK_MARK + plan_candidates.REGISTERED_MARK in lines
+    assert not any(line.startswith(f"- {_EXTRA_CODE} ") for line in lines)
+    suggestions = response.json()["plan_suggestions"]
+    assert suggestions == {
+        "add": [{"syllabus_id": _NAMED_CODE, "title": "架空の珍しい科目", "reason": f"足す {_NAMED_CODE}", "status": "planned"}],
+        "remove": [
+            {"syllabus_id": _LOCKED_CODE, "title": "架空の月曜の科目", "reason": f"外す {_LOCKED_CODE}", "status": "registered"}
+        ],
+        "dropped": [{"action": "add", "syllabus_id": _EXTRA_CODE, "reason": "completed"}],
+    }
+    assert sink.events == []
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        {"completed": [_KNOWN_CODE]},
+        {"start": {"year": 1, "term": "春"}},
+        {"registered": [{"year": 1, "term": "春", "syllabus_ids": [_PLAN_CODE]}]},
+    ],
+)
+def test_history_without_plan_answers_is_422(client, sink, built_options, refine_llm, history):
+    """履修の状況は静的の経路だけが使うので、診断の答えが無ければ形の誤り（FastAPI が断り、記録しない）。"""
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context={**_PLAN, **history}).status_code == 422
+    assert built_options == [] and refine_llm.received == []
+    assert sink.events == []
+
+
+def test_empty_history_without_plan_answers_keeps_the_mcp_path(client, sink, built_options, refine_llm):
+    sink.add("sess-1", "V00")
+    assert _ask(client, session="sess-1", plan_context={**_PLAN, "completed": [], "registered": []}).status_code == 200
+    assert len(built_options) == 1 and refine_llm.received == []
+
+
+@pytest.mark.parametrize(
+    ("history", "fragment"),
+    [
+        ({"completed": [_UNKNOWN_CODE]}, "知らない科目です"),
+        ({"start": {"year": 2, "term": "春"}}, "start の 2年春"),
+        ({"registered": [{"year": 1, "term": "秋", "syllabus_ids": [_FREE_CODE]}]}, "terms の同じ学期にありません"),
+        ({"completed": [_FREE_CODE], "registered": [{"year": 1, "term": "春", "syllabus_ids": [_FREE_CODE]}]}, "両方"),
+    ],
+)
+def test_wrong_history_is_422(client, sink, built_options, refine_llm, monkeypatch, history, fragment):
+    monkeypatch.setenv("RESEARCH_DEV", "true")
+    response = _ask(client, plan_context={**_STATIC_PLAN, **history})
+    assert response.status_code == 422
+    assert fragment in response.json()["detail"]
+    assert refine_llm.received == []
+    assert sink.events == []
+
+
+# --- 調査のセッションでは履修の状況を受けない（研究のログに入れない） ---------------------------------
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        {"start": {"year": 1, "term": "春"}},
+        {"completed": [_EXTRA_CODE]},
+        {"registered": [{"year": 1, "term": "春", "syllabus_ids": [_LOCKED_CODE]}]},
+        {
+            "start": {"year": 1, "term": "春"},
+            "completed": [_EXTRA_CODE],
+            "registered": [{"year": 1, "term": "春", "syllabus_ids": [_LOCKED_CODE]}],
+        },
+        # 誤った状況も、検査の誤り（syllabus_id が入る）でなく決まった文で断る
+        {"completed": [_UNKNOWN_CODE]},
+        {"registered": [{"year": 1, "term": "秋", "syllabus_ids": [_FREE_CODE]}]},
+    ],
+)
+def test_history_in_a_study_session_is_422_and_kept_out_of_the_log(client, sink, built_options, refine_llm, history):
+    sink.add("sess-1", "V00")
+    plan = {**_STATIC_PLAN, **history}
+    response = _ask(client, session="sess-1", plan_context=plan)
+    assert response.status_code == 422
+    assert response.json()["detail"] == assist_router.HISTORY_IN_STUDY_DETAIL
+    assert refine_llm.received == [] and refine_llm.catalog_loads == [] and built_options == []  # AI を走らせない
+
+    assert [(event[0], event[1]) for event in sink.events] == [("sess-1", "chat_response")]
+    payload = sink.events[0][2]
+    assert (payload["error"], payload["error_detail"]) == ("other", assist_router.HISTORY_IN_STUDY_DETAIL)
+    assert (payload["path"], payload["plan_delivery"], payload["route_actual"]) == ("static", "not_delivered", None)
+    assert payload["plan_context_sha256"] is None  # 履修の状況を指紋にも入れない
+    # request_id（サーバーが作る16進の乱数）は、6桁の数字にたまたま当たらないよう除いて調べる
+    recorded = json.dumps({key: value for key, value in payload.items() if key != "request_id"}, ensure_ascii=False)
+    sent_ids = set(route_options.plan_syllabus_ids(route_options.PlanContext.model_validate(_STATIC_PLAN)))
+    sent_ids |= set(history.get("completed", []))
+    sent_ids |= {code for term in history.get("registered", []) for code in term["syllabus_ids"]}
+    assert sent_ids and not [code for code in sent_ids if code in recorded]
+    assert "春" not in recorded and "秋" not in recorded  # 学期も書かない
+
+
+def test_empty_history_in_a_study_session_keeps_the_static_path(client, sink, built_options, refine_llm):
+    """空の配列（と start=null）は送らないのと同じ。調査のセッションでも今までどおり答え、指紋も記録する。"""
+    sink.add("sess-1", "V00")
+    plan = {**_STATIC_PLAN, "start": None, "completed": [], "registered": []}
+    response = _ask(client, session="sess-1", plan_context=plan)
+    assert response.status_code == 200, response.text
+    assert len(refine_llm.received) == 1
+    payload = sink.events[0][2]
+    assert (payload["path"], payload["error"]) == ("static", None)
+    assert payload["plan_context_sha256"] == route_options.plan_context_sha256(
+        route_options.PlanContext.model_validate(plan)
+    )

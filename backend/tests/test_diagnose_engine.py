@@ -7,8 +7,10 @@ import pytest
 from diagnose_fixtures import answers, catalog, config_dict, course, make_config
 from course_core.diagnose.answers import answers_digest, validate_answers
 from course_core.diagnose.engine import DiagnoseEngine, build_plan, is_candidate, render_template
+from course_core.diagnose.history import NO_HISTORY, context_digest, validate_history
 from course_core.diagnose.model import PlanTerm, reachability
 from course_core.diagnose.primitives import PRIMITIVES
+from course_core.schemas.diagnose import RegisteredTermIn, TermIn
 
 SPRING1 = PlanTerm(1, "春")
 AUTUMN1 = PlanTerm(1, "秋")
@@ -402,3 +404,160 @@ def test_ranked_candidates_is_empty_for_terms_outside_the_config():
     engine = DiagnoseEngine(make_config(), catalog([course("10", year_min=2, year_max=2)]))
     selected, _ = validate_answers(make_config(), answers())
     assert engine.ranked_candidates(selected, PlanTerm(2, "春")) == []  # 設定の埋める学期は1年だけ
+
+
+# --- 履修の状況（start・completed・registered） ------------------------------------------------
+
+
+def _registered(year, term, *syllabus_ids):
+    return RegisteredTermIn(year=year, term=term, syllabus_ids=list(syllabus_ids))
+
+
+def _history(courses, raw_config=None, **values):
+    history, errors = validate_history(make_config(raw_config), catalog(courses), **values)
+    assert errors == [], errors
+    return history
+
+
+def _plan_with(courses, raw_answers=None, raw_config=None, **values):
+    """履修の状況（validate_history の引数）を付けてプランを作る。"""
+    config = make_config(raw_config)
+    data = catalog(courses)
+    history, errors = validate_history(config, data, **values)
+    assert errors == [], errors
+    selected, _ = validate_answers(config, raw_answers or answers())
+    return build_plan(config, data, selected, history)
+
+
+def test_plan_without_history_is_the_same_as_before():
+    """送られない・空の配列・科目の無い学期は、どれも前と同じプラン（指紋も無い）。"""
+    courses = [course("10", group_id="G_C"), course("11", slots=("火1",)), course("12", term="秋")]
+    before = _plan(courses)
+    assert before.context_digest is None
+    assert {placed.status for term in before.terms for placed in term.courses} == {"planned"}
+    assert _plan_with(courses) == before
+    assert _plan_with(courses, completed=[], registered=[]) == before
+    assert _plan_with(courses, registered=[_registered(1, "春")]) == before
+
+
+def test_start_fills_only_the_terms_from_it():
+    courses = [
+        course("10", slots=("月1",)),
+        course("11", term="秋", slots=("月1",)),
+        course("12", name="同名", slots=("火1",)),
+        course("13", name="同名", term="秋", slots=("火1",)),
+    ]
+    assert _ids(_plan(courses)) == [["10", "12"], ["11"]]
+    plan = _plan_with(courses, start=TermIn(year=1, term="秋"))
+    # 春を埋めないので、春に入っていた名前も秋に入る。scope の最後（1年秋）で止まる
+    assert [(term.year, term.term) for term in plan.terms] == [(1, "秋")]
+    assert _ids(plan) == [["11", "13"]]
+    assert plan.context_digest is not None
+
+
+def test_completed_names_are_never_placed_and_scores_stay_the_same():
+    courses = [
+        course("10", name="同名", group_id="G_C", slots=("月1",)),  # 3 点。履修済みにする
+        course("11", name="同名", group_id="G_C", slots=("火1",)),  # 同じ名前の別クラスも入れない
+        course("12", name="同名", term="秋", slots=("月1",)),
+        course("13", slots=("水1",)),
+    ]
+    before = _plan(courses)
+    plan = _plan_with(courses, completed=["10"])
+    assert _ids(before) == [["10", "13"], []]
+    assert _ids(plan) == [["13"], []]
+    assert plan.terms[0].credits_total == 2.0  # 履修済みの単位は数えない
+    assert plan.terms[0].courses[0].score == before.terms[0].courses[1].score  # 点は変えない
+    assert plan.answers_digest == before.answers_digest  # 答えの指紋は履修の状況で変わらない
+
+
+def test_registered_courses_come_first_block_their_slots_and_count_credits():
+    courses = [
+        course("10", group_id="G_C", slots=("月1",)),  # 3 点だが、月1 は登録済みの科目がふさぐ
+        course("11", slots=("火1",)),
+        course("12", name="登録した科目", credits=3.0, slots=("月1",)),
+        course("13", name="登録した科目", term="秋", slots=("水1",)),  # 登録済みの名前は秋にも入れない
+        course("14", term="秋", slots=("木1",)),
+    ]
+    plan = _plan_with(courses, registered=[_registered(1, "春", "12")])
+    assert _ids(plan) == [["12", "11"], ["14"]]
+    spring = plan.terms[0]
+    assert [placed.status for placed in spring.courses] == ["registered", "planned"]
+    assert spring.credits_total == 5.0  # 登録済みの 3 単位を数える
+    registered = spring.courses[0]
+    assert registered.score == 1.0 and registered.reasons == []  # 点は同じ計算（year_fit）、理由の文は付けない
+    assert registered.slots == ["月1"] and registered.credits == 3.0
+
+
+def test_term_filled_by_registered_courses_gets_nothing_more():
+    courses = [
+        course("10", credits=4.0, slots=("月1",)),
+        course("11", credits=2.0, slots=("火1",)),
+        course("12", credits=0.0, slots=("水1",)),  # 上限に達した学期には単位の無い科目も足さない
+    ]
+    plan = _plan_with(courses, registered=[_registered(1, "春", "10", "11")])
+    assert _ids(plan)[0] == ["10", "11"]
+    assert plan.terms[0].credits_total == 6.0
+
+
+def test_registered_full_year_course_in_spring_blocks_its_autumn_slot():
+    courses = [
+        course("10", term="通年", slots=("金4",)),
+        course("11", term="秋", slots=("金4",)),
+        course("12", term="秋", slots=("金5",)),
+    ]
+    plan = _plan_with(courses, registered=[_registered(1, "春", "10")])
+    assert _ids(plan) == [["10"], ["12"]]
+
+
+def test_full_year_course_in_spring_skips_slots_registered_in_autumn():
+    courses = [
+        course("10", term="通年", slots=("金4",)),  # 秋の登録済みの科目と金4 で重なるので春に入れない
+        course("11", term="秋", slots=("金4",)),
+        course("12", term="通年", slots=("金5",)),
+    ]
+    plan = _plan_with(courses, registered=[_registered(1, "秋", "11")])
+    assert _ids(plan) == [["12"], ["11"]]
+
+
+def test_registered_courses_are_placed_as_they_are():
+    """配当年次・学期・曜限の重なりは見ない（利用者がもう登録したもの）。"""
+    courses = [
+        course("10", term=None, slots=(), slot_note="他"),
+        course("11", term="秋", year_min=3, year_max=4),
+        course("12", slots=("月1",)),
+    ]
+    plan = _plan_with(courses, registered=[_registered(1, "春", "10", "11", "12")])
+    assert _ids(plan) == [["10", "11", "12"], []]
+    assert plan.terms[0].credits_total == 6.0
+
+
+@pytest.mark.parametrize(
+    ("values", "fragment"),
+    [
+        ({"start": TermIn(year=2, term="春")}, "start の 2年春"),
+        ({"start": TermIn(year=1, term="秋"), "registered": [_registered(1, "春", "10")]}, "registered の 1年春"),
+        ({"registered": [_registered(1, "春", "10"), _registered(1, "春", "11")]}, "1年春 が2回"),
+        ({"completed": ["10", "10"]}, "completed に同じ科目が2回あります: 10"),
+        ({"registered": [_registered(1, "春", "10"), _registered(1, "秋", "10")]}, "registered に同じ科目が2回あります: 10"),
+        ({"completed": ["10"], "registered": [_registered(1, "春", "10")]}, "両方にある科目です: 10"),
+        ({"completed": ["99"]}, "知らない科目です: 99"),
+        ({"registered": [_registered(1, "秋", "98")]}, "知らない科目です: 98"),
+    ],
+)
+def test_validate_history_errors(values, fragment):
+    history, errors = validate_history(make_config(), catalog([course("10"), course("11")]), **values)
+    assert history is NO_HISTORY
+    assert any(fragment in error for error in errors), errors
+
+
+def test_context_digest_ignores_order_and_leaves_out_empty_items():
+    courses = [course("10"), course("11"), course("12", term="秋")]
+    first = _history(courses, completed=["10", "11"], registered=[_registered(1, "秋", "12")])
+    second = _history(courses, completed=["11", "10"], registered=[_registered(1, "秋", "12")])
+    digest = context_digest(first)
+    assert digest == context_digest(second)
+    assert digest is not None and digest.startswith("sha256:") and len(digest) == len("sha256:") + 64
+    assert context_digest(_history(courses, completed=[], registered=[_registered(1, "春")])) is None
+    with_start = context_digest(_history(courses, start=TermIn(year=1, term="春")))
+    assert with_start is not None and with_start != digest
