@@ -150,6 +150,25 @@ class DiagnoseEngine:
                     scores[index] += weight * value
         return [round(score, _SCORE_DIGITS) for score in scores]
 
+    def _ranked(self, term: PlanTerm, scores: Sequence[float]) -> list[int]:
+        """候補の添え字を、点の高い順 → tie_break → syllabus_id の昇順に並べる。"""
+        candidates = self._candidates[term]
+        return sorted(
+            range(len(candidates)),
+            key=lambda index: (-scores[index], *self._tie_key(term, index), candidates[index].syllabus_id),
+        )
+
+    def ranked_candidates(self, answers: Answers, term: PlanTerm) -> list[tuple[DiagCourse, float]]:
+        """その学期に入れてよい科目のすべてを、点と一緒にプランと同じ並び（_ranked）で返す（AI の微修正の候補に使う）。
+
+        点が 0 以下の科目も、同じ名前の別クラスも外さない（選ぶのは呼ぶ側）。埋める学期（設定の terms）に無い学期は空。
+        """
+        candidates = self._candidates.get(term)
+        if candidates is None:
+            return []
+        scores = self._scores(term, self.effects_for(answers))
+        return [(candidates[index], scores[index]) for index in self._ranked(term, scores)]
+
     def plan(self, answers: Answers) -> DiagnosePlanOut:
         """検査を通った答え（answers.validate_answers の結果）からプランを作る。"""
         effects = self.effects_for(answers)
@@ -161,10 +180,7 @@ class DiagnoseEngine:
         for term in self._config.terms:
             candidates = self._candidates[term]
             scores = self._scores(term, effects)
-            order = sorted(
-                range(len(candidates)),
-                key=lambda index: (-scores[index], *self._tie_key(term, index), candidates[index].syllabus_id),
-            )
+            order = self._ranked(term, scores)
             occupied = set(reserved.get(term, ()))
             total = 0.0
             chosen: list[int] = []

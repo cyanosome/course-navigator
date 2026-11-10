@@ -13,7 +13,8 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -29,15 +30,18 @@ from agent.grounding import truncate_text
 from agent.nodes import mcp_route_enabled
 from agent.schemas import AnswerPayload, CandidateSet, GroundedAnswer, SearchIntent, Source
 from agent.trace import TraceRecord
-from agent.workflow import build_mcp_grounded_workflow, workflow
+from agent.workflow import build_mcp_grounded_workflow, build_single_generation_workflow, workflow
 
 __all__ = [
+    "GroundedRun",
     "McpAgentRunResult",
     "ToolCallRecord",
     "build_runner",
     "extract_tool_calls",
     "run_course_navigator",
+    "run_grounded",
     "run_mcp_grounded",
+    "run_single_generation",
 ]
 
 # セッションを跨いだ状態は持たない設計（マルチターンは実験6 以降）なので固定値でよい。
@@ -157,7 +161,10 @@ class ToolCallRecord(BaseModel):
 class McpAgentRunResult(BaseModel):
     """run_mcp_grounded の戻り値（POST /test/agent/mcp のレスポンスと同形）。"""
 
-    route: Route = Field(..., description="実際に通ったルート（mcp: LLM + MCP / static: 静的 DAG）")
+    route: Route = Field(
+        ...,
+        description="実際に通ったルート（mcp: LLM + MCP / static: 静的 DAG か、A1 の微修正の道具なしの1回の生成）",
+    )
     answer: str = Field(..., description="回答文")
     cited_codes: list[str] = Field(default_factory=list, description="回答で引用された科目コード")
     sources: list[Source] = Field(default_factory=list, description="DB の行から組み立てた出典")
@@ -219,14 +226,14 @@ def _model_name(agent: LlmAgent) -> str:
     return model if isinstance(model, str) else model.model
 
 
-async def _close_toolsets(agent: LlmAgent) -> None:
-    """McpToolset（stdio サブプロセス）を閉じる。
+async def _close_toolsets(agent: LlmAgent, keep: Collection[BaseToolset] = ()) -> None:
+    """McpToolset（stdio サブプロセス）を閉じる。keep に入れたもの（使い回しの1つ）は閉じない。
 
     Runner.close() が閉じるのは root が BaseAgent のときだけで、Workflow を node= で
     渡した場合は閉じてくれないため、ここで明示的に閉じる。
     """
     for tool in agent.tools:
-        if isinstance(tool, BaseToolset):
+        if isinstance(tool, BaseToolset) and not any(tool is kept for kept in keep):
             await tool.close()
 
 
@@ -251,6 +258,21 @@ async def _preflight_toolsets(agent: LlmAgent) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class GroundedRun:
+    """run_grounded の戻り値。result は /test/agent/mcp と同じ形、grounded は出典付与ノードの出力そのもの
+    （静的経路に倒れたときは None）。llm_calls は LLM の応答の数（usage_metadata を持つ Event の数）。"""
+
+    result: McpAgentRunResult
+    grounded: GroundedAnswer | None
+    llm_calls: int = 0
+
+
+def _count_llm_calls(events: Iterable[Event]) -> int:
+    """LLM の呼び出しの回数。run_course_navigator と同じく usage_metadata を持つ Event を数える（途中断片は数えない）。"""
+    return sum(1 for event in events if event.usage_metadata is not None and not event.partial)
+
+
 async def run_mcp_grounded(
     question: str,
     *,
@@ -270,6 +292,23 @@ async def run_mcp_grounded(
     from agent.mcp_agent import build_grounded_mcp_agent
 
     active_agent = agent if agent is not None else build_grounded_mcp_agent()
+    return (await run_grounded(question, agent=active_agent)).result
+
+
+async def run_grounded(
+    question: str,
+    *,
+    agent: LlmAgent,
+    grounding_node: Any = None,
+    keep_toolsets: Collection[BaseToolset] = (),
+) -> GroundedRun:
+    """run_mcp_grounded の中身（振る舞いは run_mcp_grounded の説明のとおり）。
+
+    出典付与ノードの出力（GroundedAnswer）も一緒に返す。
+    grounding_node は出典付与ノードの差し替え口（未指定ならシードの表を読む nodes.attach_sources）。
+    keep_toolsets は実行の後に閉じないツールセット（lifespan で作って使い回す McpToolset。閉じるのは lifespan）。
+    """
+    active_agent = agent
     # MCP の事前接続（従来は LLM フロー内で行われていた）も latency に含める。
     started = time.perf_counter()
 
@@ -278,7 +317,7 @@ async def run_mcp_grounded(
     try:
         failure = await _preflight_toolsets(active_agent) if mcp_route_enabled() else None
         if failure is None:
-            node = build_mcp_grounded_workflow(agent_node=active_agent)
+            node = build_mcp_grounded_workflow(agent_node=active_agent, grounding_node=grounding_node)
         else:
             logger.warning("MCP ツールを取得できないため静的探索で回答します: %s", failure)
             notes.append(_MCP_UNAVAILABLE_NOTE.format(detail=failure))
@@ -297,7 +336,7 @@ async def run_mcp_grounded(
         # ツールセットの終了処理（MCP サブプロセスの停止）は latency に含めない。
         latency_ms = int((time.perf_counter() - started) * 1000)
     finally:
-        await _close_toolsets(active_agent)
+        await _close_toolsets(active_agent, keep_toolsets)
 
     node_sequence = _collapse_repeats(
         name for event in events if (name := _node_name(event)) is not None
@@ -307,7 +346,7 @@ async def run_mcp_grounded(
         None,
     )
     if grounded is not None:
-        return McpAgentRunResult(
+        result = McpAgentRunResult(
             route="mcp",
             answer=grounded.answer,
             cited_codes=grounded.cited_codes,
@@ -319,6 +358,7 @@ async def run_mcp_grounded(
             model=_model_name(active_agent),
             latency_ms=latency_ms,
         )
+        return GroundedRun(result=result, grounded=grounded, llm_calls=_count_llm_calls(events))
 
     payload = next(
         (event.output for event in reversed(events) if isinstance(event.output, AnswerPayload)),
@@ -329,7 +369,7 @@ async def run_mcp_grounded(
             "Workflow が GroundedAnswer / AnswerPayload を返しませんでした: "
             f"node_sequence={node_sequence}"
         )
-    return McpAgentRunResult(
+    result = McpAgentRunResult(
         route="static",
         answer=payload.answer,
         cited_codes=payload.cited_codes,
@@ -337,3 +377,50 @@ async def run_mcp_grounded(
         node_sequence=node_sequence,
         latency_ms=latency_ms,
     )
+    return GroundedRun(result=result, grounded=None, llm_calls=_count_llm_calls(events))
+
+
+async def run_single_generation(question: str, *, agent: LlmAgent, grounding_node: Any) -> GroundedRun:
+    """道具なしの LLM を1回だけ動かして出典を付ける（A1 の微修正の静的の経路。workflow.build_single_generation_workflow）。
+
+    MCP を使わないので事前接続の確認も静的 DAG への倒れ先も無い。route は "static"（LLM は動く。model を埋める）。
+    道具を持つ agent は断る（道具を使うと LLM の往復が増えるため。ValueError）。
+    出典付与ノードが答えを返さなければ RuntimeError（握りつぶさない）。
+    """
+    if agent.tools:
+        raise ValueError(f"静的の経路の agent は道具を持てません: {[getattr(tool, 'name', tool) for tool in agent.tools]}")
+    started = time.perf_counter()
+    events: list[Event] = []
+    active = Runner(
+        node=build_single_generation_workflow(agent_node=agent, grounding_node=grounding_node),
+        session_service=InMemorySessionService(),
+        auto_create_session=True,
+    )
+    async for event in active.run_async(
+        user_id=_USER_ID,
+        session_id=uuid.uuid4().hex,
+        new_message=types.Content(role="user", parts=[types.Part(text=question)]),
+    ):
+        events.append(event)
+    latency_ms = int((time.perf_counter() - started) * 1000)
+
+    node_sequence = _collapse_repeats(name for event in events if (name := _node_name(event)) is not None)
+    grounded = next(
+        (event.output for event in reversed(events) if isinstance(event.output, GroundedAnswer)),
+        None,
+    )
+    if grounded is None:
+        raise RuntimeError(f"道具なしの生成が GroundedAnswer を返しませんでした: node_sequence={node_sequence}")
+    result = McpAgentRunResult(
+        route="static",
+        answer=grounded.answer,
+        cited_codes=grounded.cited_codes,
+        sources=grounded.sources,
+        unverified_codes=grounded.unverified_codes,
+        notes=grounded.notes,
+        tool_calls=extract_tool_calls(events),
+        node_sequence=node_sequence,
+        model=_model_name(agent),
+        latency_ms=latency_ms,
+    )
+    return GroundedRun(result=result, grounded=grounded, llm_calls=_count_llm_calls(events))

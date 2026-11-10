@@ -373,3 +373,32 @@ def test_engine_refuses_other_department():
     other = dataclasses.replace(catalog([]), department_id="other")
     with pytest.raises(ValueError):
         DiagnoseEngine(make_config(), other)
+
+
+# --- AI の微修正の候補（ranked_candidates） ------------------------------------------------
+
+
+def test_ranked_candidates_lists_every_candidate_in_plan_order_with_scores():
+    """その学期の候補を、プランと同じ並び（点の高い順 → syllabus_id）で、点が 0 以下や同じ名前のものも外さずに返す。"""
+    config = make_config()
+    courses = [
+        course("10", group_id="G_C"),  # reaches_group で +2、year_fit で +1
+        course("11", name="同名"),
+        course("12", name="同名", slots=("火2",)),  # 同じ名前の別クラスも残す（1限でないので避けられない）
+        course("13", slots=("月1",), year_min=2),  # 1年は取れないので候補でない
+        course("14", term="秋"),  # 秋の科目は春の候補でない
+    ]
+    engine = DiagnoseEngine(config, catalog(courses))
+    selected, _ = validate_answers(config, answers(morning=["avoid"]))  # 1限を避ける（-3）
+
+    ranked = engine.ranked_candidates(selected, SPRING1)
+
+    assert [(item.syllabus_id, score) for item, score in ranked] == [("12", 1.0), ("10", 0.0), ("11", -2.0)]
+    # 並びはプランの並びと同じ（プランは点が 0 以下で打ち切る）
+    assert [c.syllabus_id for c in engine.plan(selected).terms[0].courses] == ["12"]
+
+
+def test_ranked_candidates_is_empty_for_terms_outside_the_config():
+    engine = DiagnoseEngine(make_config(), catalog([course("10", year_min=2, year_max=2)]))
+    selected, _ = validate_answers(make_config(), answers())
+    assert engine.ranked_candidates(selected, PlanTerm(2, "春")) == []  # 設定の埋める学期は1年だけ

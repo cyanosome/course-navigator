@@ -8,10 +8,12 @@ ADK のノードは `ctx` しか受け取らないため、Neo4j ドライバと
 
 from typing import Any
 
-__all__ = ["db_pool", "neo4j_driver", "set_backends"]
+__all__ = ["db_pool", "mcp_toolset", "neo4j_driver", "set_backends", "set_mcp_toolset"]
 
 _db_pool: Any | None = None
 _neo4j_driver: Any | None = None
+# A1 で使い回す Neo4j の McpToolset（lifespan で1回だけ作る。無ければ A1 は1問ごとに作って閉じる）。
+_mcp_toolset: Any | None = None
 
 
 def set_backends(pool: Any | None, driver: Any | None) -> None:
@@ -20,9 +22,19 @@ def set_backends(pool: Any | None, driver: Any | None) -> None:
     _db_pool, _neo4j_driver = pool, driver
 
 
+def set_mcp_toolset(toolset: Any | None) -> None:
+    """FastAPI の lifespan から呼ぶ（閉じるのも lifespan）。"""
+    global _mcp_toolset
+    _mcp_toolset = toolset
+
+
 def db_pool() -> Any | None:
     return _db_pool
 
 
 def neo4j_driver() -> Any | None:
     return _neo4j_driver
+
+
+def mcp_toolset() -> Any | None:
+    return _mcp_toolset
