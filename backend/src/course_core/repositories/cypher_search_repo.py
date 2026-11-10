@@ -46,7 +46,7 @@ ORDER BY score DESC;
 
 _QUERY_SIMILARITY_TEMPLATE = """
 MATCH (seed:Course)
-WHERE (seed.course_code = $identifier OR seed.code = $identifier OR seed.title CONTAINS $identifier OR seed.name CONTAINS $identifier)
+WHERE (seed.syllabus_id = $identifier OR seed.course_code = $identifier OR seed.code = $identifier OR seed.title CONTAINS $identifier OR seed.name CONTAINS $identifier)
 MATCH (seed)-[sim:SIMILAR_TO]-(other:Course)
 WHERE sim.score >= $min_score
 WITH coalesce(other.course_code, other.code, elementId(other)) AS other_code,
@@ -81,7 +81,7 @@ ORDER BY score DESC;
 
 _QUERY_PURE_GRAPH_TEMPLATE = """
 MATCH (seed:Course)
-WHERE (seed.course_code = $identifier OR seed.code = $identifier OR seed.title CONTAINS $identifier OR seed.name CONTAINS $identifier)
+WHERE (seed.syllabus_id = $identifier OR seed.course_code = $identifier OR seed.code = $identifier OR seed.title CONTAINS $identifier OR seed.name CONTAINS $identifier)
 WITH coalesce(seed.course_code, seed.code, elementId(seed)) AS code, head(collect(seed)) AS seed
 ORDER BY seed.title ASC
 LIMIT $top_k
@@ -112,7 +112,7 @@ ORDER BY title ASC;
 
 _QUERY_COURSE_GRAPH = """
 MATCH (seed:Course)
-WHERE (seed.course_code = $course_code OR seed.code = $course_code)
+WHERE (seed.syllabus_id = $course_code OR seed.course_code = $course_code OR seed.code = $course_code)
 WITH seed LIMIT 1
 OPTIONAL MATCH path = (seed)-[:REQUIRES_PREREQUISITE*1..3]->(p:Course)
 WITH seed, collect(path) AS paths

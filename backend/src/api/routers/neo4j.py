@@ -42,6 +42,8 @@ async def test_neo4j_search(request: Request, q: str = "") -> list[dict[str, Any
     return [
         {
             "id": record["id"],
+            "syllabus_id": record.get("syllabus_id", record["id"]),
+            "code": record.get("code", ""),
             "title": record["title"],
             "description": record["description"],
             "prerequisites": record["prerequisites"],
