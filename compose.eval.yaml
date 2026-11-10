@@ -1,0 +1,7 @@
+services:
+  backend:
+    environment:
+      - RESEARCH_DATA_DIR=/research_data
+    volumes:
+      - ./backend/logs/research:/research_data
+      - /home/1gk3269y/dev/study001:/home/1gk3269y/dev/study001
