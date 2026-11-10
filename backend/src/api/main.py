@@ -12,10 +12,22 @@ from fastapi import FastAPI
 from neo4j import AsyncGraphDatabase
 
 from agent import deps as agent_deps
+from agent.nodes import mcp_route_enabled
 from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
-from api.routers import agent, integrated, navi, neo4j, postgres, search
+from api.routers import (
+    agent,
+    assist,
+    catalog,
+    diagnose,
+    integrated,
+    navi,
+    neo4j,
+    postgres,
+    research,
+    search,
+)
 
 
 @asynccontextmanager
@@ -50,9 +62,21 @@ async def lifespan(app: FastAPI):
     # --- 初期シードデータの自動投入（DBが空の場合のみ） ---
     await seeder.seed_initial_data_if_empty(pool, neo4j_driver)
 
+    # --- AI の口（A1）で使い回す Neo4j の McpToolset（起動に約6秒かかるので1回だけ繋ぐ） ---
+    mcp_toolset = None
+    if mcp_route_enabled():
+        # mcp_agent は mcp パッケージを読み込むので遅延 import（`import api.main` を mcp に依存させない）
+        from agent.mcp_agent import open_shared_mcp_toolset
+
+        mcp_toolset = await open_shared_mcp_toolset()
+    agent_deps.set_mcp_toolset(mcp_toolset)
+
     yield
 
     # --- シャットダウン処理 ---
+    agent_deps.set_mcp_toolset(None)
+    if mcp_toolset is not None:
+        await mcp_toolset.close()
     agent_deps.set_backends(None, None)
     await pool.close()
     await neo4j_driver.close()
@@ -62,16 +86,22 @@ app = FastAPI(lifespan=lifespan)
 
 register_exception_handlers(app)
 
-app.include_router(postgres.router)
-app.include_router(postgres.router, prefix="/api")
-app.include_router(neo4j.router)
-app.include_router(neo4j.router, prefix="/api")
-app.include_router(integrated.router)
-app.include_router(integrated.router, prefix="/api")
-app.include_router(agent.router)
-app.include_router(agent.router, prefix="/api")
-app.include_router(search.router)
-app.include_router(search.router, prefix="/api")
-app.include_router(navi.router)
-app.include_router(navi.router, prefix="/api")
+# 登録対象の全 10 ルーター
+ALL_ROUTERS = [
+    postgres.router,
+    neo4j.router,
+    integrated.router,
+    agent.router,
+    catalog.router,
+    research.router,
+    assist.router,
+    diagnose.router,
+    search.router,
+    navi.router,
+]
 
+# Traefik (URLパスから /api を剥離する環境) と、
+# Vite プロキシ/直接アクセス (/api を保持してリクエストする環境) の双方に対応
+for r in ALL_ROUTERS:
+    app.include_router(r)
+    app.include_router(r, prefix="/api")

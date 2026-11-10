@@ -15,6 +15,7 @@ __all__ = [
     "build_agent_workflow",
     "build_mcp_first_workflow",
     "build_mcp_grounded_workflow",
+    "build_single_generation_workflow",
     "build_workflow",
     "workflow",
 ]
@@ -117,6 +118,7 @@ def build_mcp_first_workflow(
 def build_mcp_grounded_workflow(
     name: str = "course_navigator_mcp_grounded_workflow",
     agent_node: LlmAgent | None = None,
+    grounding_node: Any = None,
     **agent_kwargs: Any,
 ) -> Workflow:
     """MCP 先行型 + 出典付与のワークフロー（test3-2）を構築する。
@@ -129,12 +131,15 @@ def build_mcp_grounded_workflow(
     attach_sources は LLM の cited_codes を PostgreSQL で引き直して出典を作る決定論ノード。
     static 側は build_mcp_first_workflow と同じ静的 DAG。
     agent_node はテストで偽モデルの LlmAgent を差し込む口（未指定なら build_grounded_mcp_agent）。
+    grounding_node は出典付与ノードの差し替え口（未指定ならシードの表を読む nodes.attach_sources。
+    A1 は courses を読む nodes.course_sources_node(...) を渡す）。
     """
     from agent.mcp_agent import build_grounded_mcp_agent
 
     mcp_agent_node = (
         agent_node if agent_node is not None else build_grounded_mcp_agent(**agent_kwargs)
     )
+    sources_node = grounding_node if grounding_node is not None else nodes.attach_sources
 
     return Workflow(
         name=name,
@@ -148,7 +153,7 @@ def build_mcp_grounded_workflow(
                 },
             ),
             # mcp ルート: LLM の回答 → DB 由来の出典付与
-            (mcp_agent_node, nodes.attach_sources),
+            (mcp_agent_node, sources_node),
             # static ルート（build_mcp_first_workflow と同じ）
             (nodes.parse_intent, nodes.route_by_mode),
             (
@@ -166,3 +171,16 @@ def build_mcp_grounded_workflow(
             (nodes.rank_candidates, nodes.compose_answer),
         ],
     )
+
+
+def build_single_generation_workflow(
+    agent_node: LlmAgent,
+    grounding_node: Any,
+    name: str = "course_navigator_single_generation_workflow",
+) -> Workflow:
+    """道具なしの LLM を1回だけ動かし、出典を付けるワークフロー（A1 の微修正の静的の経路）。
+
+    START ➔ agent_node（道具なし。入力に要る情報はサーバーが渡す） ➔ grounding_node（DB で照合する決定論ノード）
+    MCP を使わないので route_initial も静的 DAG への倒れ先も持たない。
+    """
+    return Workflow(name=name, edges=[("START", agent_node, grounding_node)])
