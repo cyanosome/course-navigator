@@ -16,6 +16,8 @@ import type { FakeWaitMode } from '../../navi/ask'
 import { createHttpAskAdapter } from '../../navi/askAdapter'
 import { createCourseStore, createNaviDataSource, NaviDataContext } from '../../navi/dataSource'
 import type { NaviData, NaviDataSource } from '../../navi/dataSource'
+import { atPlanTerm, createDiagnoseSource, inPlan, planCodes, planCourseAsCourse } from '../../navi/diagnose'
+import type { DiagnoseSource } from '../../navi/diagnose'
 import { findCourse } from '../../navi/graph'
 import { PC_QUERY, REDUCED_MOTION_QUERY, useMediaQuery } from '../../navi/hooks'
 import {
@@ -28,21 +30,31 @@ import {
   useStudy,
 } from '../../navi/research'
 import type { ShortlistFrom } from '../../navi/research'
-import { ASK_TIMEOUT_MS, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
+import { ASK_TIMEOUT_MS, DIAGNOSE_HREF, isAskSession, isStudyRecord, NaviContext } from '../../navi/state'
 import type { AskSession, NaviContextValue, StudyEvent, StudyRecord, ToastState } from '../../navi/state'
 import { isNumber, isString, isStringArray, KEYS, readJson, writeJson } from '../../navi/storage'
-import type { TermKey } from '../../navi/timetable'
-import type { Department } from '../../navi/types'
+import { resolveCourse } from '../../navi/timetable'
+import type { CourseLookup, Placement, TermKey } from '../../navi/timetable'
+import type { Course, Department } from '../../navi/types'
+import { DiagnoseContext, useDiagnoseState } from '../../navi/useDiagnose'
+import type { DiagnoseState, PlanEditFrom } from '../../navi/useDiagnose'
 import { useLoadable } from '../../navi/useLoadable'
-import { DEFAULT_VARIANT, ruleEdgeTypes, toVariantState, VariantContext } from '../../navi/variant'
+import { PlanRefineContext, usePlanRefineState } from '../../navi/usePlanRefine'
+import type { PlanRefineState, RefineTarget } from '../../navi/usePlanRefine'
+import { CheckpointsContext, useCheckpointsState } from '../../navi/useStatus'
+import type { CheckpointsState } from '../../navi/useStatus'
+import { DEFAULT_VARIANT, ruleEdgeTypes, toVariantState, useFlags, VariantContext } from '../../navi/variant'
 import { addedNotice } from '../../navi/views'
 import AboutScreen from './AboutScreen'
 import CourseScreen from './CourseScreen'
 import DepartmentScreen from './DepartmentScreen'
+import DiagnoseScreen from './DiagnoseScreen'
 import GroupScreen from './GroupScreen'
 import NaviLayout from './NaviLayout'
 import NaviShell from './NaviShell'
 import PageFrame from './PageFrame'
+import PlanAi from './PlanAi'
+import PlanLayout from './PlanLayout'
 import SearchScreen from './SearchScreen'
 import StudyEndScreen from './StudyEndScreen'
 import StudyGate from './StudyGate'
@@ -94,6 +106,23 @@ function pickDepartment(list: DepartmentSummary[], initial: InitialParams): stri
   if (initial.linkDeptId !== null && ids.has(initial.linkDeptId)) return initial.linkDeptId
   if (initial.storedDeptId !== null && ids.has(initial.storedDeptId)) return initial.storedDeptId
   return null
+}
+
+/** 診断の変種で、候補の操作の「どこから」を、プランの足し外しの4種（事前登録 study1 6.2）に分ける */
+function planEditFrom(from: ShortlistFrom): PlanEditFrom {
+  switch (from) {
+    case 'refine':
+      return 'refine'
+    case 'search':
+    case 'recommend':
+    case 'interest':
+    case 'group':
+    case 'ask':
+    case 'similar':
+      return 'search'
+    default:
+      return 'manual'
+  }
 }
 
 /** タブを開き直したとき、待ちの途中だった質問は取り戻せない（requirements.md R1-4 は後の段階）ので失敗として出す */
@@ -272,6 +301,24 @@ export default function NaviApp() {
   )
 }
 
+interface PlanProvidersProps {
+  diagnose: DiagnoseState
+  refine: PlanRefineState
+  checkpoints: CheckpointsState
+  children: ReactNode
+}
+
+/** 診断・プランの微修正・履修状況のチェックの文脈 */
+function PlanProviders({ diagnose, refine, checkpoints, children }: PlanProvidersProps) {
+  return (
+    <DiagnoseContext.Provider value={diagnose}>
+      <PlanRefineContext.Provider value={refine}>
+        <CheckpointsContext.Provider value={checkpoints}>{children}</CheckpointsContext.Provider>
+      </PlanRefineContext.Provider>
+    </DiagnoseContext.Provider>
+  )
+}
+
 interface NaviRootProps {
   dept: Department
   departments: DepartmentSummary[]
@@ -286,6 +333,7 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   const isPc = useMediaQuery(PC_QUERY)
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY)
   const { log } = useResearchLog()
+  const flags = useFlags()
   // 偽のアダプタは開発ビルドで ?wait= を付けたときだけ（本番のビルドには入らない）
   const adapter = useMemo<AskAdapter>(
     () => (import.meta.env.DEV && initial.wait !== null ? createFakeAskAdapter(initial.wait) : createHttpAskAdapter()),
@@ -296,6 +344,17 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     [source, dept.faculty],
   )
   const assumedTerm = useMemo<TermKey>(() => ({ year: initial.assumedYear, half: '春' }), [initial.assumedYear])
+
+  /* ---------- 診断（プランは時間割の引き方にも使うので、先に作る。状態は navi/useDiagnose） ---------- */
+  const [diagnoseSource] = useState<DiagnoseSource>(createDiagnoseSource)
+  const diagnose = useDiagnoseState({
+    deptId: dept.id,
+    enabled: flags.diagnose === 'quiz',
+    source: diagnoseSource,
+    log,
+    loadCourse: naviData.loadCourse,
+  })
+  const working = diagnose.working
 
   /* ---------- 時間割の学期・読み上げ・知らせ ---------- */
   const [focusTerm, setFocusTerm] = useState<TermKey>(assumedTerm)
@@ -308,6 +367,48 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
   /* ---------- 候補 ---------- */
   const [shortlist, setShortlist] = useState<string[]>(() => readJson('local', KEYS.shortlist, isStringArray) ?? [])
   useEffect(() => writeJson('local', KEYS.shortlist, shortlist), [shortlist])
+
+  /* ---------- 診断の変種（diagnose=quiz）では、プランの科目が候補の代わり（時間割と確かめる場所の元） ---------- */
+  const planMode = flags.diagnose === 'quiz'
+  const planList = useMemo(() => (working === null ? [] : planCodes(working)), [working])
+  const keepList = planMode ? planList : shortlist
+
+  /* ---------- 時間割に置く科目の引き方（系統図 → 科目の入れ物 → プランの科目） ---------- */
+  const { loadCourse, peekCourse } = naviData
+  /** 候補のうち系統図に無い科目で、ここで詳細を読んだもの（読めたら引き方を作り直し、時間割を描き直す） */
+  const [fetched, setFetched] = useState<ReadonlyMap<string, Course>>(() => new Map())
+  const lookupCourse = useCallback<CourseLookup>(
+    (code) => {
+      const mapped = peekCourse(code)
+      const hit = fetched.get(code) ?? (mapped !== undefined && mapped.ok ? mapped.course : undefined)
+      const placed = working === null ? undefined : planCourseAsCourse(working, code)
+      if (hit === undefined) return placed
+      // 診断の変種では、プランの科目はプランの学年と学期に置く
+      return planMode && working !== null ? atPlanTerm(working, hit) : hit
+    },
+    [fetched, peekCourse, planMode, working],
+  )
+  // プランを時間割にするときは、学科の必修を最初から入れない（プランに入っている科目だけを置く）
+  const placement = useMemo<Placement>(
+    () => (planMode ? { lookup: lookupCourse, withRequired: false } : { lookup: lookupCourse }),
+    [lookupCourse, planMode],
+  )
+  // 系統図に無く、まだ入れ物に無い候補（プラン）の詳細を読む（タブを開き直すと入れ物は空なので、そのたびに読む）
+  useEffect(() => {
+    const missing = keepList.filter((code) => findCourse(dept, code) === undefined && peekCourse(code) === undefined)
+    if (missing.length === 0) return
+    const control = new AbortController()
+    void Promise.allSettled(missing.map((code) => loadCourse(code, control.signal))).then((results) => {
+      if (control.signal.aborted) return
+      const got = new Map<string, Course>()
+      results.forEach((r, i) => {
+        const code = missing[i]
+        if (code !== undefined && r.status === 'fulfilled' && r.value.ok) got.set(code, r.value.course)
+      })
+      if (got.size > 0) setFetched((prev) => new Map([...prev, ...got]))
+    })
+    return () => control.abort()
+  }, [dept, keepList, loadCourse, peekCourse])
 
   /* ---------- 調査モード ---------- */
   const [study, setStudy] = useState<StudyRecord | null>(() => readJson('local', KEYS.study, isStudyRecord))
@@ -330,11 +431,46 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     })
   }, [])
 
-  const isKept = useCallback((code: string) => shortlist.includes(code), [shortlist])
-  const courseName = useCallback((code: string) => findCourse(dept, code)?.name ?? code, [dept])
+  const isKept = useCallback((code: string) => keepList.includes(code), [keepList])
+  const courseName = useCallback((code: string) => resolveCourse(dept, code, placement)?.name ?? code, [dept, placement])
+
+  /** 文だけの知らせ（見える知らせと読み上げ） */
+  const notify = useCallback(
+    (text: string) => {
+      toastSeq.current += 1
+      setToast({ id: toastSeq.current, kind: 'note', text })
+      announce(text)
+    },
+    [announce],
+  )
+
+  /** 診断の変種の足し外し（プランへ。入れる学期は科目の配当の学期。入れられなかったら知らせる） */
+  const { addToPlan, removeFromPlan } = diagnose
+  const togglePlan = useCallback(
+    (code: string, from: ShortlistFrom) => {
+      if (working === null) return
+      const name = courseName(code)
+      const edit = planEditFrom(from)
+      if (inPlan(working, code)) {
+        removeFromPlan(code, edit, { via: from })
+        announce(`${name}をプランから外しました。`)
+        return
+      }
+      void addToPlan(code, edit, { via: from }).then((r) => {
+        if (r === 'added') announce(`${name}をプランに入れました。`)
+        else if (r === 'unmapped') notify(`${name}は学年か学期が読めないので、プランに入れられません。`)
+        else if (r === 'failed') notify(`${name}の詳細を読めず、プランに入れられませんでした。`)
+      })
+    },
+    [addToPlan, announce, courseName, notify, removeFromPlan, working],
+  )
 
   const toggleKeep = useCallback(
     (code: string, from: ShortlistFrom = 'unknown') => {
+      if (planMode) {
+        togglePlan(code, from)
+        return
+      }
       if (shortlist.includes(code)) {
         // 外すときは知らせを消し、読み上げだけで伝える（同じ＋がもう一度押せる。E1 5章）
         setShortlist(shortlist.filter((c) => c !== code))
@@ -351,21 +487,25 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
           ? { ...s, keptAfterReason: [...s.keptAfterReason, code] }
           : s,
       )
-      const course = findCourse(dept, code)
+      const course = resolveCourse(dept, code, placement)
       if (course === undefined) {
-        // 学科データに無い科目（自由記述の結果）は時間割に入らないので、読み上げだけ
+        // 詳細を読めていない科目（データに無い自由記述の結果など）は時間割に置けないので、読み上げだけ
         announce(`${code}を候補に入れました。`)
         return
       }
       toastSeq.current += 1
       setToast({ id: toastSeq.current, kind: 'added', code })
-      announce(addedNotice(dept, next, course, focusTerm).speech)
+      announce(addedNotice(dept, next, course, focusTerm, placement).speech)
     },
-    [announce, courseName, dept, focusTerm, log, shortlist],
+    [announce, courseName, dept, focusTerm, log, placement, planMode, shortlist, togglePlan],
   )
 
   const removeKeep = useCallback(
     (code: string) => {
+      if (planMode) {
+        if (keepList.includes(code)) togglePlan(code, 'timetable')
+        return
+      }
       const index = shortlist.indexOf(code)
       if (index < 0) return
       setShortlist(shortlist.filter((c) => c !== code))
@@ -374,7 +514,19 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       setToast({ id: toastSeq.current, kind: 'removed', code, index })
       announce(`${courseName(code)}を候補から外しました。`)
     },
-    [announce, courseName, log, shortlist],
+    [announce, courseName, keepList, log, planMode, shortlist, togglePlan],
+  )
+
+  const keepAll = useCallback(
+    (codes: string[], from: ShortlistFrom) => {
+      const added = codes.filter((code, i) => !shortlist.includes(code) && codes.indexOf(code) === i)
+      if (added.length === 0) return
+      setShortlist([...shortlist, ...added])
+      for (const code of added) log('shortlist_add', { syllabus_id: code, from })
+      setToast(null)
+      announce(`${added.length}科目を候補に入れました。`)
+    },
+    [announce, log, shortlist],
   )
 
   const undoRemove = useCallback(
@@ -498,6 +650,24 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
 
   const [lastDir, setLastDir] = useState('default')
 
+  /* ---------- 診断・プランの微修正・履修状況のチェック（状態は navi/useDiagnose・usePlanRefine・useStatus） ---------- */
+  // 微修正は、いまのプラン（足し外しの後）と、プランを作った答え・その版・指紋・要約を送る
+  const refineTarget = useMemo<RefineTarget | null>(
+    () =>
+      diagnose.plan === null || diagnose.planAnswers === null || diagnose.working === null
+        ? null
+        : {
+            configVersion: diagnose.plan.config_version,
+            answersDigest: diagnose.plan.answers_digest,
+            answers: diagnose.planAnswers,
+            plan: diagnose.working,
+            summary: diagnose.summary,
+          },
+    [diagnose.plan, diagnose.planAnswers, diagnose.working, diagnose.summary],
+  )
+  const refine = usePlanRefineState({ adapter, dept, log, target: refineTarget })
+  const checkpoints = useCheckpointsState(log)
+
   const ctx: NaviContextValue = useMemo(
     () => ({
       dept,
@@ -505,9 +675,11 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       assumedTerm,
       isPc,
       reducedMotion,
-      shortlist,
+      shortlist: keepList,
+      placement,
       isKept,
       toggleKeep,
+      keepAll,
       removeKeep,
       undoRemove,
       focusTerm,
@@ -537,9 +709,11 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
       assumedTerm,
       isPc,
       reducedMotion,
-      shortlist,
+      keepList,
+      placement,
       isKept,
       toggleKeep,
+      keepAll,
       removeKeep,
       undoRemove,
       focusTerm,
@@ -562,38 +736,67 @@ function NaviRoot({ dept, departments, source, initial, chooseDept }: NaviRootPr
     ],
   )
 
+  // 調査のリンク（?mode=study&s=）で開いたときは、調査の始めの画面へ
+  const studyRedirect =
+    initial.studySurveyId !== null && location.key === 'default' ? (
+      <Navigate to={`/navi/study?s=${encodeURIComponent(initial.studySurveyId)}`} replace />
+    ) : null
+  const sharedRoutes = (
+    <>
+      <Route path="about" element={<AboutScreen />} />
+      <Route path="departments" element={<DepartmentScreen departments={departments} onChoose={chooseDept} />} />
+      <Route path="study" element={<StudyStartScreen />} />
+      <Route path="study/end" element={<StudyEndScreen />} />
+      <Route path="*" element={<Navigate to="/navi" replace />} />
+    </>
+  )
+
   return (
     <div className="navi-app">
       <title>コースナビ</title>
       <NaviContext.Provider value={ctx}>
         <NaviDataContext.Provider value={naviData}>
-          <NaviShell>
-            <Routes>
-              <Route element={<NaviLayout />}>
-                <Route
-                  index
-                  element={
-                    initial.studySurveyId !== null && location.key === 'default' ? (
-                      <Navigate to={`/navi/study?s=${encodeURIComponent(initial.studySurveyId)}`} replace />
-                    ) : (
-                      <SearchScreen />
-                    )
-                  }
-                />
-                <Route path="ask/:localId" element={<SearchScreen />} />
-                <Route path="course/:code" element={<CourseScreen />} />
-                <Route path="group/:frameId" element={<GroupScreen />} />
-                <Route path="timetable" element={<TimetableScreen />} />
-              </Route>
-              {/* 改訂前の候補の画面のリンク */}
-              <Route path="shortlist" element={<Navigate to="/navi/timetable" replace />} />
-              <Route path="about" element={<AboutScreen />} />
-              <Route path="departments" element={<DepartmentScreen departments={departments} onChoose={chooseDept} />} />
-              <Route path="study" element={<StudyStartScreen />} />
-              <Route path="study/end" element={<StudyEndScreen />} />
-              <Route path="*" element={<Navigate to="/navi" replace />} />
-            </Routes>
-          </NaviShell>
+          <PlanProviders diagnose={diagnose} refine={refine} checkpoints={checkpoints}>
+            <NaviShell>
+              {planMode ? (
+                // 診断の変種: 左で作り、右で確かめる（PlanLayout）。時間割は確かめる場所の一部なので、別の画面にしない
+                <Routes>
+                  <Route element={<PlanLayout />}>
+                    <Route
+                      index
+                      element={
+                        studyRedirect ??
+                        // 最初に診断を出す（一度出したら、さがすはそのまま開く）
+                        (diagnose.shown ? <SearchScreen /> : <Navigate to={DIAGNOSE_HREF} replace />)
+                      }
+                    />
+                    <Route path="ask/:localId" element={<SearchScreen />} />
+                    <Route path="course/:code" element={<CourseScreen />} />
+                    <Route path="group/:frameId" element={<GroupScreen />} />
+                    <Route path="diagnose" element={<DiagnoseScreen />} />
+                    <Route path="diagnose/ai" element={<PlanAi />} />
+                  </Route>
+                  <Route path="timetable" element={<Navigate to={DIAGNOSE_HREF} replace />} />
+                  <Route path="shortlist" element={<Navigate to={DIAGNOSE_HREF} replace />} />
+                  {sharedRoutes}
+                </Routes>
+              ) : (
+                <Routes>
+                  <Route element={<NaviLayout />}>
+                    <Route index element={studyRedirect ?? <SearchScreen />} />
+                    <Route path="ask/:localId" element={<SearchScreen />} />
+                    <Route path="course/:code" element={<CourseScreen />} />
+                    <Route path="group/:frameId" element={<GroupScreen />} />
+                    <Route path="timetable" element={<TimetableScreen />} />
+                  </Route>
+                  {/* 改訂前の候補の画面のリンク */}
+                  <Route path="shortlist" element={<Navigate to="/navi/timetable" replace />} />
+                  <Route path="diagnose" element={<DiagnoseScreen />} />
+                  {sharedRoutes}
+                </Routes>
+              )}
+            </NaviShell>
+          </PlanProviders>
         </NaviDataContext.Provider>
       </NaviContext.Provider>
     </div>

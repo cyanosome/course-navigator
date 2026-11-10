@@ -26,8 +26,8 @@ import { isNumber, isRecord, isString, isStringArray, readJson, RESEARCH_KEYS, s
 import { DEFAULT_VARIANT, flagsDigest, isVariantFlags, toVariantState } from './variant'
 import type { VariantFlags, VariantState } from './variant'
 
-/** result_click の「どの一覧か」 */
-export type ListSource = 'search' | 'recommend' | 'interest' | 'ask' | 'group' | 'similar'
+/** result_click の「どの一覧か」（plan は診断のプラン、refine はプランの微修正の AI の回答） */
+export type ListSource = 'search' | 'recommend' | 'interest' | 'ask' | 'group' | 'similar' | 'plan' | 'refine'
 
 /** shortlist_add・shortlist_remove の「どこから」 */
 export type ShortlistFrom = ListSource | 'detail' | 'timetable' | 'undo' | 'unknown'
@@ -51,12 +51,29 @@ export function useResearchLog(): ResearchLog {
   return useContext(ResearchLogContext)
 }
 
+/**
+ * 詳細を開いてから閉じるまでを研究のログに残す（syllabus_open・syllabus_close。表示 ms は閉じたときに）。
+ * from はどこから開いたか（plan・status・search・refine など。事前登録 study1 の 6.2）
+ */
+export function useSyllabusViewLog(syllabusId: string, from: string) {
+  const { log } = useResearchLog()
+  useEffect(() => {
+    const opened = performance.now()
+    log('syllabus_open', { syllabus_id: syllabusId, from })
+    return () => {
+      log('syllabus_close', { syllabus_id: syllabusId, shown_ms: Math.round(performance.now() - opened) })
+    }
+  }, [from, log, syllabusId])
+}
+
 /* ---------- 調査のセッションの状態 ---------- */
 
 /** 調査の段階。task のあいだだけ画面（/navi）を開き、ほかは調査の入口（/navi/s/<トークン>）に出す */
 export type StudyPhase =
   | { kind: 'consent' }
   | { kind: 'declined' }
+  /** 同意の後、最初のブロックの前の事前の質問 */
+  | { kind: 'preQuestions' }
   | { kind: 'blockIntro'; block: number }
   | { kind: 'taskIntro'; block: number; taskIndex: number }
   | { kind: 'task'; block: number; taskIndex: number }
@@ -87,6 +104,7 @@ export interface StudyState {
 const PHASE_KINDS: readonly string[] = [
   'consent',
   'declined',
+  'preQuestions',
   'blockIntro',
   'taskIntro',
   'task',

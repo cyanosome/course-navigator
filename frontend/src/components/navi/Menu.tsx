@@ -16,7 +16,7 @@ interface MenuProps {
  * 調査モードの［使い終わった］はメニューに入れず、帯で出す。
  */
 export default function Menu({ id, ref }: MenuProps) {
-  const { dept, shortlist, study, assumedYear } = useNavi()
+  const { dept, shortlist, placement, study, assumedYear } = useNavi()
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'failed'>('idle')
   const firstRef = useRef<HTMLAnchorElement>(null)
 
@@ -27,7 +27,7 @@ export default function Menu({ id, ref }: MenuProps) {
 
   const copy = () => {
     navigator.clipboard
-      .writeText(timetableText(dept, shortlist))
+      .writeText(timetableText(dept, shortlist, placement))
       .then(() => setCopyState('done'))
       .catch((err: unknown) => {
         console.error('時間割をコピーできませんでした', err)

@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import { useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { parseOrigin, readPaneState, useNavi } from '../../navi/state'
+import { useFlags } from '../../navi/variant'
 import { rootEntry } from '../../navi/views'
 import CourseDetail from './CourseDetail'
 
-/** 科目の詳細の画面（/navi/course/<科目コード>?from=…）。スマホは別の画面、PC は中央の段 */
+/** 科目の詳細の画面（/navi/course/<科目コード>?from=…）。スマホは別の画面、PC は中央の段、診断の変種は作る場所 */
 export default function CourseScreen() {
   const { dept, isPc, track } = useNavi()
+  const flags = useFlags()
   const { code = '' } = useParams()
   const [params] = useSearchParams()
   const location = useLocation()
@@ -22,5 +24,6 @@ export default function CourseScreen() {
   }, [code, track])
 
   const detail = <CourseDetail key={code} code={code} origin={origin} trail={ancestors} tab={tab} />
-  return isPc ? detail : <main>{detail}</main>
+  // 診断の変種は PlanLayout が main を持つ
+  return isPc || flags.diagnose === 'quiz' ? detail : <main>{detail}</main>
 }

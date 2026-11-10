@@ -144,12 +144,13 @@ export default function KeywordResults({ ctx, query, currentCode }: KeywordResul
         <ul className="list">
           {items.map((item, i) => {
             const course = findCourse(dept, item.syllabus_id)
-            const r = course === undefined ? summaryRowView(item, ORIGIN, ctx.focusTerm) : rowView(ctx, course, ORIGIN, null, null)
+            const r = course === undefined ? summaryRowView(ctx, item, ORIGIN) : rowView(ctx, course, ORIGIN, null, null)
             return (
               <CourseRow
                 key={r.code}
                 row={r}
                 current={r.code === currentCode}
+                keepFrom="search"
                 linkState={{ trail: [root, { label: r.name, href: r.href }], tab: 'search' }}
                 onOpen={() => log('result_click', { syllabus_id: r.code, rank: i + 1, list: 'search', q: query })}
               />

@@ -7,6 +7,7 @@ import type { Origin } from '../../navi/state'
 import type { Frame } from '../../navi/types'
 import { useFlags } from '../../navi/variant'
 import { rootEntry, rowView } from '../../navi/views'
+import BackLink from './BackLink'
 import CourseRow from './CourseRow'
 import Crumbs from './Crumbs'
 
@@ -22,7 +23,7 @@ function framesText(frames: Frame[]): string {
  * 系統図を出さない変種（graph=off）では、まとまりは無いものとして扱う（URL を直に開いても出さない）。
  */
 export default function GroupScreen() {
-  const { dept, isPc, shortlist, focusTerm, assumedTerm } = useNavi()
+  const { dept, isPc, shortlist, placement, focusTerm, assumedTerm } = useNavi()
   const flags = useFlags()
   const { log } = useResearchLog()
   const { frameId = '' } = useParams()
@@ -34,6 +35,9 @@ export default function GroupScreen() {
   const tab = pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search')
   const ancestors = pane !== null && pane.trail.length >= 2 ? pane.trail.slice(0, -1) : [rootEntry(dept, origin)]
   const frame = flags.graph === 'on' ? findFrame(dept, frameId) : undefined
+  // 診断の変種は PlanLayout が main を持ち、パンくずの代わりに作る場所の上に戻るを置く
+  const planMode = flags.diagnose === 'quiz'
+  const bare = isPc || planMode
   const foundId = frame?.id ?? null
 
   // 開いたまとまりを1回だけ記録する（開発の StrictMode で効果が2回走っても重ねない）
@@ -55,10 +59,10 @@ export default function GroupScreen() {
         </p>
       </section>
     )
-    return isPc ? missing : <main>{missing}</main>
+    return bare ? missing : <main>{missing}</main>
   }
 
-  const ctx = { dept, shortlist, focusTerm, assumedTerm }
+  const ctx = { dept, shortlist, focusTerm, assumedTerm, placement }
   const here = groupHref(frame.id, origin)
   const rowOrigin: Origin = { kind: 'group', frameId: frame.id }
   const courses = coursesInFrame(dept, frame.id)
@@ -67,7 +71,11 @@ export default function GroupScreen() {
 
   const body = (
     <article className="detail" aria-labelledby={titleId}>
-      {isPc && <Crumbs trail={ancestors} current={frame.name} tab={tab} />}
+      {planMode ? (
+        <BackLink entry={ancestors[ancestors.length - 1] ?? rootEntry(dept, origin)} />
+      ) : (
+        isPc && <Crumbs trail={ancestors} current={frame.name} tab={tab} />
+      )}
       <h1 className="title" id={titleId}>
         {frame.name}
       </h1>
@@ -82,6 +90,7 @@ export default function GroupScreen() {
               <CourseRow
                 key={c.code}
                 row={r}
+                keepFrom="group"
                 linkState={{ trail: [...ancestors, { label: frame.name, href: here }, { label: c.name, href: r.href }], tab }}
                 onOpen={() => log('result_click', { syllabus_id: c.code, rank: i + 1, list: 'group', group_id: frame.id })}
               />
@@ -96,5 +105,5 @@ export default function GroupScreen() {
       </p>
     </article>
   )
-  return isPc ? body : <main>{body}</main>
+  return bare ? body : <main>{body}</main>
 }

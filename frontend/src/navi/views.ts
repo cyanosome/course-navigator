@@ -4,15 +4,17 @@
 import type { CourseSummary } from './apiTypes'
 import { extractReasons } from './ask'
 import { courseIndex, findCourse, findFrame, findInterest, hasEdge, interestGroups, reachedInterests, realInterests } from './graph'
+import { toCourse } from './mapping'
 import type { AskSession, Origin, TrailEntry } from './state'
-import { courseHref, groupHref, listHref, TIMETABLE_HREF } from './state'
-import type { TermKey } from './timetable'
+import { courseHref, DIAGNOSE_AI_HREF, DIAGNOSE_HREF, groupHref, listHref, TIMETABLE_HREF } from './state'
+import type { Placement, TermKey } from './timetable'
 import {
   clashesOf,
   courseTermLabel,
   gradProgress,
   inTerm,
   isRequired,
+  resolveCourse,
   sameTerm,
   shortName,
   slotShort,
@@ -36,6 +38,8 @@ export interface ListContext {
   assumedTerm: TermKey
   /** 変種の旗（graph・recommend）。省くと基準 V00 と同じ（系統図もおすすめも出す） */
   flags?: VariantFlags
+  /** 時間割に置く科目の引き方（系統図に無い科目の引き方と、必修を最初から入れるか）。省くと系統図の科目と必修だけ */
+  placement?: Placement
 }
 
 /** 一覧に使う興味関心。系統図を出さない変種（graph=off）では、URL に ?dir= があっても使わない */
@@ -94,7 +98,7 @@ export function isOtherTerm(course: Course, focusTerm: TermKey): boolean {
 
 /** 重なりの1行。いま見ている学期と違う学期の重なりは学期を添える */
 export function clashText(ctx: ListContext, course: Course): string | null {
-  const first = clashesOf(ctx.dept, ctx.shortlist, course)[0]
+  const first = clashesOf(ctx.dept, ctx.shortlist, course, ctx.placement)[0]
   if (first === undefined) return null
   const prefix = sameTerm(first.term, ctx.focusTerm) ? '' : `${termLabel(first.term)}は`
   return `${prefix}${shortName(first.other)}と重なる`
@@ -138,10 +142,41 @@ export function sourceRowView(source: AgentSource, origin: Origin, why: string):
   }
 }
 
-/** キーワード検索の結果（D4 の1件）の行。学科の系統図に無い科目もあるので、API の項目だけで作る */
-export function summaryRowView(item: CourseSummary, origin: Origin, focusTerm: TermKey): RowView {
+/** 診断のプランの科目のうち、学科の系統図に無い科目の行（プランの項目だけで作る。学期はプランの見出しに出す） */
+export function planRowView(
+  c: { syllabus_id: string; name: string; credits: number | null; slots: string[]; slot_note: string | null },
+  origin: Origin,
+  why: string | null,
+  source: string | null,
+): RowView {
+  return {
+    code: c.syllabus_id,
+    name: c.name,
+    faculty: null,
+    slotLines: c.slots.length > 0 ? c.slots : [c.slot_note === 'オンデマンド' ? '随時' : 'なし'],
+    credits: c.credits,
+    termNote: null,
+    learn: '',
+    learnMissing: false,
+    clash: null,
+    why,
+    source,
+    href: courseHref(c.syllabus_id, origin),
+    required: false,
+  }
+}
+
+/**
+ * キーワード検索の結果（D4 の1件）の行。学科の系統図に無い科目もあるので、API の項目だけで作る。
+ * 重なりは系統図の科目の行と同じく、いまの時間割（プランか候補）に対して出す。時間割に入っている科目は、
+ * 置いた学年と学期で見る（時間割の引き方 placement で引く）。学年か学期が読めない科目は出さない
+ */
+export function summaryRowView(ctx: ListContext, item: CourseSummary, origin: Origin): RowView {
+  const { focusTerm } = ctx
   const term = item.year_min !== null && item.term !== null ? `${item.year_min}年${item.term}` : null
   const sameAsFocus = item.year_min === focusTerm.year && (item.term === focusTerm.half || item.term === '通年')
+  const mapped = toCourse(item, { ownFaculty: ctx.dept.faculty })
+  const placed = resolveCourse(ctx.dept, item.syllabus_id, ctx.placement) ?? (mapped.ok ? mapped.course : undefined)
   return {
     code: item.syllabus_id,
     name: item.name,
@@ -151,7 +186,7 @@ export function summaryRowView(item: CourseSummary, origin: Origin, focusTerm: T
     termNote: term !== null && !sameAsFocus ? term : null,
     learn: item.lead !== '' ? item.lead : 'シラバスに記載なし',
     learnMissing: item.lead === '',
-    clash: null,
+    clash: placed === undefined ? null : clashText(ctx, placed),
     why: null,
     source: null,
     href: courseHref(item.syllabus_id, origin),
@@ -223,7 +258,7 @@ export function defaultList(ctx: ListContext): DefaultList {
     .sort((a, b) => b.count - a.count || courseIndex(dept, a.course.code) - courseIndex(dept, b.course.code))
     .map((r) => ({ course: r.course, ...reachWhy(dept, r.course) }))
 
-  const progress = gradProgress(dept, shortlist)
+  const progress = gradProgress(dept, shortlist, ctx.placement)
   const lack = progress?.find((p) => p.category === DEFICIT_CATEGORY)
   const remaining = lack === undefined ? 0 : lack.need - lack.placed
   const top = ranked.slice(0, REACH_PICKS)
@@ -305,7 +340,7 @@ export function detailWhy(ctx: ListContext, course: Course, origin: Origin, ask:
       const recommend = ctx.flags?.recommend ?? 'reach'
       if (recommend === 'catalog' || recommend === 'off') return frameFact(dept, course)
       const list = defaultList(ctx)
-      const progress = gradProgress(dept, ctx.shortlist)?.find((p) => p.category === DEFICIT_CATEGORY)
+      const progress = gradProgress(dept, ctx.shortlist, ctx.placement)?.find((p) => p.category === DEFICIT_CATEGORY)
       if (list.deficitCode === course.code && progress !== undefined) {
         return {
           text: `卒業に要る${DEFICIT_CATEGORY}が、あと${progress.need - progress.placed}単位あります。必修と重ならない${DEFICIT_CATEGORY}の科目です`,
@@ -350,6 +385,9 @@ export function detailWhy(ctx: ListContext, course: Course, origin: Origin, ask:
       if (isRequired(course)) return { text: `学科で${courseTermLabel(course)}に取ると決まっている科目です`, source: `${dept.syllabusYear}年度シラバスの区分より`, ai: false }
       return { ...frameFact(dept, course), text: `あなたが候補に入れた科目です。${frameFact(dept, course).text}` }
     case 'group':
+    case 'plan':
+    case 'refine':
+    case 'status':
     case 'none':
       return frameFact(dept, course)
   }
@@ -365,11 +403,17 @@ export interface AddedNotice {
 }
 
 /** shortlist は入れたあとの候補 */
-export function addedNotice(dept: Department, shortlist: string[], course: Course, focusTerm: TermKey): AddedNotice {
+export function addedNotice(
+  dept: Department,
+  shortlist: string[],
+  course: Course,
+  focusTerm: TermKey,
+  placement: Placement = {},
+): AddedNotice {
   const main = `${course.name}を候補に入れました`
   let sub: string
   if (inTerm(course, focusTerm)) {
-    const credits = termCreditsOf(dept, shortlist, focusTerm)
+    const credits = termCreditsOf(dept, shortlist, focusTerm, placement)
     const where = course.slots.length > 0 ? course.slots.join('・') : '曜限なし'
     sub = `${where}${WIDE_SPACE}${termLabel(focusTerm)}は${credits}単位`
   } else {
@@ -392,6 +436,11 @@ export function rootEntry(dept: Department, origin: Origin): TrailEntry {
       return { label: '探した結果', href: `/navi/ask/${encodeURIComponent(origin.localId)}` }
     case 'tt':
       return { label: '時間割', href: TIMETABLE_HREF }
+    case 'plan':
+    case 'status':
+      return { label: 'プラン', href: DIAGNOSE_HREF }
+    case 'refine':
+      return { label: 'AIに直しを頼む', href: DIAGNOSE_AI_HREF }
     case 'course': {
       const from = findCourse(dept, origin.code)
       return { label: from?.name ?? 'さがす', href: courseHref(origin.code, { kind: 'none' }) }
