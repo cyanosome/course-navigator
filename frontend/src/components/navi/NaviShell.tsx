@@ -6,6 +6,7 @@ import { DIAGNOSE_HREF, listHref, parseOrigin, readPaneState, TIMETABLE_HREF, us
 import type { PcTab } from '../../navi/state'
 import { termCredits, termLabel } from '../../navi/timetable'
 import '../../navi/plan.css'
+import { useHistory } from '../../navi/useHistory'
 import { useFlags } from '../../navi/variant'
 import { rootEntry } from '../../navi/views'
 import Icon from './Icon'
@@ -24,6 +25,8 @@ type NavTab = PcTab | 'plan'
 type Pop = 'menu'
 
 const MENU_ID = 'navi-menu'
+/** 取った科目（学期のコンペの T-a の (b)） */
+const HISTORY_HREF = '/navi/history'
 
 function placeOf(pathname: string): Place {
   if (pathname === '/navi' || pathname === '/navi/' || pathname.startsWith('/navi/ask/')) return 'search'
@@ -44,6 +47,7 @@ export default function NaviShell({ children }: NaviShellProps) {
   const { dept, isPc, shortlist, placement, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
   const flags = useFlags()
   const { active: researching, log } = useResearchLog()
+  const history = useHistory()
   const location = useLocation()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
@@ -162,11 +166,13 @@ export default function NaviShell({ children }: NaviShellProps) {
   )
 
   // 診断の変種（デザインのコンペの U-a）: 上の帯は コースナビ・プラン・さがす・メニュー だけ。時間割のタブと下のタブは無く、
-  // 時間割は確かめる場所（PlanLayout）の一部。戻るは作る場所の上（BackLink）に置く
+  // 時間割は確かめる場所（PlanLayout）の一部。戻るは作る場所の上（BackLink）に置く。
+  // 取った科目を記録しているとき（調査のモードでないとき）は、プランとさがすの間に「取った科目」（学期のコンペの T-a）
   if (flags.diagnose === 'quiz') {
     const fromPlan = origin.kind === 'plan' || origin.kind === 'refine' || origin.kind === 'status'
     const onPlan = place === 'plan' || (place === 'detail' && fromPlan)
     const onSearch = place === 'search' || (place === 'detail' && !fromPlan)
+    const onHistory = location.pathname.startsWith(HISTORY_HREF)
     return (
       <div className="ps">
         {band}
@@ -178,6 +184,11 @@ export default function NaviShell({ children }: NaviShellProps) {
               <Link to={DIAGNOSE_HREF} aria-current={onPlan ? 'page' : undefined}>
                 プラン
               </Link>
+              {history.enabled && history.current !== null && (
+                <Link to={HISTORY_HREF} data-role="history-add" aria-current={onHistory ? 'page' : undefined}>
+                  取った科目
+                </Link>
+              )}
               <Link to={searchHref} aria-current={onSearch ? 'page' : undefined}>
                 さがす
               </Link>

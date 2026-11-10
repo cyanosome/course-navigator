@@ -28,6 +28,7 @@ import type {
   GroupNode,
   InterestOut,
   PlanCourse,
+  PlanCourseStatus,
   PlanSuggestion,
   PlanSuggestions,
   PlanTerm,
@@ -289,12 +290,16 @@ const isAssistOptions = shape({
   citations: oneOf(['cards', 'text']),
 })
 
+/** 科目の status（履修の状況を知らない backend は送らないので、無くてもよい） */
+const isPlanCourseStatus = optional(oneOf<PlanCourseStatus>(['planned', 'registered']))
+
 const isPlanSuggestion = shape<PlanSuggestion>({
   syllabus_id: isString,
   title: isNullableString,
   reason: isString,
   year: optional(isNumber),
   term: optional(oneOf(['春', '秋'])),
+  status: isPlanCourseStatus,
 })
 
 /** プランの微修正の提案（A1 の plan_suggestions）。端末に保存した回答を読み直すときにも使う */
@@ -305,7 +310,7 @@ export const isPlanSuggestions = shape<PlanSuggestions>({
     shape({
       action: oneOf(['add', 'remove']),
       syllabus_id: isString,
-      reason: oneOf(['not_in_db', 'already_in_plan', 'not_in_plan', 'not_candidate', 'locked']),
+      reason: oneOf(['not_in_db', 'already_in_plan', 'not_in_plan', 'not_candidate', 'locked', 'completed']),
     }),
   ),
 })
@@ -376,6 +381,7 @@ const isPlanCourse = shape<PlanCourse>({
   slot_note: isNullableString,
   score: isNumber,
   reasons: arrayOf(shape({ primitive: isString, text: isString })),
+  status: isPlanCourseStatus,
 })
 
 const isPlanTerm = shape<PlanTerm>({
@@ -389,6 +395,7 @@ const isPlanTerm = shape<PlanTerm>({
 export const isDiagnosePlanOut = shape<DiagnosePlanOut>({
   config_version: isString,
   answers_digest: isString,
+  context_digest: optional(isNullableString),
   terms: arrayOf(isPlanTerm),
 })
 

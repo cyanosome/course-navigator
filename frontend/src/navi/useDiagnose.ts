@@ -6,7 +6,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, apiErrorMessage, isAbortError, isDiagnosePlanOut } from './api'
-import type { DiagnoseAnswers, DiagnoseConfig, DiagnosePlanOut, DiagnoseQuestion, EventPayload } from './apiTypes'
+import type { DiagnoseAnswers, DiagnoseConfig, DiagnosePlanOut, DiagnoseQuestion, EventPayload, PlanHistoryIn } from './apiTypes'
 import type { CourseMapping } from './mapping'
 import {
   addCourseToPlan,
@@ -18,6 +18,9 @@ import {
   inPlan,
   isDiagnoseAnswers,
   isWorkingPlan,
+  keepPastTerms,
+  liftPlace,
+  moveCourseInPlan,
   pickOption,
   planCodes,
   planPayload,
@@ -90,6 +93,9 @@ function freshState(deptId: string): Stored {
 
 const MESSAGE_MAX_CHARS = 200
 
+/** backend が履修の状況の誤りで返す 422 の detail の頭（course_core の routers/diagnose.py） */
+const HISTORY_ERROR_PREFIX = '履修の状況'
+
 export interface DiagnoseState {
   /** 診断の設定（旗が diagnose=quiz でなければ null） */
   config: Loadable<DiagnoseConfig> | null
@@ -128,6 +134,8 @@ export interface DiagnoseState {
   addToPlan: (code: string, from: PlanEditFrom, detail?: EventPayload, at?: PlanPlace) => Promise<PlanAddResult>
   /** プランから外す（plan_course_remove） */
   removeFromPlan: (code: string, from: PlanEditFrom, detail?: EventPayload) => void
+  /** プランの科目を別の学期へ移す（学期の切り替わりで、春の通年の科目を秋の登録済みにするとき。調査のモードでは使わない） */
+  moveInPlan: (code: string, to: PlanPlace) => void
 }
 
 interface DiagnoseDeps {
@@ -136,13 +144,28 @@ interface DiagnoseDeps {
   source: DiagnoseSource
   log: ResearchLog['log']
   loadCourse: (syllabusId: string, signal: AbortSignal) => Promise<CourseMapping>
+  /**
+   * 履修の状況（今の学期・履修済み・登録済み）。あれば答えといっしょに送り、返ったプラン（start から先だけ）に
+   * 前のプランの start より前の学期を残す。調査のモードでは null（今までどおり送らない）
+   */
+  history?: PlanHistoryIn | null
+  /** プランに自分で足す科目を入れる最初の学期（今の学期。これより前の学期には入れない）。無ければ null */
+  minPlace?: PlanPlace | null
 }
 
 function truncate(text: string): string {
   return text.length > MESSAGE_MAX_CHARS ? `${text.slice(0, MESSAGE_MAX_CHARS)}…` : text
 }
 
-export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: DiagnoseDeps): DiagnoseState {
+export function useDiagnoseState({
+  deptId,
+  enabled,
+  source,
+  log,
+  loadCourse,
+  history = null,
+  minPlace = null,
+}: DiagnoseDeps): DiagnoseState {
   const [reload, setReload] = useState(0)
   const reloadConfig = useCallback(() => setReload((n) => n + 1), [])
   const loadConfig = useCallback((signal: AbortSignal) => source.getConfig(deptId, signal), [source, deptId])
@@ -211,10 +234,11 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
     setNotice(null)
     const c = new AbortController()
     control.current = c
+    const start = history?.start === undefined ? null : { year: history.start.year, term: history.start.term }
     source
-      .makePlan({ department_id: deptId, config_version: ready.version, answers }, c.signal)
+      .makePlan({ department_id: deptId, config_version: ready.version, answers, ...(history ?? {}) }, c.signal)
       .then((plan) => {
-        const working = toWorkingPlan(plan)
+        const working = keepPastTerms(cur.working, toWorkingPlan(plan), start)
         update({ phase: 'plan', configVersion: ready.version, answers, plan, planAnswers: answers, working })
         log('plan_shown', {
           config_version: plan.config_version,
@@ -231,6 +255,8 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
         if (status === 409) {
           setNotice({ kind: 'version_changed', message: '質問が新しくなりました。答えを確かめて、もう一度送ってください。' })
           reloadConfig()
+        } else if (status === 422 && history !== null && err instanceof ApiError && err.detail?.startsWith(HISTORY_ERROR_PREFIX) === true) {
+          setNotice({ kind: 'invalid_answers', message: '取った科目か今の学期を読み取れませんでした。取った科目を確かめてください。' })
         } else if (status === 422) {
           setNotice({ kind: 'invalid_answers', message: '答えを読み取れませんでした。答え直してください。' })
         } else {
@@ -241,7 +267,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
         if (control.current === c) control.current = null
         setSubmitting(false)
       })
-  }, [answers, deptId, log, ready, reloadConfig, source, submitting, update])
+  }, [answers, cur.working, deptId, history, log, ready, reloadConfig, source, submitting, update])
 
   const retake = useCallback(() => {
     update({ phase: 'answering', index: 0 })
@@ -270,7 +296,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
       }
       if (!mapping.ok) return 'unmapped'
       const course = mapping.course
-      const place = at ?? coursePlace(course)
+      const place = at ?? liftPlace(coursePlace(course), minPlace)
       setStored((s) => {
         const base = s.deptId === deptId ? s : freshState(deptId)
         return base.working === null
@@ -280,7 +306,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
       log('plan_course_add', { ...detail, syllabus_id: code, year: place.year, term: place.term, from })
       return 'added'
     },
-    [deptId, loadCourse, log, working],
+    [deptId, loadCourse, log, minPlace, working],
   )
 
   const removeFromPlan = useCallback(
@@ -295,6 +321,15 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
       log('plan_course_remove', { ...detail, syllabus_id: code, year: hit.term.year, term: hit.term.term, from })
     },
     [deptId, log, working],
+  )
+
+  const moveInPlan = useCallback(
+    (code: string, to: PlanPlace) =>
+      setStored((s) => {
+        const base = s.deptId === deptId ? s : freshState(deptId)
+        return base.working === null ? base : { ...base, working: moveCourseInPlan(base.working, code, to) }
+      }),
+    [deptId],
   )
 
   return {
@@ -320,6 +355,7 @@ export function useDiagnoseState({ deptId, enabled, source, log, loadCourse }: D
     backToPlan,
     addToPlan,
     removeFromPlan,
+    moveInPlan,
   }
 }
 

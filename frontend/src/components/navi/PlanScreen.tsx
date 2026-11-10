@@ -4,13 +4,15 @@ import '../../navi/plan.css'
 import { findPlanCourse, inPlan, planCodes } from '../../navi/diagnose'
 import type { WorkingCourse, WorkingPlan } from '../../navi/diagnose'
 import { courseIndex } from '../../navi/graph'
+import { registeredIds, takenNames } from '../../navi/history'
 import { slotOrder } from '../../navi/ledger'
 import { useResearchLog } from '../../navi/research'
 import { courseHref, DIAGNOSE_AI_HREF, DIAGNOSE_HREF, useNavi } from '../../navi/state'
 import type { Origin } from '../../navi/state'
 import type { StatusCourse } from '../../navi/status'
-import { clashesOf, inTerm, resolveCourse, sameTerm, shortName, slotShort } from '../../navi/timetable'
+import { clashesOf, inTerm, resolveCourse, sameTerm, shortName, slotShort, termLabel } from '../../navi/timetable'
 import { useDiagnose } from '../../navi/useDiagnose'
+import { useHistory } from '../../navi/useHistory'
 import { useLedger } from '../../navi/useLedger'
 import { usePlanRefine } from '../../navi/usePlanRefine'
 import { useFlags } from '../../navi/variant'
@@ -31,6 +33,8 @@ interface RowData {
   /** 重なる科目の略称 */
   clash: string[]
   why: string | null
+  /** 履修登録した科目（取った科目を記録しているときだけ） */
+  registered?: boolean
 }
 
 /** 行の「なぜ」。診断の理由の1つ目、AI が入れた科目と自分で足した科目は、その旨だけ */
@@ -46,16 +50,23 @@ function whyOf(entry: WorkingCourse | undefined): string | null {
  * 見ている学期（右の列かスマホの帯で切り替える）の科目を、曜限の順に1行ずつ出す。行は曜限・単位・科目名・重なり・なぜの1つだけ。
  * 押すと詳細、［外す］でプランから外す。下に、その学期の系統図の科目でプランに無いものを［入れる］つきで出す。
  * 旗 assistant=on のときだけ「AIに直しを頼む」の行を足す（AI の欄はその先の画面）。
+ * 取った科目を記録しているとき（調査のモードでないとき）: 取った科目と同じ名前の行は、なぜの代わりに「1年秋に取った」。
+ * 入れられる科目から取った科目と同じ名前を除く。今の学期は［履修登録した］で、その学期のプランの科目を登録済みにする
  */
 export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
   const { dept, placement, toggleKeep } = useNavi()
   const { retake } = useDiagnose()
+  const history = useHistory()
   const { session } = usePlanRefine()
   const flags = useFlags()
   const { log } = useResearchLog()
   const view = useLedger(plan)
   const term = view.term
   const here = view.here.status
+  const recording = view.history !== null
+  const taken = recording ? takenNames(history.stored) : new Map<string, never>()
+  const isCurrent = view.history?.viewKind === 'current'
+  const registered = isCurrent ? registeredIds(history.stored, term) : []
   const overlaps = here.terms[0]?.overlaps ?? []
   const codes = planCodes(plan)
   const rankOf = new Map(codes.map((code, i) => [code, i + 1]))
@@ -70,6 +81,12 @@ export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
     return slots !== null && slots.length > 0 ? slots : ['なし']
   }
 
+  /** 取った科目と同じ名前なら「1年秋に取った」 */
+  const takenWhy = (name: string): string | null => {
+    const at = taken.get(name)
+    return at === undefined ? null : `${termLabel(at)}に取った`
+  }
+
   const rows: RowData[] = [...here.courses]
     .sort((a, b) => slotOrder(a.slots) - slotOrder(b.slots))
     .map((c: StatusCourse) => {
@@ -81,14 +98,16 @@ export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
         credits: c.credits,
         yearLong: resolveCourse(dept, c.code, placement)?.term === '通年',
         clash: [...new Set(others)].map(shortOf),
-        why: whyOf(findPlanCourse(plan, c.code)?.course),
+        why: takenWhy(c.name) ?? whyOf(findPlanCourse(plan, c.code)?.course),
+        registered: registered.includes(c.code),
       }
     })
 
   // 同じ名前の別のクラスがこの学期のプランにある科目（［移す］で移したものなど）は、入れると二重になるので出さない
   const namesHere = new Set(here.courses.map((c) => c.name))
+  // 取った科目と同じ名前も入れない（取った科目を記録しているとき）
   const candidates = dept.courses
-    .filter((c) => inTerm(c, term) && !inPlan(plan, c.code) && !namesHere.has(c.name))
+    .filter((c) => inTerm(c, term) && !inPlan(plan, c.code) && !namesHere.has(c.name) && !taken.has(c.name))
     .map((c) => ({ course: c, clash: clashesOf(dept, codes, c, placement).filter((x) => sameTerm(x.term, term)) }))
     .sort((a, b) => Number(a.clash.length > 0) - Number(b.clash.length > 0) || courseIndex(dept, a.course.code) - courseIndex(dept, b.course.code))
     .map(({ course, clash }): RowData => ({
@@ -101,14 +120,28 @@ export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
       why: null,
     }))
 
+  const allRegistered = rows.length > 0 && rows.every((r) => r.registered === true)
+  const toggleRegistered = () => history.setRegistered(term, allRegistered ? [] : rows.map((r) => r.code))
+  const remove = (r: RowData) => {
+    if (r.registered === true) history.setRegistered(term, registered.filter((code) => code !== r.code))
+    toggleKeep(r.code, 'plan')
+  }
+
   return (
     <div className="pl-plan">
       <h1 className="vh">プラン</h1>
       <div className="pl-head">
         <p className="pl-count">{rows.length}科目</p>
-        <button className="pl-tbtn" type="button" onClick={retake}>
-          答え直す
-        </button>
+        <span className="pl-head-acts">
+          {isCurrent && rows.length > 0 && (
+            <button className="pl-tbtn" type="button" onClick={toggleRegistered}>
+              {allRegistered ? '登録を取り消す' : '履修登録した'}
+            </button>
+          )}
+          <button className="pl-tbtn" type="button" onClick={retake}>
+            答え直す
+          </button>
+        </span>
       </div>
       {rows.length === 0 ? (
         <p className="pl-empty">この学期の科目はありません。</p>
@@ -120,7 +153,7 @@ export default function PlanScreen({ plan }: { plan: WorkingPlan }) {
               row={r}
               inPlan
               onOpen={() => log('result_click', { syllabus_id: r.code, rank: rankOf.get(r.code) ?? null, list: 'plan' })}
-              onAct={() => toggleKeep(r.code, 'plan')}
+              onAct={() => remove(r)}
             />
           ))}
         </ul>
@@ -178,7 +211,7 @@ function PlanRow({ row, inPlan: placed, onOpen, onAct }: PlanRowProps) {
               <span>{row.clash.join('、')}と重なる</span>
             </span>
           )}
-          {row.why !== null && <span className="pr-why">{row.why}</span>}
+          {row.registered === true ? <span className="pr-reg">登録済み</span> : row.why !== null && <span className="pr-why">{row.why}</span>}
         </span>
       </Link>
       <button

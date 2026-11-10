@@ -13,9 +13,9 @@
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { ApiError, isPlanSuggestions } from './api'
-import type { DiagnoseAnswers, PlanSuggestions } from './apiTypes'
+import type { DiagnoseAnswers, PlanHistoryIn, PlanSuggestions } from './apiTypes'
 import type { AskAdapter } from './ask'
-import { composeRefineQuestion, planContext, planPayload } from './diagnose'
+import { composeRefineQuestion, planContext, planPayload, plansFrom } from './diagnose'
 import type { AnswerSummaryItem, WorkingPlan } from './diagnose'
 import type { ResearchLog } from './research'
 import { ASK_TIMEOUT_MS } from './state'
@@ -82,6 +82,11 @@ export interface RefineTarget {
   answers: DiagnoseAnswers
   plan: WorkingPlan
   summary: AnswerSummaryItem[]
+  /**
+   * 履修の状況（plan_context の start・completed・registered）。調査のモードでは null（今までどおり送らない）。
+   * start があれば、start より前の学期は AI に送らない（plan_context も、断られたときの文も）
+   */
+  history?: PlanHistoryIn | null
 }
 
 export interface PlanRefineState {
@@ -110,7 +115,15 @@ export function usePlanRefineState({ adapter, dept, log, target }: RefineDeps): 
       const seq = (readJson('session', KEYS.refineSeq, isNumber) ?? 0) + 1
       writeJson('session', KEYS.refineSeq, seq)
       const localId = String(seq)
-      const { context, clamped } = planContext(target.plan, target.summary, { configVersion: target.configVersion, answers: target.answers })
+      const history = target.history ?? null
+      const { context, clamped } = planContext(
+        target.plan,
+        target.summary,
+        { configVersion: target.configVersion, answers: target.answers },
+        history,
+      )
+      // 断られたときに文に入れるプランも、start より前の学期を除く
+      const textPlan = history?.start === undefined ? target.plan : plansFrom(target.plan, history.start)
       setSession({
         localId,
         request,
@@ -133,7 +146,7 @@ export function usePlanRefineState({ adapter, dept, log, target }: RefineDeps): 
         setSession((s) => (s !== null && s.localId === localId ? { ...s, ...patch, finishedAt: Date.now() } : s))
 
       const attempt = (withContext: boolean): Promise<void> => {
-        const question = composeRefineQuestion(dept, request, withContext ? null : { plan: target.plan, summary: target.summary })
+        const question = composeRefineQuestion(dept, request, withContext ? null : { plan: textPlan, summary: target.summary })
         const clientEventId = log('plan_refine_send', {
           input: request,
           question,

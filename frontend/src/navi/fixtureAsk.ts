@@ -104,10 +104,13 @@ export function fixturePlanSuggestions(ctx: PlanContextIn): PlanSuggestions {
   const moved = move?.remove.syllabus_id
   const first = codes.at(0)
   const last = codes.at(-1)
+  // 履修済み（plan_context の completed）の科目を足す案は、照合で外したことにする（completed）
+  const completed = new Set(ctx.completed ?? [])
+  const sources = FIXTURE_ASK_RESULT.sources.filter((s) => !inPlan.has(s.code))
   return {
     add: [
-      ...FIXTURE_ASK_RESULT.sources
-        .filter((s) => !inPlan.has(s.code))
+      ...sources
+        .filter((s) => !completed.has(s.code))
         .map((s) => ({ syllabus_id: s.code, title: s.title, reason: '環境の対策に近い内容です（見本）' })),
       ...(move === null ? [] : [move.add]),
     ],
@@ -118,6 +121,7 @@ export function fixturePlanSuggestions(ctx: PlanContextIn): PlanSuggestions {
     dropped: [
       { action: 'add', syllabus_id: 'EC3999', reason: 'not_in_db' },
       { action: 'add', syllabus_id: 'EC3998', reason: 'not_candidate' },
+      ...sources.filter((s) => completed.has(s.code)).map((s) => ({ action: 'add' as const, syllabus_id: s.code, reason: 'completed' as const })),
       ...(first === undefined || first === last || first === moved
         ? []
         : [{ action: 'remove' as const, syllabus_id: first, reason: 'locked' as const }]),
