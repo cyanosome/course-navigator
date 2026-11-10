@@ -6,6 +6,7 @@ import IntegratedTest from './components/IntegratedTest'
 import AgentTest from './components/AgentTest'
 import McpAgentTest from './components/McpAgentTest'
 import NaviApp from './components/navi/NaviApp'
+import CypherSearchTest from './components/CypherSearchTest' 
 import './App.css'
 
 function App() {
