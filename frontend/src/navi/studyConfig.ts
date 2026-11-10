@@ -5,7 +5,9 @@
  *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。最後に画面1/2 の二択と理由。
  *   Q11 はペルソナの形に言い換えた文（事前登録 4.5）。同意の後、練習の前に事前の質問（学年・学部・前に見たか。事前登録 2.5）。
  *   plan_seq_ueq: 計画 4.1 の SEQ と自信（課題ごと）、UEQ-S（画面ごと）、最後に画面1/2 の二択と理由。
- *   Q11・Q12・Q13・自由記述の文は「Ibuki の評価 PDF の要点」ノートの文（問いの形を言い切りにした）。それ以外は〈仮〉。
+ *   Q11・Q12・Q13・自由記述の文は「Ibuki の評価 PDF の要点」ノートの文（問いの形を言い切りにした）。
+ *   ibuki_sus で出るそれ以外の文（SUS・事前の質問・同意・練習の課題・守ること・ブロック2の案内）は、2026-11-10 にいまの文で確定した。
+ *   〈仮〉が残るのは、Study 1 で使わない plan_seq_ueq の SEQ・自信・UEQ-S。
  */
 
 interface ItemBase {
@@ -68,11 +70,11 @@ export interface QuestionnaireSet {
 export type QuestionnaireSetId = 'ibuki_sus' | 'plan_seq_ueq'
 
 /** ログに残す質問票の版（項目の文を変えたら上げる） */
-export const QUESTIONNAIRE_VERSION = '2026-11-07-draft'
+export const QUESTIONNAIRE_VERSION = '2026-11-10'
 
 const AGREE_5 = { points: 5, low: '全くそう思わない', high: 'とてもそう思う' } as const
 
-/** SUS（10項目）。日本語訳 SUS rev1 の文が手元に無いので、文は〈仮〉（評価対象は「このアプリ」） */
+/** SUS（10項目）。日本語訳 SUS rev1 の文は手元に無く、この文で確定した（2026-11-10。評価対象は「このアプリ」） */
 const SUS_TEXTS = [
   'このアプリを、これからもよく使いたい',
   'このアプリは、必要以上に複雑だった',
@@ -90,7 +92,7 @@ const SUS: Questionnaire = {
   id: 'sus',
   scale: 'SUS',
   intro: 'いま使った画面について、あてはまるものを選んでください。',
-  items: SUS_TEXTS.map((text, i): LikertItem => ({ kind: 'likert', id: `sus${i + 1}`, text, ...AGREE_5, required: true, draft: true })),
+  items: SUS_TEXTS.map((text, i): LikertItem => ({ kind: 'likert', id: `sus${i + 1}`, text, ...AGREE_5, required: true, draft: false })),
 }
 
 /**
@@ -195,7 +197,7 @@ const PREFERENCE: Questionnaire = {
 
 /**
  * 事前の質問（事前登録 2.5。学部は 5.5 の E6〈環境都市工学部の外の学生〉を分けるため、自学部かそれ以外の2つ）。
- * 学年の選択肢は事前登録に無いので〈仮〉。ログは questionnaire_submit（scale は「事前の質問」、scope は pre、block は null）
+ * 学年の選択肢は事前登録に無く、この選択肢で確定した（2026-11-10）。ログは questionnaire_submit（scale は「事前の質問」、scope は pre、block は null）
  */
 const BACKGROUND: Questionnaire = {
   id: 'background',
@@ -214,7 +216,7 @@ const BACKGROUND: Questionnaire = {
         { value: 'other', label: 'それ以外' },
       ],
       required: true,
-      draft: true,
+      draft: false,
     },
     {
       kind: 'choice',
@@ -259,7 +261,7 @@ export interface ConsentSection {
 }
 
 export interface ConsentText {
-  /** ログ（consent_recorded）に残る版。study の --consent-version と同じ値にする。文が確定したら v1 に上げる */
+  /** ログ（consent_recorded）に残る版。study の --consent-version と同じ値にする（変えると同意を記録できない） */
   version: string
   draft: boolean
   title: string
@@ -268,8 +270,8 @@ export interface ConsentText {
 }
 
 export const CONSENT: ConsentText = {
-  version: 'v0-draft',
-  draft: true,
+  version: 'v1-diag-ab-202611',
+  draft: false,
   title: '研究への協力のお願い',
   sections: [
     { heading: '目的', body: '履修を選ぶアプリの使いやすさと、探し方の違いを調べる研究です。' },
@@ -287,7 +289,7 @@ export const CONSENT: ConsentText = {
       heading: '保存',
       body: '記録は研究者の手元に保存し、2027年3月31日に消します。論文には人数や割合だけを載せ、あなたと分かる形では出しません。',
     },
-    { heading: '問い合わせ先', body: '研究者の名前と連絡先' },
+    { heading: '問い合わせ先', body: '研究者の連絡先は、紙の同意書に書いてあります。' },
   ],
   formSerialLabel: '同意書の番号（研究者が書きます）',
 }
@@ -354,7 +356,7 @@ export const CARD_TEXT = {
   note: 'アプリで確かめてから出してください（目安10分）',
 } as const
 
-/** 守ること（両セット共通。事前登録 3.1 の K5・K6。カードの裏の文は事前登録に無いので〈仮〉） */
+/** 守ること（両セット共通。事前登録 3.1 の K5・K6。カードの裏の文は事前登録に無く、この文で確定した。2026-11-10） */
 const RULES: CardRules = {
   items: ['下の科目を、1年春・1年秋とも全部入れておく（同じ名前の別のクラスへ移すのはよい）', '同じ学期の同じ曜限に2つ入れない'],
   keep: [
@@ -365,7 +367,7 @@ const RULES: CardRules = {
     },
     { term: '1年秋', names: 'プロセス量論及び演習、無機化学、線形代数２、入門化学結合論、化学実験、物理学実験' },
   ],
-  draft: true,
+  draft: false,
 }
 
 const CARD_A: PersonaCard = {
@@ -423,12 +425,12 @@ const PROMPT_A = 'カードの人になって診断に答え、プランを出�
 const PROMPT_B = '出たプランを、カードの条件をすべて満たすように直して出してください。答え直してもかまいません。'
 
 export const TASKS: Record<string, TaskDef> = {
-  // 練習は1つの課題で、診断からプランを出して直して出すまで（事前登録に文が無いので〈仮〉）
+  // 練習は1つの課題で、診断からプランを出して直して出すまで（事前登録に文が無く、この文で確定した。2026-11-10）
   practice: {
     kind: 'fix',
     card: CARD_C,
     prompt: '練習です。カードの人になって診断に答えてプランを出し、条件を満たすように直して出してください。',
-    draft: true,
+    draft: false,
   },
   'P1-a': { kind: 'diagnose', card: CARD_A, prompt: PROMPT_A, draft: false },
   'P1-b': { kind: 'fix', card: CARD_A, prompt: PROMPT_B, draft: false },
@@ -438,13 +440,13 @@ export const TASKS: Record<string, TaskDef> = {
 
 /**
  * ブロック2の初めの画面の案内（事前登録 2.5。V31 を2番目に受ける人は AI の欄を練習しないので、その手当て）。
- * 文は両条件で同じにし、AI の欄がある画面（assistant=on）のときだけ ai の段落を足す。文は事前登録に無いので〈仮〉
+ * 文は両条件で同じにし、AI の欄がある画面（assistant=on）のときだけ ai の段落を足す。文は事前登録に無く、この文で確定した（2026-11-10）
  */
 export const BLOCK_GUIDE = {
   common:
     'この画面でも、カードの人になって診断に答えてプランを出し、条件に合うように直して出します。単位・時間割・チェックは、右の列（スマホは上の帯）で確かめられます。',
   ai: 'この画面には AI の欄があります。プランの下の「AIに直しを頼む」で直したいことを書いて送ると、外す科目と入れる科目の案が出ます。案は1行ずつ選んで入れられます。さがすの欄からも AI に聞けます。',
-  draft: true,
+  draft: false,
 } as const
 
 /** 参加者には条件を伏せ、ブロックの順で「画面1／画面2」とだけ呼ぶ（計画 4.1） */
