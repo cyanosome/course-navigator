@@ -7,8 +7,8 @@
 
 export type Term = '春' | '秋' | '通年'
 
-/** 区分（シラバスの科目区分。コードの意味が決まるまでは null = 準備中。E1 8章） */
-export type Kind = '必修' | '選択' | '他学部'
+/** 区分（要覧の区分。DB の required・elective_required・elective。データが無い科目は null = 準備中。E1 8章） */
+export type Kind = '必修' | '選択必修' | '選択' | '他学部'
 
 /** 卒業要件の区分（W4 の「卒業に要る単位」と、推薦の理由に使う） */
 export type GradCategory = '必修' | '選択' | '教養'
@@ -96,11 +96,15 @@ export interface GradNeed {
   need: number
 }
 
-/** 卒業要件と学期の上限。元データに無いので、無い学科は null（E1 8章） */
+/** 卒業要件と学期の上限。DB に卒業要件が無い学科は null（画面は「準備中」。E1 8章） */
 export interface Requirements {
   total: number
-  termCap: number
+  /** 学期の履修上限。DB に無いので API からは常に null（画面に上限を出さない） */
+  termCap: number | null
+  /** 区分ごとの要る単位。DB の区分との対応は T17 で決めるので、API からはまだ空 */
   needs: GradNeed[]
+  /** 見本の数（開発用の見本のデータ）なら true。画面に「見本の数」と書く */
+  sample: boolean
 }
 
 export interface Department {

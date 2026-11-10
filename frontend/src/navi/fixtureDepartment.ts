@@ -136,6 +136,7 @@ export const FIXTURE_DEPARTMENT: Department = {
   requirements: {
     total: 124,
     termCap: 24,
+    sample: true,
     needs: [
       { category: '必修', need: 40 },
       { category: '選択', need: 64 },
@@ -159,6 +160,13 @@ export const FIXTURE_DEPARTMENT: Department = {
       learn: '運動の法則とエネルギーの保存',
       summary: '物の運動を、力とエネルギーの考え方で式に表して説明する。',
       grading: '期末試験 80%、演習の提出 20%',
+    }),
+    // 同じ名前の別クラス（AI の微修正の「移す」の見本。系統図には載せない）
+    course({
+      code: 'GE1316', name: '物理学を学ぶ（力学）', short: '力学', frameId: null, year: 1, term: '春', slots: ['木2'], credits: 2,
+      kind: '選択', grad: '教養', teacher: '高瀬 陽介',
+      learn: '運動の法則とエネルギーの保存',
+      summary: '物の運動を、力とエネルギーの考え方で式に表して説明する（木曜のクラス）。',
     }),
     course({
       code: 'EC1102', name: '入門エネルギー環境学', short: 'エネ環', frameId: 'g1a', year: 1, term: '春', slots: ['金1'], credits: 2,
@@ -351,22 +359,3 @@ export const FIXTURE_DEPARTMENT: Department = {
 
 /** データのある学科の一覧（W7）。モックでは1つだけ。 */
 export const FIXTURE_DEPARTMENTS: Department[] = [FIXTURE_DEPARTMENT]
-
-/**
- * 調査モードの設定（UX 仕様 S4 の「フロントの設定ファイル」に当たる）。
- * アンケートの URL は仮。example.com は説明用に予約されたドメインで、実在のアンケートではない。
- */
-export const FIXTURE_STUDY_CONFIG = {
-  appVersion: 'v0.4-mock',
-  surveyUrl: 'https://example.com/survey',
-  /** 事前入力の欄の名前（仮）。数だけを入れる（UX 仕様 C22） */
-  prefillKeys: {
-    session: 'session',
-    kept: 'kept',
-    keptAfterReason: 'kept_after_reason',
-    detailOpened: 'detail_opened',
-    originalOpened: 'original_opened',
-    traversed: 'traversed',
-    asked: 'asked',
-  },
-} as const

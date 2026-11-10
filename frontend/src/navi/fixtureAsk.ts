@@ -6,6 +6,8 @@
  * 本文の書式は backend/src/agent/prompts/compose_answer.md の「科目名 [コード]」の見出しに合わせた。
  * 確認できなかった科目名1件（unverified_codes）は、W5-3 の「確認できなかった科目名が1件あります」を出すため。
  */
+import type { PlanContextIn, PlanSuggestion, PlanSuggestions } from './apiTypes'
+import { FIXTURE_DEPARTMENTS } from './fixtureDepartment'
 import type { McpAgentRunResult } from './types'
 
 export const FIXTURE_ASK_RESULT: McpAgentRunResult = {
@@ -66,4 +68,63 @@ export const FIXTURE_ASK_RESULT: McpAgentRunResult = {
   node_sequence: [],
   model: 'mock',
   latency_ms: 0,
+}
+
+/** 移す組の見本: プランの科目のうち、見本の学科に同じ学期の同じ名前の別クラスがある最初のもの（外す案と入れる案の組） */
+function fixtureMove(ctx: PlanContextIn, inPlan: ReadonlySet<string>): { remove: PlanSuggestion; add: PlanSuggestion } | null {
+  const courses = FIXTURE_DEPARTMENTS.flatMap((d) => d.courses)
+  for (const t of ctx.terms) {
+    for (const id of t.syllabus_ids) {
+      const from = courses.find((c) => c.code === id)
+      if (from === undefined) continue
+      const to = courses.find(
+        (c) => c.code !== id && c.name === from.name && !inPlan.has(c.code) && (c.term === t.term || c.term === '通年'),
+      )
+      if (to === undefined) continue
+      const where = (slots: string[]) => (slots.length === 0 ? '曜限なし' : slots.join('・'))
+      return {
+        remove: { syllabus_id: from.code, title: from.name, reason: `${where(from.slots)}のクラスを外す（見本）` },
+        add: { syllabus_id: to.code, title: to.name, reason: `${where(to.slots)}の別クラスへ移す（見本）` },
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * プランの微修正の見本の提案（A1 の plan_suggestions の形。照合の後のつもり）。出典のうちプランに無い科目を「足す」、
+ * プランの最後の科目を「外す」にし、DB に無い EC3999 と候補に無い EC3998 は照合で外したことにする。
+ * プランの最初の科目は系統図の科目として、外す案を照合で外したことにする（locked）。
+ * 見本の学科に同じ名前の別クラスがあるプランの科目は、そのクラスへ「移す」組（外す＋足す）にする
+ */
+export function fixturePlanSuggestions(ctx: PlanContextIn): PlanSuggestions {
+  const codes = ctx.terms.flatMap((t) => t.syllabus_ids)
+  const inPlan = new Set(codes)
+  const move = fixtureMove(ctx, inPlan)
+  const moved = move?.remove.syllabus_id
+  const first = codes.at(0)
+  const last = codes.at(-1)
+  // 履修済み（plan_context の completed）の科目を足す案は、照合で外したことにする（completed）
+  const completed = new Set(ctx.completed ?? [])
+  const sources = FIXTURE_ASK_RESULT.sources.filter((s) => !inPlan.has(s.code))
+  return {
+    add: [
+      ...sources
+        .filter((s) => !completed.has(s.code))
+        .map((s) => ({ syllabus_id: s.code, title: s.title, reason: '環境の対策に近い内容です（見本）' })),
+      ...(move === null ? [] : [move.add]),
+    ],
+    remove: [
+      ...(last === undefined || last === moved ? [] : [{ syllabus_id: last, title: null, reason: '頼みから遠い科目です（見本）' }]),
+      ...(move === null ? [] : [move.remove]),
+    ],
+    dropped: [
+      { action: 'add', syllabus_id: 'EC3999', reason: 'not_in_db' },
+      { action: 'add', syllabus_id: 'EC3998', reason: 'not_candidate' },
+      ...sources.filter((s) => completed.has(s.code)).map((s) => ({ action: 'add' as const, syllabus_id: s.code, reason: 'completed' as const })),
+      ...(first === undefined || first === last || first === moved
+        ? []
+        : [{ action: 'remove' as const, syllabus_id: first, reason: 'locked' as const }]),
+    ],
+  }
 }

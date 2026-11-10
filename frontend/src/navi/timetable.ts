@@ -86,26 +86,44 @@ export function isRequired(course: Course): boolean {
   return course.kind === '必修'
 }
 
+/** 学科の系統図に無い科目を引く口（科目の入れ物に読んだ詳細、プランの科目）。無ければ undefined */
+export type CourseLookup = (code: string) => Course | undefined
+
+/**
+ * 時間割に置く科目の引き方。
+ * - lookup: 系統図に無い科目を引く口。省くと系統図の科目だけを置く
+ * - withRequired: 学科の必修を最初から入れるか（省くと入れる。プランを時間割にするときは入れない）
+ */
+export interface Placement {
+  lookup?: CourseLookup
+  withRequired?: boolean
+}
+
+/** 科目を引く（系統図の科目 → lookup の順） */
+export function resolveCourse(dept: Department, code: string, placement: Placement = {}): Course | undefined {
+  return findCourse(dept, code) ?? placement.lookup?.(code)
+}
+
 /** 時間割に入っている科目（必修 → 候補の順。重ならない） */
-export function placedCourses(dept: Department, shortlist: string[]): Course[] {
-  const required = requiredCourses(dept)
+export function placedCourses(dept: Department, shortlist: string[], placement: Placement = {}): Course[] {
+  const required = placement.withRequired === false ? [] : requiredCourses(dept)
   const picked = shortlist
-    .map((code) => findCourse(dept, code))
-    .filter((c): c is Course => c !== undefined && !isRequired(c))
+    .map((code) => resolveCourse(dept, code, placement))
+    .filter((c): c is Course => c !== undefined && !required.some((r) => r.code === c.code))
   return [...required, ...picked]
 }
 
-export function placedInTerm(dept: Department, shortlist: string[], t: TermKey): Course[] {
-  return placedCourses(dept, shortlist).filter((c) => inTerm(c, t))
+export function placedInTerm(dept: Department, shortlist: string[], t: TermKey, placement: Placement = {}): Course[] {
+  return placedCourses(dept, shortlist, placement).filter((c) => inTerm(c, t))
 }
 
 /** その学期の単位（単位の分からない科目は数えない） */
-export function termCredits(dept: Department, shortlist: string[], t: TermKey): number {
-  return placedInTerm(dept, shortlist, t).reduce((n, c) => n + (c.credits ?? 0), 0)
+export function termCredits(dept: Department, shortlist: string[], t: TermKey, placement: Placement = {}): number {
+  return placedInTerm(dept, shortlist, t, placement).reduce((n, c) => n + (c.credits ?? 0), 0)
 }
 
-export function unknownCreditCount(dept: Department, shortlist: string[], t: TermKey): number {
-  return placedInTerm(dept, shortlist, t).filter((c) => c.credits === null).length
+export function unknownCreditCount(dept: Department, shortlist: string[], t: TermKey, placement: Placement = {}): number {
+  return placedInTerm(dept, shortlist, t, placement).filter((c) => c.credits === null).length
 }
 
 /** 曜限 → その学期に入っている科目 */
@@ -131,10 +149,10 @@ export interface Clash {
 /**
  * その科目と同じ学期・同じ曜限に、時間割に入っているほかの科目（必修か候補）。入れる前でも後でも使う。
  */
-export function clashesOf(dept: Department, shortlist: string[], course: Course): Clash[] {
+export function clashesOf(dept: Department, shortlist: string[], course: Course, placement: Placement = {}): Clash[] {
   const out: Clash[] = []
   for (const t of termsOf(course)) {
-    const others = placedInTerm(dept, shortlist, t).filter((c) => c.code !== course.code)
+    const others = placedInTerm(dept, shortlist, t, placement).filter((c) => c.code !== course.code)
     for (const slot of gridSlots(course)) {
       for (const other of others) {
         if (gridSlots(other).includes(slot)) out.push({ term: t, slot, other })
@@ -151,10 +169,10 @@ export interface GradProgress {
 }
 
 /** 卒業要件の区分ごとの、時間割に入れた単位（全学期）と要る単位。卒業要件が無い学科は null */
-export function gradProgress(dept: Department, shortlist: string[]): GradProgress[] | null {
+export function gradProgress(dept: Department, shortlist: string[], placement: Placement = {}): GradProgress[] | null {
   const req = dept.requirements
   if (req === null) return null
-  const placed = placedCourses(dept, shortlist)
+  const placed = placedCourses(dept, shortlist, placement)
   return req.needs.map((n) => ({
     category: n.category,
     need: n.need,
@@ -162,17 +180,17 @@ export function gradProgress(dept: Department, shortlist: string[]): GradProgres
   }))
 }
 
-export function totalPlacedCredits(dept: Department, shortlist: string[]): number {
-  return placedCourses(dept, shortlist).reduce((n, c) => n + (c.credits ?? 0), 0)
+export function totalPlacedCredits(dept: Department, shortlist: string[], placement: Placement = {}): number {
+  return placedCourses(dept, shortlist, placement).reduce((n, c) => n + (c.credits ?? 0), 0)
 }
 
 /** 時間割を文字にする（メニューの「時間割を文字でコピー」） */
-export function timetableText(dept: Department, shortlist: string[]): string {
+export function timetableText(dept: Department, shortlist: string[], placement: Placement = {}): string {
   const lines: string[] = [`時間割（コースナビ・${dept.name}）`]
   for (const t of ALL_TERMS) {
-    const courses = placedInTerm(dept, shortlist, t)
+    const courses = placedInTerm(dept, shortlist, t, placement)
     if (courses.length === 0) continue
-    lines.push('', `${termLabel(t)} ${termCredits(dept, shortlist, t)}単位`)
+    lines.push('', `${termLabel(t)} ${termCredits(dept, shortlist, t, placement)}単位`)
     for (const c of courses) {
       lines.push(`${slotLong(c)} ${c.name}${isRequired(c) ? '（必修）' : ''}`)
     }

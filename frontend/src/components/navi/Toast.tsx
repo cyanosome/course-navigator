@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { findCourse } from '../../navi/graph'
 import { useNavi } from '../../navi/state'
 import type { ToastState } from '../../navi/state'
-import { DAYS, gridSlots, isOnGrid, isRequired, PERIODS, placedInTerm, slotMap, termsOf } from '../../navi/timetable'
+import { DAYS, gridSlots, isOnGrid, isRequired, PERIODS, placedInTerm, resolveCourse, slotMap, termsOf } from '../../navi/timetable'
 import type { Course } from '../../navi/types'
 import { addedNotice } from '../../navi/views'
 
@@ -10,7 +9,7 @@ import { addedNotice } from '../../navi/views'
 const ADDED_MS = 2_400
 /** 動きを減らす設定では、動かさずに長めに出す */
 const ADDED_REDUCED_MS = 4_000
-/** ［元に戻す］つきの知らせ（E1 10章: 5 秒） */
+/** ［元に戻す］つきの知らせ（E1 10章: 5 秒）と、文だけの知らせ */
 const REMOVED_MS = 5_000
 const LEAVE_MS = 240
 
@@ -26,11 +25,11 @@ interface ToastViewProps {
 }
 
 function ToastView({ toast }: ToastViewProps) {
-  const { dept, shortlist, focusTerm, reducedMotion, clearToast, undoRemove } = useNavi()
+  const { dept, shortlist, placement, focusTerm, reducedMotion, clearToast, undoRemove } = useNavi()
   const [leaving, setLeaving] = useState(false)
   /** ［元に戻す］にフォーカスやマウスがあるあいだは消さない（押す前に消えないように） */
   const [held, setHeld] = useState(false)
-  const stay = toast.kind === 'removed' ? REMOVED_MS : reducedMotion ? ADDED_REDUCED_MS : ADDED_MS
+  const stay = toast.kind !== 'added' ? REMOVED_MS : reducedMotion ? ADDED_REDUCED_MS : ADDED_MS
 
   useEffect(() => {
     if (held) return
@@ -44,9 +43,17 @@ function ToastView({ toast }: ToastViewProps) {
     return () => clearTimeout(timer)
   }, [leaving, reducedMotion, clearToast, toast.id])
 
-  const course = findCourse(dept, toast.code)
-  if (course === undefined) return null
   const className = leaving ? 'toast is-leaving' : 'toast'
+  if (toast.kind === 'note') {
+    // 文だけの知らせ（読み上げは呼んだ側が announce で1回言う）
+    return (
+      <div className={className} aria-hidden="true">
+        <p className="toast-text">{toast.text}</p>
+      </div>
+    )
+  }
+  const course = resolveCourse(dept, toast.code, placement)
+  if (course === undefined) return null
 
   if (toast.kind === 'removed') {
     return (
@@ -65,7 +72,7 @@ function ToastView({ toast }: ToastViewProps) {
     )
   }
 
-  const notice = addedNotice(dept, shortlist, course, focusTerm)
+  const notice = addedNotice(dept, shortlist, course, focusTerm, placement)
   return (
     // 状態は読み上げ用の領域で1回だけ言うので、知らせそのものは読み上げない（E1 5章）
     <div className={className} aria-hidden="true">
@@ -84,10 +91,10 @@ interface MiniTimetableProps {
 
 /** 知らせの中の小さな時間割（5日×5限）。必修は灰、いま入れたマスは緑、ほかの候補は緑の輪、空きは枠だけ */
 function MiniTimetable({ course }: MiniTimetableProps) {
-  const { dept, shortlist } = useNavi()
+  const { dept, shortlist, placement } = useNavi()
   const term = termsOf(course)[0]
   if (term === undefined) return null
-  const map = slotMap(placedInTerm(dept, shortlist, term))
+  const map = slotMap(placedInTerm(dept, shortlist, term, placement))
   const mine = new Set(gridSlots(course))
   return (
     <div className="mini">

@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
-import { listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
+import { markVariantApplied, useResearchLog } from '../../navi/research'
+import { DIAGNOSE_HREF, listHref, parseOrigin, readPaneState, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import type { PcTab } from '../../navi/state'
-import { termCredits } from '../../navi/timetable'
+import { termCredits, termLabel } from '../../navi/timetable'
+import '../../navi/plan.css'
+import { useHistory } from '../../navi/useHistory'
+import { useFlags } from '../../navi/variant'
 import { rootEntry } from '../../navi/views'
 import Icon from './Icon'
 import Menu from './Menu'
+import TaskCard from './TaskCard'
 import Toast from './Toast'
 import WaitLine from './WaitLine'
 
@@ -14,30 +19,57 @@ interface NaviShellProps {
   children: ReactNode
 }
 
-type Place = 'search' | 'tt' | 'detail' | 'page' | 'study'
+type Place = 'search' | 'tt' | 'detail' | 'page' | 'study' | 'plan'
+/** 行き先のタブ（プランは旗 diagnose=quiz のときだけ） */
+type NavTab = PcTab | 'plan'
 type Pop = 'menu'
 
 const MENU_ID = 'navi-menu'
+/** 取った科目（学期のコンペの T-a の (b)） */
+const HISTORY_HREF = '/navi/history'
 
 function placeOf(pathname: string): Place {
   if (pathname === '/navi' || pathname === '/navi/' || pathname.startsWith('/navi/ask/')) return 'search'
   if (pathname.startsWith('/navi/timetable')) return 'tt'
   if (pathname.startsWith('/navi/course/') || pathname.startsWith('/navi/group/')) return 'detail'
   if (pathname.startsWith('/navi/study')) return 'study'
+  if (pathname.startsWith(DIAGNOSE_HREF)) return 'plan'
   return 'page'
 }
 
 /**
  * 上の帯・メニュー・下のタブ（スマホ）・調査モードの帯・待ちの1行・知らせ・読み上げ用の領域を、
  * どの画面にも同じ場所に出す（E1 4章・6章）。自分の言葉で探す欄は、さがすの一覧のいちばん上に置く（SearchList。入口の案 a）。
+ * 調査のセッション中（/navi/s/<トークン> から始めたとき）は、帯の場所に課題（TaskCard）を出し、メニューは出さない
+ * （学科を変える・このAIについては、どの条件でも開けないようにする）。
  */
 export default function NaviShell({ children }: NaviShellProps) {
-  const { dept, isPc, shortlist, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
+  const { dept, isPc, shortlist, placement, focusTerm, study, ask, lastDir, endStudy, announcement } = useNavi()
+  const flags = useFlags()
+  const { active: researching, log } = useResearchLog()
+  const history = useHistory()
   const location = useLocation()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
   const place = placeOf(location.pathname)
   const minimal = place === 'study'
+
+  // 画面が使った旗を、ブロックごとに1回記録する（variant_applied）
+  useEffect(() => {
+    if (researching) markVariantApplied(flags)
+  }, [researching, flags])
+
+  // 時間割のタブを開いたら記録する（timetable_open。同じ画面の中で学期を変えても重ねない）
+  const ttLoggedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (place !== 'tt') {
+      ttLoggedRef.current = null
+      return
+    }
+    if (ttLoggedRef.current === location.key) return
+    ttLoggedRef.current = location.key
+    log('timetable_open', { term: termLabel(focusTerm) })
+  }, [place, location.key, focusTerm, log])
 
   /** 開いているメニュー。開いた画面から移ったら閉じたことにする */
   const [pop, setPop] = useState<{ kind: Pop; key: string } | null>(null)
@@ -76,13 +108,22 @@ export default function NaviShell({ children }: NaviShellProps) {
 
   const pane = readPaneState(location.state)
   const origin = parseOrigin(new URLSearchParams(location.search).get('from'))
-  const tab: PcTab | null =
-    place === 'search' ? 'search' : place === 'tt' ? 'tt' : place === 'detail' ? (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search')) : null
+  const tab: NavTab | null =
+    place === 'plan'
+      ? 'plan'
+      : place === 'search'
+        ? 'search'
+        : place === 'tt'
+          ? 'tt'
+          : place === 'detail'
+            ? (pane?.tab ?? (origin.kind === 'tt' ? 'tt' : 'search'))
+            : null
+  const showPlanTab = flags.diagnose === 'quiz'
   const searchHref = listHref(lastDir)
-  const credits = termCredits(dept, shortlist, focusTerm)
+  const credits = termCredits(dept, shortlist, focusTerm, placement)
 
-  // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない
-  const askPending = ask !== null && (ask.status === 'waiting' || !ask.seen)
+  // 自由記述の状態の1行（UX 仕様 C08）。スマホは一覧に待ちの表示があるので、さがすの画面では出さない。AI の欄が無い変種では出さない
+  const askPending = flags.assistant === 'on' && ask !== null && (ask.status === 'waiting' || !ask.seen)
   const showWait = askPending && !minimal && (isPc ? tab !== 'search' : place !== 'search')
 
   const finish = () => {
@@ -115,6 +156,8 @@ export default function NaviShell({ children }: NaviShellProps) {
   )
 
   const menu = openPop === 'menu' && <Menu id={MENU_ID} ref={popRef} />
+  const showMenu = !minimal && !researching
+  const task = researching && <TaskCard />
 
   const live = (
     <p className="vh" aria-live="polite">
@@ -122,14 +165,61 @@ export default function NaviShell({ children }: NaviShellProps) {
     </p>
   )
 
+  // 診断の変種（デザインのコンペの U-a）: 上の帯は コースナビ・プラン・さがす・メニュー だけ。時間割のタブと下のタブは無く、
+  // 時間割は確かめる場所（PlanLayout）の一部。戻るは作る場所の上（BackLink）に置く。
+  // 取った科目を記録しているとき（調査のモードでないとき）は、プランとさがすの間に「取った科目」（学期のコンペの T-a）
+  if (flags.diagnose === 'quiz') {
+    const fromPlan = origin.kind === 'plan' || origin.kind === 'refine' || origin.kind === 'status'
+    const onPlan = place === 'plan' || (place === 'detail' && fromPlan)
+    const onSearch = place === 'search' || (place === 'detail' && !fromPlan)
+    const onHistory = location.pathname.startsWith(HISTORY_HREF)
+    return (
+      <div className="ps">
+        {band}
+        {task}
+        <header className="ps-bar">
+          <span className="brand">コースナビ</span>
+          {!minimal && (
+            <nav className="ps-tabs" aria-label="行き先">
+              <Link to={DIAGNOSE_HREF} aria-current={onPlan ? 'page' : undefined}>
+                プラン
+              </Link>
+              {history.enabled && history.current !== null && (
+                <Link to={HISTORY_HREF} data-role="history-add" aria-current={onHistory ? 'page' : undefined}>
+                  取った科目
+                </Link>
+              )}
+              <Link to={searchHref} aria-current={onSearch ? 'page' : undefined}>
+                さがす
+              </Link>
+            </nav>
+          )}
+          <div className="spacer" />
+          {showMenu && menuButton}
+          {menu}
+        </header>
+        {askPending && !minimal && place !== 'search' && <WaitLine />}
+        {children}
+        <Toast />
+        {live}
+      </div>
+    )
+  }
+
   if (isPc) {
     return (
       <div className="pc">
         {band}
+        {task}
         <header className="pc-bar">
           <span className="brand">コースナビ</span>
           {!minimal && (
             <nav className="pc-tabs" aria-label="行き先">
+              {showPlanTab && (
+                <Link to={DIAGNOSE_HREF} aria-current={tab === 'plan' ? 'page' : undefined}>
+                  プラン
+                </Link>
+              )}
               <Link to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
                 さがす
               </Link>
@@ -140,7 +230,7 @@ export default function NaviShell({ children }: NaviShellProps) {
           )}
           <div className="spacer" />
           <span className="dept">{dept.name}</span>
-          {!minimal && menuButton}
+          {showMenu && menuButton}
           {menu}
         </header>
         {showWait && <WaitLine />}
@@ -156,6 +246,7 @@ export default function NaviShell({ children }: NaviShellProps) {
   return (
     <div className={showWait ? 'sp has-wait' : 'sp'}>
       {band}
+      {task}
       <header className="bar">
         {back === null ? (
           <span className="brand">コースナビ</span>
@@ -165,7 +256,7 @@ export default function NaviShell({ children }: NaviShellProps) {
             <span>{back.label}</span>
           </button>
         )}
-        {!minimal && (
+        {showMenu && (
           <div className="bar-actions">
             {menuButton}
           </div>
@@ -175,7 +266,13 @@ export default function NaviShell({ children }: NaviShellProps) {
       {children}
       {showWait && <WaitLine />}
       {!minimal && (
-        <nav className="tabs" aria-label="行き先">
+        <nav className={showPlanTab ? 'tabs is-3' : 'tabs'} aria-label="行き先">
+          {showPlanTab && (
+            <Link className="tab" to={DIAGNOSE_HREF} aria-current={tab === 'plan' ? 'page' : undefined}>
+              <Icon name="check" />
+              <span>プラン</span>
+            </Link>
+          )}
           <Link className="tab" to={searchHref} aria-current={tab === 'search' ? 'page' : undefined}>
             <Icon name="list" />
             <span>さがす</span>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, Navigate, useParams } from 'react-router-dom'
 import heroImg from './assets/hero.png'
 import PostgresTest from './components/PostgresTest'
 import Neo4jTest from './components/Neo4jTest'
@@ -40,6 +40,8 @@ function App() {
           <Route path="/test4-1" element={<CypherSearchTest />} />
           {/* コースナビの画面モック（UX 仕様・DESIGN.md 確定版 v1。架空の見本データ） */}
           <Route path="/navi/*" element={<NaviApp />} />
+          {/* 調査のカードの URL（/s/<トークン>）は /navi/s/<トークン> へ */}
+          <Route path="/s/:token" element={<StudyLinkRedirect />} />
           {/* 旧パス互換 */}
           <Route path="/test1" element={<PostgresTest />} />
           <Route path="/test2" element={<Neo4jTest />} />
@@ -63,6 +65,11 @@ function WelcomeScreen() {
       </div>
     </section>
   )
+}
+
+function StudyLinkRedirect() {
+  const { token = '' } = useParams()
+  return <Navigate to={`/navi/s/${encodeURIComponent(token)}`} replace />
 }
 
 const styles: { [key: string]: React.CSSProperties } = {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDuration } from '../../navi/hooks'
+import { useStudy } from '../../navi/research'
 import { useNavi } from '../../navi/state'
 import PageFrame from './PageFrame'
 
@@ -10,6 +11,7 @@ const FALLBACK_SURVEY_ID = 'KU-2611'
 /**
  * 調査の開始（W9。UX 仕様 8.1、C18・C19・C21）。
  * 前の候補や記録が端末に残っていれば、件数を出して消してよいかを確かめる。始めたあとは W9 を履歴に残さない。
+ * カードの URL（/navi/s/<トークン>）から始めた調査のセッション中は、記録の無いこの調査モードを始めさせず、調査の入口へ戻す。
  */
 export default function StudyStartScreen() {
   const { shortlist, study, ask, startStudy } = useNavi()
@@ -19,6 +21,8 @@ export default function StudyStartScreen() {
   /** 確かめる文（［始める］を押した時点の件数と使った時間）。null なら確認を出していない */
   const [leftoverSummary, setLeftoverSummary] = useState<string | null>(null)
   const leftover = shortlist.length > 0 || study !== null || ask !== null
+  const research = useStudy()
+  if (research !== null) return <Navigate to={research.gatePath} replace />
 
   const begin = (mode: 'fresh' | 'continue') => {
     startStudy(surveyId, mode)

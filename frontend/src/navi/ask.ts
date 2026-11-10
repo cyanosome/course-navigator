@@ -1,22 +1,34 @@
 /**
  * 「自分の言葉で探す」（W5）の送信と、回答の読み取り。
  *
- * 本物は POST /api/test/agent/mcp（McpAgentRunResult を返す）。このモックは本物を呼ばず、
- * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。本物に差し替えるときは、
- * AskAdapter を満たす関数を作って NaviApp に渡すだけでよい。
+ * 本物は POST /api/assist/ask（askAdapter.ts の createHttpAskAdapter）。開発ビルドで ?wait= を付けたときだけ、
+ * 待ち時間を真似た偽のアダプタ（createFakeAskAdapter）で動く。見本の回答は本番の束に入れないよう、使うときに読み込む。
  */
+import { ApiError } from './api'
+import type { PlanContextIn, PlanSuggestions } from './apiTypes'
 import type { Department, McpAgentRunResult } from './types'
-import { FIXTURE_ASK_RESULT } from './fixtureAsk'
 
-export interface AskAdapter {
-  /** 送る文（composeQuestion で作ったもの）を受けて、回答を返す。signal で中断できる */
-  ask(question: string, signal: AbortSignal): Promise<McpAgentRunResult>
+/** AI に送るもの（A1 の AssistIn の画面側の形） */
+export interface AskRequest {
+  /** 送る文（composeQuestion で作ったもの） */
+  question: string
+  /** 利用者が打った文（記録用） */
+  rawInput: string
+  /** 対応する chat_send の event_id（調査のセッションが無ければ null）。サーバーの chat_response と結ぶ */
+  clientEventId: string | null
+  /** プランの微修正のときだけ、いまのプラン（A1 の plan_context） */
+  planContext?: PlanContextIn
 }
 
-/** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long） */
-export type FakeWaitMode = 'short' | 'long' | 'timeout' | 'error' | 'empty'
+export interface AskAdapter {
+  /** 送るものを受けて、回答を返す。signal で中断できる */
+  ask(request: AskRequest, signal: AbortSignal): Promise<McpAgentRunResult>
+}
 
-export const FAKE_WAIT_MODES: readonly FakeWaitMode[] = ['short', 'long', 'timeout', 'error', 'empty']
+/** 偽のアダプタの待ち方。URL の ?wait= で選ぶ（例 /navi?d=enechem&wait=long）。504 はサーバーの打ち切りを真似る */
+export type FakeWaitMode = 'short' | 'long' | 'timeout' | 'error' | 'empty' | '504'
+
+export const FAKE_WAIT_MODES: readonly FakeWaitMode[] = ['short', 'long', 'timeout', 'error', 'empty', '504']
 
 const SHORT_WAIT_MS = 4_000
 /** 実測の上の端（1問 53〜93 秒。UX 仕様 T3）に近い値 */
@@ -47,7 +59,7 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
 export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
   return {
-    async ask(_question, signal) {
+    async ask(request, signal) {
       const started = Date.now()
       if (mode === 'timeout') {
         // 返らない。呼び出し側の上限（3分）で W6-3 になる
@@ -61,7 +73,12 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
         await delay(ERROR_WAIT_MS, signal)
         throw new TypeError('Failed to fetch（モック: サーバーにつながらない状態を真似ています）')
       }
+      if (mode === '504') {
+        await delay(ERROR_WAIT_MS, signal)
+        throw new ApiError('http', 504, null, 'AI の回答: HTTP 504（モック: サーバーの打ち切りを真似ています）')
+      }
       await delay(mode === 'long' ? LONG_WAIT_MS : SHORT_WAIT_MS, signal)
+      const { FIXTURE_ASK_RESULT } = await import('./fixtureAsk')
       const latency = Date.now() - started
       if (mode === 'empty') {
         return {
@@ -73,6 +90,16 @@ export function createFakeAskAdapter(mode: FakeWaitMode): AskAdapter {
           notes: [],
           latency_ms: latency,
         }
+      }
+      if (request.planContext !== undefined) {
+        // プランの微修正には、A1 と同じく照合の後の提案（plan_suggestions）を付ける
+        const { fixturePlanSuggestions } = await import('./fixtureAsk')
+        const withPlan: McpAgentRunResult & { plan_suggestions: PlanSuggestions } = {
+          ...FIXTURE_ASK_RESULT,
+          latency_ms: latency,
+          plan_suggestions: fixturePlanSuggestions(request.planContext),
+        }
+        return withPlan
       }
       return { ...FIXTURE_ASK_RESULT, latency_ms: latency }
     },

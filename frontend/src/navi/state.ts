@@ -3,7 +3,8 @@
  * 状態そのものは components/navi/NaviApp.tsx が持つ。
  */
 import { createContext, useContext } from 'react'
-import type { TermKey } from './timetable'
+import type { ShortlistFrom } from './research'
+import type { Placement, TermKey } from './timetable'
 import type { Department, McpAgentRunResult } from './types'
 import { isNumber, isRecord, isString, isStringArray } from './storage'
 
@@ -96,6 +97,12 @@ export type Origin =
   | { kind: 'group'; frameId: string }
   | { kind: 'ask'; localId: string }
   | { kind: 'tt' }
+  /** 診断のプラン */
+  | { kind: 'plan' }
+  /** プランの微修正の AI の案 */
+  | { kind: 'refine' }
+  /** チェックの原因の科目（診断の変種の確かめる場所） */
+  | { kind: 'status' }
   | { kind: 'none' }
 
 export function parseOrigin(value: string | null): Origin {
@@ -103,6 +110,9 @@ export function parseOrigin(value: string | null): Origin {
   if (value === 'default') return { kind: 'default' }
   // 'shortlist' は改訂前の候補の画面のリンク（時間割に置き換えた）
   if (value === 'tt' || value === 'shortlist') return { kind: 'tt' }
+  if (value === 'plan') return { kind: 'plan' }
+  if (value === 'refine') return { kind: 'refine' }
+  if (value === 'status') return { kind: 'status' }
   const [kind, id] = value.split(':')
   if (id === undefined || id === '') return { kind: 'none' }
   if (kind === 'dir') return { kind: 'dir', dirId: id }
@@ -118,6 +128,12 @@ function originParam(origin: Origin): string | null {
       return 'default'
     case 'tt':
       return 'tt'
+    case 'plan':
+      return 'plan'
+    case 'refine':
+      return 'refine'
+    case 'status':
+      return 'status'
     case 'dir':
       return `dir:${origin.dirId}`
     case 'course':
@@ -150,6 +166,12 @@ export function listHref(dirId: string): string {
 
 export const TIMETABLE_HREF = '/navi/timetable'
 
+/** 診断とプラン（diagnose=quiz のときだけ開く） */
+export const DIAGNOSE_HREF = '/navi/diagnose'
+
+/** プランの直しを AI に頼む画面（diagnose=quiz かつ assistant=on のときだけ開く） */
+export const DIAGNOSE_AI_HREF = '/navi/diagnose/ai'
+
 /* ---------- たどった道筋（PC のパンくず、スマホの戻る。UX 仕様 C03、E1 6章） ---------- */
 
 export type PcTab = 'search' | 'tt'
@@ -181,6 +203,8 @@ export type ToastState =
   | { id: number; kind: 'added'; code: string }
   /** 時間割の［外す］で外した（5 秒、［元に戻す］つき。E1 10章） */
   | { id: number; kind: 'removed'; code: string; index: number }
+  /** 文だけの知らせ（診断の変種で、プランに入れられなかったときなど。5 秒） */
+  | { id: number; kind: 'note'; text: string }
 
 /* ---------- 共有する状態 ---------- */
 
@@ -193,10 +217,21 @@ export interface NaviContextValue {
   isPc: boolean
   reducedMotion: boolean
 
+  /**
+   * 候補（時間割に入れた科目）。診断の変種（diagnose=quiz）ではプランの科目（全学期）で、isKept・toggleKeep・
+   * removeKeep もプランの足し外しになる（プランが時間割と確かめる場所の元になるので、候補は別に持たない）
+   */
   shortlist: string[]
+  /**
+   * 時間割に置く科目の引き方。系統図に無い科目は、科目の入れ物（D5 で読んだ詳細）→ プランの科目の順に引く。
+   * 入れ物に無い候補は NaviApp が詳細を読みに行き、読めたら引き方を作り直す（時間割が描き直される）
+   */
+  placement: Placement
   isKept: (code: string) => boolean
-  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す */
-  toggleKeep: (code: string) => void
+  /** ＋と［候補に入れる］。入れると知らせを出し、もう一度押すと外す。from は研究のログの「どこから」 */
+  toggleKeep: (code: string, from?: ShortlistFrom) => void
+  /** まとめて候補に入れる（プランの［まとめて候補に入れる］）。入っていない科目だけ足し、1件ずつ shortlist_add を記録する */
+  keepAll: (codes: string[], from: ShortlistFrom) => void
   /** 時間割の［外す］。［元に戻す］つきの知らせを出す */
   removeKeep: (code: string) => void
   undoRemove: (toast: ToastState) => void
@@ -217,8 +252,11 @@ export interface NaviContextValue {
   setAskDraft: (text: string) => void
   /** 欄に送っていない文が入っているか（空でなく、最後に送った文とも違う）。入っているあいだは興味関心のチップを隠す */
   askDraftUnsent: boolean
-  /** 送れたら端末内の番号、前の質問を待っているときは null */
-  sendAsk: (interest: string, withGuardrail: boolean) => string | null
+  /**
+   * 送れたら端末内の番号、前の質問を待っているときは null。送るときに chat_send を記録し、その event_id を
+   * A1 の client_event_id に渡す（retry は結果の画面の［もう一度］から送り直したとき）
+   */
+  sendAsk: (interest: string, withGuardrail: boolean, opts?: { retry?: boolean }) => string | null
   cancelAsk: () => void
   closeAsk: () => void
   markAskSeen: () => void

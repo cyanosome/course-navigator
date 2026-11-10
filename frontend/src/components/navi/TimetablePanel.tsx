@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { findCourse } from '../../navi/graph'
 import { courseHref, listHref, TIMETABLE_HREF, useNavi } from '../../navi/state'
 import {
   ALL_TERMS,
@@ -9,6 +8,7 @@ import {
   isOnGrid,
   isRequired,
   placedInTerm,
+  resolveCourse,
   slotMap,
   termCredits,
   termIndex,
@@ -19,29 +19,34 @@ import {
 import type { Course } from '../../navi/types'
 import Accordion from './Accordion'
 import Icon from './Icon'
+import StatusPanel from './StatusPanel'
 import TimetableGrid from './TimetableGrid'
 
 /**
  * 時間割（W4。PC は W12 の左の段）。E1 4章・5章: 「＜ 1年春 ＞」と「13単位 上限 24」、凡例、表、重なりの知らせ、
  * 曜限なし、開閉2つ（卒業に要る単位・ほかの学期の候補）、注意書き。外したときは［元に戻す］を5秒出す（NaviApp）。
+ * 履修状況のチェック（StatusPanel。仮の置き方）は、どの変種でも同じものを出す。
  */
 export default function TimetablePanel() {
-  const { dept, shortlist, focusTerm, setFocusTerm, removeKeep, isPc, lastDir } = useNavi()
+  const { dept, shortlist, placement, focusTerm, setFocusTerm, removeKeep, isPc, lastDir } = useNavi()
   const index = termIndex(focusTerm)
   const prev = ALL_TERMS[index - 1]
   const next = ALL_TERMS[index + 1]
-  const placed = placedInTerm(dept, shortlist, focusTerm)
+  const placed = placedInTerm(dept, shortlist, focusTerm, placement)
   const clashes = [...slotMap(placed).entries()].filter(([, cs]) => cs.length > 1)
   const noSlot = placed.filter((c) => !isOnGrid(c))
-  const picked = shortlist.map((code) => findCourse(dept, code)).filter((c): c is Course => c !== undefined && !isRequired(c))
+  const picked = shortlist
+    .map((code) => resolveCourse(dept, code, placement))
+    .filter((c): c is Course => c !== undefined && !isRequired(c))
   const pickedHere = picked.filter((c) => inTerm(c, focusTerm))
   const elsewhere = picked.filter((c) => !inTerm(c, focusTerm))
-  const outside = shortlist.filter((code) => findCourse(dept, code) === undefined)
-  const credits = termCredits(dept, shortlist, focusTerm)
-  const unknown = unknownCreditCount(dept, shortlist, focusTerm)
+  // 系統図にも科目の入れ物にもプランにも無い（詳細を読めていない）候補
+  const outside = shortlist.filter((code) => resolveCourse(dept, code, placement) === undefined)
+  const credits = termCredits(dept, shortlist, focusTerm, placement)
+  const unknown = unknownCreditCount(dept, shortlist, focusTerm, placement)
   const req = dept.requirements
-  const progress = gradProgress(dept, shortlist)
-  const total = totalPlacedCredits(dept, shortlist)
+  const progress = gradProgress(dept, shortlist, placement)
+  const total = totalPlacedCredits(dept, shortlist, placement)
   const Heading = isPc ? 'h2' : 'h1'
 
   const nameLink = (c: Course) => {
@@ -88,7 +93,7 @@ export default function TimetablePanel() {
           <span>
             <span className="num">{credits}</span>単位
           </span>
-          {req !== null && <span>上限 {req.termCap}</span>}
+          {req !== null && req.termCap !== null && <span>上限 {req.termCap}</span>}
           {unknown > 0 && <span>単位の分からない科目 {unknown}</span>}
         </p>
       </div>
@@ -156,7 +161,7 @@ export default function TimetablePanel() {
       {outside.length > 0 && (
         <section className="block" aria-labelledby="tt-outside">
           <h2 className="block-h" id="tt-outside">
-            学科のデータに無い候補（時間割に入りません）
+            時間割に置けない候補（詳細を読めていません）
           </h2>
           <ul className="lines">
             {outside.map((code) => (
@@ -172,10 +177,12 @@ export default function TimetablePanel() {
         </section>
       )}
 
+      <StatusPanel target={{ kind: 'shortlist' }} heading="チェック" frame="block" />
+
       <div className="tt-accs accs">
-        <Accordion label="卒業に要る単位" hint={req === null ? 'まだ入っていません' : `${total} / ${req.total}`}>
+        <Accordion label="卒業に要る単位" hint={req === null ? '準備中' : `${total} / ${req.total}`}>
           {req === null || progress === null ? (
-            <p className="seq-note">学科の卒業要件はまだ入っていません。</p>
+            <p className="seq-note">学科の卒業要件は準備中です。</p>
           ) : (
             <>
               <div className="grad">
@@ -187,7 +194,9 @@ export default function TimetablePanel() {
                 ))}
                 <GradRow label="合計" placed={total} need={req.total} />
               </div>
-              <p className="src">全学期の必修と候補を足しています。卒業に要る単位と上限は見本の数です。</p>
+              <p className="src">
+                全学期の必修と候補を足しています。{req.sample && '卒業に要る単位と上限は見本の数です。'}
+              </p>
             </>
           )}
         </Accordion>
