@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg>=0.30.0,<0.31.0",
     "neo4j>=5.28.0,<6.0.0",
     "google-adk[mcp]>=2.6,<3.0",
+    "google-genai>=2.20.0,<3.0.0",
     "neo4j-mcp-server>=1.6.0",
 ]
 

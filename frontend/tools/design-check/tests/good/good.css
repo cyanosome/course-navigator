@@ -1,0 +1,30 @@
+/* 禁止に当たらない書き方のサンプル（check_banlist.py の非検出テスト用）
+   ・Roboto / Noto Sans JP は「代替（2番目以降）なら可」なので、ここでは代替にだけ置く
+   ・色は禁止色から離れた値（青緑のアクセント、寒色寄りの地色）               */
+:root {
+  --font-body: "BIZ UDPGothic", "Noto Sans JP", Roboto, sans-serif;
+  --surface: #f2f5f3;
+  --ink: #1c2422;
+  --accent: #0a7c86;
+  --rule: #c9d3cf;
+  --radius-control: 6px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.card {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+  box-shadow: 0 1px 0 #0b3d2e;
+  transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.card:hover { background-color: #e8eeeb; }
+.label { font-weight: 700; letter-spacing: 0.02em; }
+
+/* 設計メモ — 影は使わない。区切りは罫線 → 余白の順で考える ✨ */
+.plain { backdrop-filter: none; }

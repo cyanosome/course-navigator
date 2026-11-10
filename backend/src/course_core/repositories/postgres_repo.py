@@ -53,11 +53,15 @@ USING hnsw (embedding vector_cosine_ops);
 
 async def create_tables(conn: asyncpg.Connection) -> None:
     """テスト用テーブルを作成する（存在しない場合のみ）。"""
-    await conn.execute(ENABLE_VECTOR_EXTENSION)
     await conn.execute(CREATE_TEST_POSTGRES)
     await conn.execute(CREATE_TEST_POSTGRES_SYLLABUS)
-    await conn.execute(CREATE_TEST_COURSE_EMBEDDINGS)
-    await conn.execute(CREATE_HNSW_INDEX)
+    try:
+        await conn.execute(ENABLE_VECTOR_EXTENSION)
+        await conn.execute(CREATE_TEST_COURSE_EMBEDDINGS)
+        await conn.execute(CREATE_HNSW_INDEX)
+    except Exception:
+        # pgvector が未導入または未使用の環境でも起動を妨げない
+        pass
 
 
 # --- test_postgres エンドポイント用 ---

@@ -5,6 +5,8 @@ import Neo4jTest from './components/Neo4jTest'
 import IntegratedTest from './components/IntegratedTest'
 import AgentTest from './components/AgentTest'
 import McpAgentTest from './components/McpAgentTest'
+import NaviApp from './components/navi/NaviApp'
+import CypherSearchTest from './components/CypherSearchTest' 
 import './App.css'
 
 function App() {
@@ -23,6 +25,7 @@ function App() {
             <Link to="/test2-3" style={styles.navLink}>test2-3: integratedDB</Link>
             <Link to="/test3-1" style={styles.navLink}>test3-1: static_agent</Link>
             <Link to="/test3-2" style={styles.navLink}>test3-2: mcp_agent</Link>
+            <Link to="/test4-1" style={styles.navLink}>test4-1: cypher_search</Link>
           </div>
         </nav>
 
@@ -34,6 +37,9 @@ function App() {
           <Route path="/test2-3" element={<IntegratedTest />} />
           <Route path="/test3-1" element={<AgentTest />} />
           <Route path="/test3-2" element={<McpAgentTest />} />
+          <Route path="/test4-1" element={<CypherSearchTest />} />
+          {/* コースナビの画面モック（UX 仕様・DESIGN.md 確定版 v1。架空の見本データ） */}
+          <Route path="/navi/*" element={<NaviApp />} />
           {/* 旧パス互換 */}
           <Route path="/test1" element={<PostgresTest />} />
           <Route path="/test2" element={<Neo4jTest />} />

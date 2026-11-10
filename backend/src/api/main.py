@@ -16,8 +16,18 @@ from agent.nodes import mcp_route_enabled
 from course_core import config, seeder
 from course_core.errors import register_exception_handlers
 from course_core.repositories import postgres_repo
-from api.routers import agent, integrated, neo4j, postgres
-from api.routers import assist, catalog, diagnose, research
+from api.routers import (
+    agent,
+    assist,
+    catalog,
+    diagnose,
+    integrated,
+    navi,
+    neo4j,
+    postgres,
+    research,
+    search,
+)
 
 
 @asynccontextmanager
@@ -76,12 +86,22 @@ app = FastAPI(lifespan=lifespan)
 
 register_exception_handlers(app)
 
-app.include_router(postgres.router)
-app.include_router(neo4j.router)
-app.include_router(integrated.router)
-app.include_router(agent.router)
-app.include_router(catalog.router)
-app.include_router(research.router)
-app.include_router(assist.router)
-app.include_router(diagnose.router)
+# 登録対象の全 10 ルーター
+ALL_ROUTERS = [
+    postgres.router,
+    neo4j.router,
+    integrated.router,
+    agent.router,
+    catalog.router,
+    research.router,
+    assist.router,
+    diagnose.router,
+    search.router,
+    navi.router,
+]
 
+# Traefik (URLパスから /api を剥離する環境) と、
+# Vite プロキシ/直接アクセス (/api を保持してリクエストする環境) の双方に対応
+for r in ALL_ROUTERS:
+    app.include_router(r)
+    app.include_router(r, prefix="/api")

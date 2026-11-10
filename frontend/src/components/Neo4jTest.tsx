@@ -9,6 +9,8 @@ interface GraphRecord {
   title: string
   description: string | null
   prerequisites: string[]
+  syllabus_id?: string | null
+  code?: string | null
 }
 
 export default function Neo4jTest() {
@@ -123,7 +125,7 @@ export default function Neo4jTest() {
         <div key={record.id} style={styles.listItem}>
           <div style={styles.itemHeader}>
             <span style={styles.itemTitle}>{record.title}</span>
-            <span style={styles.itemId}>{record.id.substring(0, 8)}...</span>
+            <span style={styles.itemId}>{(record.id || record.syllabus_id || 'No ID').substring(0, 8)}...</span>
           </div>
           {record.description && <p style={styles.itemDescription}>{record.description}</p>}
           {record.prerequisites.length > 0 && (

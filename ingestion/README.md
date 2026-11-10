@@ -535,6 +535,23 @@ docker compose --profile tools run --rm ingestion uv run python -m src.transform
 docker compose --profile tools run --rm ingestion uv run python -m src.transformers.kansai.embedding_generator --force
 ```
 
+> [!TIP]
+> **API による実行ができない場合の検証・診断 CLI (`services.embedding`)**
+> Gemini API キーの設定不備や認証・権限エラー等により Embedding 生成が実行できない場合、公式 Google GenAI SDK による診断機能 `src.services.embedding` を実行して疎通状態やエラー原因を即座に特定できます。
+>
+> ```bash
+> # 環境変数 GEMINI_API_KEY を用いて診断を実行
+> docker compose --profile tools run --rm ingestion uv run python -m src.services.embedding
+>
+> # または検証したい API キーを直接引数に渡して実行
+> docker compose --profile tools run --rm ingestion uv run python -m src.services.embedding --key "YOUR_API_KEY"
+> ```
+>
+> **診断ツールがチェック・提示する内容**:
+> - **キー形式検査**: 文字数、プレフィックス（`AIza` / `AQ.`）、不要なクォートや空白の混入有無
+> - **疎通テスト**: Google 公式 SDK (`google-genai`) による Embedding 生成疎通（768次元ベクトルの検証）
+> - **トラブルシューティング処方箋**: エラー内容に応じた具体的な対策（Google Cloud 上での「Generative Language API」の有効化、API キー制限の確認、AI Studio での再発行案内など）を自動提示
+
 #### 2. Neo4j Course ノードへの Embedding 投入 & Vector Index 構築 (`vector_index_loader.py`)
 
 ```bash
