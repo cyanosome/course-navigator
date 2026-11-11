@@ -149,7 +149,7 @@ def test_sent_order_differences_are_reference_only(tmp_path, capsys):
     assert "P02（送った順 2）が P01（送った順 1）より先に始まった" in out
     assert "送ったがまだ始まっていない（P03）" in out and "送った順に無い pid が始まっている（R01）" in out
     # pid の形でない値（名前など）は読まずに止める
-    sent.write_text("P01\n山田\n", encoding="utf-8")
+    sent.write_text("P01\nなまえ\n", encoding="utf-8")
     with pytest.raises(ig.SentOrderError, match="2 行目"):
         ig.read_sent_order(sent)
     assert ig.main(["--events", str(events), "--sent-order", str(sent)]) == 2
