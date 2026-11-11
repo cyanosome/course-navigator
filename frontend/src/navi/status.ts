@@ -82,21 +82,35 @@ function findInPlan(plan: WorkingPlan, code: string): StatusCourse | undefined {
 }
 
 /**
- * プランから。学期はプランの学期、まとまりと必修は学科の系統図の科目（無ければ lookup）から引く。
- * 通年の科目（系統図か lookup で分かったもの）は、プランでは春に置いてあっても春と秋の両方に入れる
+ * プランの科目のまとまりと必修を引く、系統図の科目（frameId のある学科の科目）。id で引けて系統図に載っていればそれ。
+ * 引けないか系統図に載っていない（同じ名前の別のクラスへ移した科目。系統図には同じ名前の別クラスが載らない）ときは、
+ * 同じ学期の同じ名前の系統図の科目（事前登録 study1 の 3.3 の K5 と同じ規則。history.ts の取った科目も名前で照らす）。
+ * 同じ学期に同じ名前の系統図の科目が2つ以上あれば、学科のデータの並びで最初のもの
+ */
+function graphCourseOf(dept: Department, code: string, name: string, term: TermKey): Course | undefined {
+  const byId = findCourse(dept, code)
+  if (byId !== undefined && byId.frameId !== null) return byId
+  return dept.courses.find((x) => x.frameId !== null && x.name === name && inTerm(x, term))
+}
+
+/**
+ * プランから。学期はプランの学期、まとまりと必修は系統図の科目（graphCourseOf。無ければ学科の科目か lookup）から引く。
+ * 通年の科目（学科の科目か lookup で分かったもの）は、プランでは春に置いてあっても春と秋の両方に入れる
  */
 export function statusCoursesFromPlan(dept: Department, plan: WorkingPlan, lookup?: (code: string) => Course | undefined): StatusCourse[] {
   return plan.terms.flatMap((t) =>
     t.courses.map((c): StatusCourse => {
+      const term = planTermKey(t)
       const course = findCourse(dept, c.syllabus_id) ?? lookup?.(c.syllabus_id)
+      const graph = graphCourseOf(dept, c.syllabus_id, c.name, term) ?? course
       return {
         code: c.syllabus_id,
         name: c.name,
-        terms: course?.term === '通年' ? termsOf(course) : [planTermKey(t)],
+        terms: course?.term === '通年' ? termsOf(course) : [term],
         credits: c.credits,
         slots: c.slots,
-        frameId: course?.frameId ?? null,
-        required: course?.kind === '必修',
+        frameId: graph?.frameId ?? null,
+        required: graph?.kind === '必修',
       }
     }),
   )
@@ -419,12 +433,22 @@ function checkNoOverlap(cp: Extract<Checkpoint, { kind: 'no_overlap' }>, status:
   return { ...base, status: 'met', reason: '重なりはありません', codes: [] }
 }
 
+/**
+ * 必修の科目が入っているか。同じクラス（syllabus_id）か、判定する学期のうち必修の科目の学期に同じ名前の科目があれば
+ * 入っているとみなす。学科の系統図には同じ名前の別クラスが載らないので、別のクラスへ移すと id では外れる
+ * （事前登録 study1 の 3.3 の K5 と同じ規則）
+ */
+function hasRequired(status: CourseStatus, c: Course, terms: readonly TermKey[]): boolean {
+  const own = termsOf(c).filter((t) => terms.some((x) => sameTerm(x, t)))
+  return status.courses.some((s) => s.code === c.code || (s.name === c.name && own.some((t) => inTermOf(s, t))))
+}
+
 function checkRequired(cp: Extract<Checkpoint, { kind: 'required' }>, status: CourseStatus, ctx: CheckContext): CheckResult {
   const base = { id: cp.id, kind: cp.kind }
   if (!ctx.kindsAvailable) return { ...base, status: 'unknown', reason: '必修の区分は準備中です', codes: [] }
   const terms = ctx.terms.length > 0 ? ctx.terms : ALL_TERMS
   const need = requiredCourses(ctx.dept).filter((c) => termsOf(c).some((t) => terms.some((x) => sameTerm(x, t))))
-  const lacking = need.filter((c) => !status.courses.some((s) => s.code === c.code))
+  const lacking = need.filter((c) => !hasRequired(status, c, terms))
   if (lacking.length > 0) {
     return { ...base, status: 'unmet', reason: `${lacking.map((c) => c.name).join('、')}がありません`, codes: lacking.map((c) => c.code) }
   }

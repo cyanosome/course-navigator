@@ -264,7 +264,7 @@ export interface SessionOut {
 /** R3 POST /api/research/consent の入力 */
 export interface ConsentIn {
   consent_version: string
-  /** 紙の同意書の通し番号（英数字とハイフン、1〜16 文字。FORM_SERIAL_PATTERN） */
+  /** 同意書の番号（英数字とハイフン、1〜16 文字。FORM_SERIAL_PATTERN）。画面だけで同意を取る調査では固定の値（studyConfig.ts の ONLINE_FORM_SERIAL） */
   form_serial: string
   agreed: boolean
 }
