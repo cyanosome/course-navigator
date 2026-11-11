@@ -419,12 +419,22 @@ function checkNoOverlap(cp: Extract<Checkpoint, { kind: 'no_overlap' }>, status:
   return { ...base, status: 'met', reason: '重なりはありません', codes: [] }
 }
 
+/**
+ * 必修の科目が入っているか。同じクラス（syllabus_id）か、判定する学期のうち必修の科目の学期に同じ名前の科目があれば
+ * 入っているとみなす。学科の系統図には同じ名前の別クラスが載らないので、別のクラスへ移すと id では外れる
+ * （事前登録 study1 の 3.3 の K5 と同じ規則）
+ */
+function hasRequired(status: CourseStatus, c: Course, terms: readonly TermKey[]): boolean {
+  const own = termsOf(c).filter((t) => terms.some((x) => sameTerm(x, t)))
+  return status.courses.some((s) => s.code === c.code || (s.name === c.name && own.some((t) => inTermOf(s, t))))
+}
+
 function checkRequired(cp: Extract<Checkpoint, { kind: 'required' }>, status: CourseStatus, ctx: CheckContext): CheckResult {
   const base = { id: cp.id, kind: cp.kind }
   if (!ctx.kindsAvailable) return { ...base, status: 'unknown', reason: '必修の区分は準備中です', codes: [] }
   const terms = ctx.terms.length > 0 ? ctx.terms : ALL_TERMS
   const need = requiredCourses(ctx.dept).filter((c) => termsOf(c).some((t) => terms.some((x) => sameTerm(x, t))))
-  const lacking = need.filter((c) => !status.courses.some((s) => s.code === c.code))
+  const lacking = need.filter((c) => !hasRequired(status, c, terms))
   if (lacking.length > 0) {
     return { ...base, status: 'unmet', reason: `${lacking.map((c) => c.name).join('、')}がありません`, codes: lacking.map((c) => c.code) }
   }
