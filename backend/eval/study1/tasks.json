@@ -1,0 +1,216 @@
+{
+  "format": "study1-tasks-v1",
+  "prereg": "docs/experiments/2026-11-07_prereg_study1_diag-ab.md（3.1〜3.4）",
+  "department_id": "kansai-enechem-2026",
+  "config_version": "2026-11-07-2",
+  "notes": [
+    "terms はその条件を採点する学期。条件1（K1）は3年春・3年秋、条件2〜4と守ること（K5・K6）は1年春・1年秋（3.1）。ほかの学期は採点しない。",
+    "kind は 3.3 の型。group_count・free_slot・credits・no_overlap は画面のチェック（frontend/src/navi/status.ts）と同じ規則、has_name（K4）と keep_names（K5）は採点だけの規則で、同じ名前の別クラスを区別しない。",
+    "free_slot の periods が空なら、その曜日のすべての時限（status.ts と同じ）。",
+    "group_count の groups は系統図のまとまりの group_id。科目のまとまりは Neo4j の (Course)-[:BELONGS_TO_GROUP]->(CourseGroup) で決まり、2つ以上に属する科目は (academic_year, group_id) の順で先のまとまり（course_core.diagnose.source.membership。画面の系統図 D3 の api/routers/catalog.py の _membership と同じ）。P1 の G_3Y_MatEnergy（材料・エネルギー系）と P2 の G_3Y_OrgCatal（有機・触媒系）は、診断の設定の future の energy・organic の in_group と同じ ID。",
+    "reference_answers は 3.2 の参照の答え（難しさの計算 3.4 にだけ使う。採点は最終プランだけで決まる）。",
+    "registered は 3.4 の下調べの値（診断の設定 2026-11-07-2・エンジン 3440dbf）。feasibility.py が凍結の設定とデータで数え直して比べる。metrics.py の効率（4.4）は min_changes を使う。",
+    "remove_for_add は、足す科目か移す先の科目と曜限が重なるので外す数（3.4 の「足すために外す科目」）。remove_for_credits はそれ以外の外す数（単位を合わせるため）。"
+  ],
+  "task_sets": {
+    "P1": {
+      "card": "A さん",
+      "scored": true,
+      "task_ids": ["P1-a", "P1-b"],
+      "reference_answers": {
+        "future": ["energy"],
+        "style": ["lab"],
+        "worry": ["math"],
+        "liberal": ["nature"],
+        "avoid": ["none"],
+        "freeday": ["mon"]
+      },
+      "conditions": [
+        {
+          "id": "K1",
+          "kind": "group_count",
+          "text": "3年春・3年秋で、材料・エネルギー系の科目を4つすべて入れる",
+          "terms": [{"year": 3, "term": "春"}, {"year": 3, "term": "秋"}],
+          "groups": ["G_3Y_MatEnergy"],
+          "min": 4
+        },
+        {
+          "id": "K2",
+          "kind": "free_slot",
+          "text": "1年春・1年秋とも、月曜には授業を入れない",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}],
+          "days": ["月"],
+          "periods": []
+        },
+        {
+          "id": "K3",
+          "kind": "credits",
+          "text": "1年春・1年秋とも、1学期の単位を16以上18以下にする",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}],
+          "min": 16,
+          "max": 18
+        },
+        {
+          "id": "K4",
+          "kind": "has_name",
+          "text": "先輩に言われたので、1年秋に「物理を学ぶ（電磁気学１）」を入れる（クラスはどれでもよい）",
+          "terms": [{"year": 1, "term": "秋"}],
+          "name": "物理を学ぶ（電磁気学１）"
+        },
+        {
+          "id": "K5",
+          "kind": "keep_names",
+          "text": "下の系統図の科目を、1年春・1年秋とも全部入れておく（同じ名前の別のクラスへ移すのはよい）",
+          "names_by_term": [
+            {
+              "year": 1,
+              "term": "春",
+              "names": ["化学工学量論及び演習", "入門エネルギー環境学", "物理を学ぶ（力学１）", "基礎からの情報処理", "線形代数１", "情報処理演習", "化学を学ぶ（基礎化学）", "フレッシュマンゼミナール"]
+            },
+            {
+              "year": 1,
+              "term": "秋",
+              "names": ["プロセス量論及び演習", "無機化学", "線形代数２", "入門化学結合論", "化学実験", "物理学実験"]
+            }
+          ]
+        },
+        {
+          "id": "K6",
+          "kind": "no_overlap",
+          "text": "同じ学期の同じ曜限に2つ入れない",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}]
+        }
+      ],
+      "registered": {
+        "unmet_initial": 3,
+        "initial_credits": {"1-春": 21, "1-秋": 21},
+        "min_changes": 8,
+        "move": 2,
+        "add": 1,
+        "remove": 5,
+        "remove_for_add": 1,
+        "remove_for_credits": 4
+      }
+    },
+    "P2": {
+      "card": "B さん",
+      "scored": true,
+      "task_ids": ["P2-a", "P2-b"],
+      "reference_answers": {
+        "future": ["organic"],
+        "style": ["talk"],
+        "worry": ["chem"],
+        "liberal": ["culture"],
+        "avoid": ["none"],
+        "freeday": ["none"]
+      },
+      "conditions": [
+        {
+          "id": "K1",
+          "kind": "group_count",
+          "text": "3年春・3年秋で、有機・触媒系の科目を3つすべて入れる",
+          "terms": [{"year": 3, "term": "春"}, {"year": 3, "term": "秋"}],
+          "groups": ["G_3Y_OrgCatal"],
+          "min": 3
+        },
+        {
+          "id": "K2",
+          "kind": "free_slot",
+          "text": "1年春・1年秋とも、火曜の3限・4限・5限には授業を入れない",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}],
+          "days": ["火"],
+          "periods": [3, 4, 5]
+        },
+        {
+          "id": "K3",
+          "kind": "credits",
+          "text": "1年春・1年秋とも、1学期の単位を16以上18以下にする",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}],
+          "min": 16,
+          "max": 18
+        },
+        {
+          "id": "K4",
+          "kind": "has_name",
+          "text": "先輩に言われたので、1年秋に「基礎からの数学２」を入れる",
+          "terms": [{"year": 1, "term": "秋"}],
+          "name": "基礎からの数学２"
+        },
+        {
+          "id": "K5",
+          "kind": "keep_names",
+          "text": "下の系統図の科目を、1年春・1年秋とも全部入れておく（同じ名前の別のクラスへ移すのはよい）",
+          "names_by_term": [
+            {
+              "year": 1,
+              "term": "春",
+              "names": ["化学工学量論及び演習", "入門エネルギー環境学", "物理を学ぶ（力学１）", "基礎からの情報処理", "線形代数１", "情報処理演習", "化学を学ぶ（基礎化学）", "フレッシュマンゼミナール"]
+            },
+            {
+              "year": 1,
+              "term": "秋",
+              "names": ["プロセス量論及び演習", "無機化学", "線形代数２", "入門化学結合論", "化学実験", "物理学実験"]
+            }
+          ]
+        },
+        {
+          "id": "K6",
+          "kind": "no_overlap",
+          "text": "同じ学期の同じ曜限に2つ入れない",
+          "terms": [{"year": 1, "term": "春"}, {"year": 1, "term": "秋"}]
+        }
+      ],
+      "registered": {
+        "unmet_initial": 3,
+        "initial_credits": {"1-春": 21, "1-秋": 21},
+        "min_changes": 8,
+        "move": 2,
+        "add": 1,
+        "remove": 5,
+        "remove_for_add": 1,
+        "remove_for_credits": 4
+      }
+    },
+    "practice": {
+      "card": "C さん",
+      "scored": false,
+      "task_ids": ["practice"],
+      "reference_answers": {
+        "future": ["plant"],
+        "style": ["calc"],
+        "worry": ["none"],
+        "liberal": ["data"],
+        "avoid": ["none"],
+        "freeday": ["none"]
+      },
+      "conditions": [
+        {
+          "id": "C1",
+          "kind": "free_slot",
+          "text": "1年春の木曜2限は空ける（部活のミーティング）",
+          "terms": [{"year": 1, "term": "春"}],
+          "days": ["木"],
+          "periods": [2]
+        },
+        {
+          "id": "C2",
+          "kind": "credits",
+          "text": "1年春は20単位以下にする",
+          "terms": [{"year": 1, "term": "春"}],
+          "min": null,
+          "max": 20
+        }
+      ],
+      "registered": {
+        "unmet_initial": 2,
+        "initial_credits": {"1-春": 21},
+        "min_changes": 1,
+        "move": 0,
+        "add": 0,
+        "remove": 1,
+        "remove_for_add": 0,
+        "remove_for_credits": 1
+      }
+    }
+  }
+}
