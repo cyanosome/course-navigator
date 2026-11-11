@@ -1,6 +1,9 @@
 """Study 1 の完全性の検査（eval.study1.integrity・eventlog）のテスト。イベントは合成。"""
 
+import json
 from datetime import datetime, timedelta
+
+import pytest
 
 from eval.study1 import integrity as ig
 from eval.study1.eventlog import premise_failures, read_events, sessions_of
@@ -108,10 +111,51 @@ def test_distribution_order_ignores_spares(tmp_path):
         complete_participant("P04", "Q4", start=_start(3)),
         complete_participant("R01", "Q1", start=_start(0)),
     ]
-    _, sessions, _ = _check(tmp_path, builders)
+    reports, sessions, _ = _check(tmp_path, builders)
     problems = ig.distribution_order(sessions)
     assert any("抜けた番号 3" in p for p in problems) and "P01 が P02 より先に始まった" not in problems
     assert any("P02" in p and "P01" in p for p in problems)
+    assert all(r.defects == [] for r in reports.values())
+
+
+def test_start_order_is_reference_only_and_exit_code_stays_zero(tmp_path, capsys):
+    builders = [
+        complete_participant("P02", "Q2", start=_start(1)),
+        complete_participant("P01", "Q1", start=_start(2)),
+        complete_participant("P04", "Q4", start=_start(3)),
+    ]
+    path = write_events(tmp_path / "events.jsonl", builders)
+    json_out = tmp_path / "out" / "integrity.json"
+    assert ig.main(["--events", str(path), "--json-out", str(json_out)]) == 0  # 番号の順でなくても欠けではない
+    out = capsys.readouterr().out
+    assert "参考（欠けに数えず、終了コードにも入れない）" in out and "抜けた番号 3" in out
+    assert "読めない行 0" in out
+    data = json.loads(json_out.read_text(encoding="utf-8"))
+    assert data["defects"] == 0 and data["reference"]["started_order"] and data["reference"]["sent_order"] is None
+
+
+def test_sent_order_differences_are_reference_only(tmp_path, capsys):
+    builders = [
+        complete_participant("P02", "Q2", start=_start(1)),
+        complete_participant("P01", "Q1", start=_start(2)),
+        complete_participant("R01", "Q1", start=_start(3)),
+    ]
+    events = write_events(tmp_path / "events.jsonl", builders)
+    sent = tmp_path / "sent.txt"
+    sent.write_text("# 送った順（pid だけ）\nP01\nP02, P03\n", encoding="utf-8")
+    assert ig.read_sent_order(sent) == ["P01", "P02", "P03"]
+    assert ig.main(["--events", str(events), "--sent-order", str(sent)]) == 0
+    out = capsys.readouterr().out
+    assert "P02（送った順 2）が P01（送った順 1）より先に始まった" in out
+    assert "送ったがまだ始まっていない（P03）" in out and "送った順に無い pid が始まっている（R01）" in out
+    # pid の形でない値（名前など）は読まずに止める
+    sent.write_text("P01\n山田\n", encoding="utf-8")
+    with pytest.raises(ig.SentOrderError, match="2 行目"):
+        ig.read_sent_order(sent)
+    assert ig.main(["--events", str(events), "--sent-order", str(sent)]) == 2
+    sent.write_text("P01\nP01\n", encoding="utf-8")
+    with pytest.raises(ig.SentOrderError, match="2回目"):
+        ig.read_sent_order(sent)
 
 
 def test_consent_version_and_study_id_are_arguments(tmp_path):

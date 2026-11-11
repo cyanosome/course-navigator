@@ -1,4 +1,4 @@
-"""毎晩の完全性の検査（事前登録 6.3。5.1 の F2、5.2 の前提、2.3 の配り方）。
+"""毎晩の完全性の検査（事前登録 6.3。5.1 の F2、5.2 の前提）。
 
 研究者用 CLI の check（course_core.research.store.check_completeness）より細かく、Study 1 の流れに合わせて見る:
 - seq が 1 から欠けずに続くか（欠け・重なり。欠けの割合が 10% を超えるセッションは 5.5 の E3）
@@ -9,9 +9,14 @@
 - 同意の記録（consent_recorded）の版が --consent-version（既定 v1-diag-ab-202611）か。--study-id を渡せば、
   すべての行がその study のものか
 - 5.2 の前提（eventlog.premise_failures: 旗の指紋、同じ答えの初期プランの一致、初期プランの表示が AI を待っていない）
-- 配った順: 予備（R で始まる pid）を除き、pid の番号の順にセッションが始まっているか（session_start の時刻）。
-  後の番号が先に始まった・前の番号がまだ始まっていないのに後の番号が始まった、を挙げる
 - chat_response の client_event_id が端末の依頼に結べるか、封筒の印（warnings）の数
+
+参考（欠けに数えず、終了コードにも入れない。リンクを送る形では開く順を参加者が決め、開かれないカードは予備に替えるため）:
+- 始まった順: 予備（R で始まる pid）を除き、pid の番号の順にセッションが始まっているか（session_start の時刻）。
+  後の番号が先に始まった・前の番号がまだ始まっていないのに後の番号が始まった、を挙げる
+- 送った順（--sent-order を渡したときだけ）: 研究者が控えた送った順の pid の並びと、始まった順を比べる。
+  ファイルは pid だけを1行に1つ（カンマ・空白で区切ってもよい。# で始まる行は読まない）。名前や連絡先は書かない。
+  pid の形（英大文字1つと数字。例 P01・R02）でない値があれば止める（終了コード 2）
 
 終えていないブロック・閉じていないセッション（途中の人）は欠けに数えず、状態で分ける。
 
@@ -19,8 +24,8 @@
 
     docker compose exec backend uv run --no-sync python -m eval.study1.integrity --events /tmp/study1-events.jsonl
 
-出力は人ごとの表（標準出力。pid と数だけで、自由記述は出さない）。終了コード: 欠けが無ければ 0、欠けがあれば 1、
-書き出しが読めなければ 2。--json-out で同じ中身を JSON に書く（リポの外）。
+出力は人ごとの表と参考の欄（標準出力。pid と数だけで、自由記述は出さない）。終了コード: 欠けが無ければ 0、
+欠けがあれば 1、書き出しか --sent-order のファイルが読めなければ 2。--json-out で同じ中身を JSON に書く（リポの外）。
 """
 
 import argparse
@@ -36,7 +41,16 @@ from eval.study1.eventlog import AI_REQUEST_TYPES, ReadReport, Session, premise_
 from eval.study1.files import OutputError, write_private_json
 from eval.study1.score import PlanError, TasksError, load_tasks, parse_plan
 
-__all__ = ["E3_SEQ_GAP_LIMIT", "SessionReport", "check_sessions", "distribution_order", "main"]
+__all__ = [
+    "E3_SEQ_GAP_LIMIT",
+    "SentOrderError",
+    "SessionReport",
+    "check_sessions",
+    "distribution_order",
+    "main",
+    "read_sent_order",
+    "sent_order_notes",
+]
 
 EXIT_OK: Final = 0
 EXIT_DEFECTS: Final = 1
@@ -215,8 +229,12 @@ def _final_scales(session: Session) -> Counter[str]:
     return _scales(session, block=None, after_line=max(ends))
 
 
+class SentOrderError(ValueError):
+    """--sent-order のファイルが読めない・pid の形でない値がある。"""
+
+
 def distribution_order(sessions: Sequence[Session]) -> list[str]:
-    """予備を除き、pid の番号の順にセッションが始まっているか。外れを文で返す。"""
+    """予備を除き、pid の番号の順にセッションが始まっているか。外れを文で返す（参考。欠けに数えない）。"""
     started: list[tuple[int, str, Any]] = []
     for session in sessions:
         match = _PID_PATTERN.fullmatch(session.pid or "")
@@ -236,6 +254,45 @@ def distribution_order(sessions: Sequence[Session]) -> list[str]:
         if at_after < at_before:
             problems.append(f"{after} が {before} より先に始まった")
     return problems
+
+
+def read_sent_order(path: Path) -> list[str]:
+    """送った順の pid の並び。pid の形でない値・重なった pid があれば SentOrderError（名前などを読み込まないため）。"""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise SentOrderError(f"{path} を読めません: {exc}") from exc
+    pids: list[str] = []
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.strip().startswith("#"):
+            continue
+        for token in line.replace(",", " ").split():
+            if _PID_PATTERN.fullmatch(token) is None:
+                raise SentOrderError(
+                    f"{path} の {number} 行目に pid の形でない値があります（pid だけを書いてください）。"
+                )
+            if token in pids:
+                raise SentOrderError(f"{path} の {number} 行目の {token} が2回目です。")
+            pids.append(token)
+    return pids
+
+
+def sent_order_notes(sessions: Sequence[Session], sent: Sequence[str]) -> list[str]:
+    """送った順と始まった順（session_start の時刻）を比べる。違いを文で返す（参考。欠けに数えない）。"""
+    started = {session.pid: session.started_at for session in sessions if session.pid is not None}
+    notes: list[str] = []
+    unsent = sorted(pid for pid in started if pid not in sent)
+    if unsent:
+        notes.append(f"送った順に無い pid が始まっている（{', '.join(unsent)}）")
+    waiting = [pid for pid in sent if pid not in started]
+    if waiting:
+        notes.append(f"送ったがまだ始まっていない（{', '.join(waiting)}）")
+    rank = {pid: index for index, pid in enumerate(sent, 1)}
+    timed = sorted(((at, pid) for pid, at in started.items() if pid in rank and at is not None), key=lambda x: x[0])
+    for (_, first), (_, second) in zip(timed, timed[1:], strict=False):
+        if rank[second] < rank[first]:
+            notes.append(f"{first}（送った順 {rank[first]}）が {second}（送った順 {rank[second]}）より先に始まった")
+    return notes
 
 
 def _table(reports: Sequence[SessionReport]) -> list[str]:
@@ -261,12 +318,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--pre-scales", default=",".join(DEFAULT_PRE_SCALES))
     parser.add_argument("--consent-version", default=DEFAULT_CONSENT_VERSION, help="同意の版（空なら見ない）")
     parser.add_argument("--study-id", default=None, help="渡せば、すべての行がこの study のものかを見る")
+    parser.add_argument("--sent-order", type=Path, help="送った順の pid の並び（1行に1つ。名前は書かない）。参考に出す")
     parser.add_argument("--json-out", type=Path, help="結果の JSON（リポの外）")
     args = parser.parse_args(argv)
     try:
         tasks = load_tasks(args.tasks) if args.tasks is not None else load_tasks()
         events, read = read_events(args.events)
-    except (OSError, TasksError) as exc:
+        sent = read_sent_order(args.sent_order) if args.sent_order is not None else None
+    except (OSError, TasksError, SentOrderError) as exc:
         print(f"止めました: {exc}", file=sys.stderr)
         return EXIT_UNREADABLE
     split = [s.strip() for s in args.block_scales.split(",") if s.strip()]
@@ -283,12 +342,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         consent_version=args.consent_version or None,
         study_id=args.study_id,
     )
-    order = distribution_order(sessions)
+    started_order = distribution_order(sessions)
+    sent_notes = sent_order_notes(sessions, sent) if sent is not None else None
     statuses = Counter(r.status for r in reports)
-    defects = sum(len(r.defects) for r in reports) + len(order) + len(read.unreadable)
+    defects = sum(len(r.defects) for r in reports) + len(read.unreadable)
     print(_summary(read, reports, statuses, defects))
     print("\n".join(_table(reports)))
-    print("配った順: " + ("pid の順" if not order else "; ".join(order)))
+    print("参考（欠けに数えず、終了コードにも入れない）:")
+    print("- 始まった順（pid の番号の順か）: " + ("; ".join(started_order) or "番号の順"))
+    if sent_notes is not None:
+        print("- 送った順との比べ: " + ("; ".join(sent_notes) or "送った順"))
     if args.json_out is not None:
         try:
             digest = write_private_json(
@@ -296,7 +359,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 {
                     "read": read.as_dict(),
                     "sessions": [r.as_dict() for r in reports],
-                    "order": order,
+                    "reference": {"started_order": started_order, "sent_order": sent_notes},
                     "defects": defects,
                 },
                 "完全性の検査の結果",
@@ -314,7 +377,7 @@ def _summary(read: ReadReport, reports: Sequence[SessionReport], statuses: Count
         f"{read.path}（SHA-256 {read.sha256}）: 行 {read.lines}・イベント {read.events}・読めない行 {len(read.unreadable)}・"
         f"形の一部が違う行 {len(read.problems)}\n"
         f"セッション {len(reports)}（完了 {statuses['complete']}・途中で終了 {statuses['ended_incomplete']}・"
-        f"進行中 {statuses['in_progress']}）、seq の欠けの無いセッション {gaps}、欠け・前提の外れ・配った順の外れ {defects}"
+        f"進行中 {statuses['in_progress']}）、seq の欠けの無いセッション {gaps}、欠け・前提の外れ・読めない行 {defects}"
     )
 
 

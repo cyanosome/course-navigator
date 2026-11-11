@@ -10,7 +10,7 @@
 | `score.py` | プランに K1〜K6 を当て、成否 y・達成度 a・初期の a0 を出す。手で作った例と画面の判定の突き合わせ（`--examples`） | 3.3・4.1 |
 | `catalog_snapshot.py` | 凍結の DB から、採点に要る科目の属性（名前・学期・曜限・単位・まとまり）を JSON に書き出す。SHA-256 と中身の指紋を出す | 3.3・6.3 |
 | `feasibility.py` | 実際のエンジンで参照の答えの初期プランを出し、最小の変更と参照の解、3.4 の基準1〜4、K5 の科目が落ちる答えの組の数を出す | 3.3・3.4 |
-| `integrity.py` | 毎晩の完全性の検査（seq、課題・質問票の数、5.2 の前提、同意の版、配った順） | 5.1 の F2・5.2・5.5 の E3・E4・2.3 |
+| `integrity.py` | 毎晩の完全性の検査（seq、課題・質問票の数、5.2 の前提、同意の版）。始まった順・送った順は参考に出すだけ | 5.1 の F2・5.2・5.5 の E3・E4 |
 | `metrics.py` | 4章の指標を参加者 × 条件で出す（JSON） | 4.1〜4.5・5.6 |
 | `report.py` | 5章の判定と表（Markdown） | 5.1・5.3〜5.7 |
 | `eventlog.py` | 書き出しの読み込みと、セッション・ブロック・課題への分け方、5.2 の前提の検査（integrity と metrics が共有） | 6.1・5.2 |
@@ -44,6 +44,10 @@ docker compose cp backend:/tmp/study1-feasibility.json "$PRIV/study1-feasibility
 # 3. 毎晩: 書き出しと完全性の検査（終了コード 0 なら欠け無し、1 なら欠けあり、2 なら読めない）
 $RUN course_core.research.cli export --study-id "$STUDY" --out /tmp/study1-events.jsonl
 $RUN eval.study1.integrity --events /tmp/study1-events.jsonl --study-id "$STUDY"; echo "終了コード $?"
+#    送った順と比べるとき（参考。終了コードには入れない）: 控えたファイルをコンテナに写して渡し、使ったら消す
+docker compose cp "$PRIV/sent-order.txt" backend:/tmp/sent-order.txt
+$RUN eval.study1.integrity --events /tmp/study1-events.jsonl --study-id "$STUDY" --sent-order /tmp/sent-order.txt
+docker compose exec backend rm /tmp/sent-order.txt
 
 # 4. 全員の後: 指標と判定の表
 $RUN eval.study1.metrics --events /tmp/study1-events.jsonl --catalog /tmp/study1-catalog.json --out /tmp/study1-metrics.json
@@ -58,6 +62,8 @@ sha256sum "$PRIV"/study1-*
 ```
 
 - 同意の版は `--consent-version`（既定 `v1-diag-ab-202611`、空にすると見ない）、質問票の尺度は `--block-scales`（既定 `SUS,Q11-Q12`）・`--final-scales`（既定 `二択,振り返り`）・`--pre-scales`（既定 `事前の質問`）で変えられます。
+- `integrity.py` の終了コードは欠け（seq・課題・質問票・同意の版・study-id・5.2 の前提・読めない行）だけで決まります。リンクを送る形では開く順を参加者が決め、開かれないカードは予備に替えるので、始まった順（pid の番号の順か）は「参考」の欄に出すだけで欠けに数えません。
+- `--sent-order` には、研究者が控えた送った順を **pid だけ** で書いたファイル（1行に1つ。カンマ・空白で区切ってもよい。`#` で始まる行は読まない）を渡します。名前・連絡先・送った手段は書きません。pid の形（英大文字1つと数字。例 `P01`・`R02`）でない値や重なった pid があれば止まります（終了コード 2）。結果（送った順と始まった順の違い、送ったがまだ始まっていない pid、送った順に無い pid）は参考の欄に出し、終了コードには入れません。ファイルはリポの外（`$PRIV`）に置きます。
 - DB を読まずに流すときは、`eval.diag_metrics --save-snapshot` で保存したデータ（形 diag-catalog-v1）を `feasibility.py --snapshot` と `catalog_snapshot.py --from-diag-snapshot` に渡します。
 - `metrics.py`・`report.py` は書き出しとスナップショットを手元に写せば、backend の環境（`uv run --no-sync`）で手元でも動きます。
 - 手で作った例と画面の判定の突き合わせ（3.3）: 1行に `{"id", "task_set", "plan", "screen": {"K2": "met", …}}` の JSONL を作り、`python -m eval.study1.score --catalog <スナップショット> --examples <JSONL>`（違いがあれば終了コード 1）。
