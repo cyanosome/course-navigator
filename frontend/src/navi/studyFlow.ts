@@ -4,7 +4,6 @@
  *       → blockEnd（R5）→ 次のブロックの blockIntro … → finalQuestions → finishing（session_end と R7）→ done
  * 練習のブロック（0）では質問票を出さない。事前の質問が無い組（pre が空）では、同意の後すぐ blockIntro。
  */
-import { FORM_SERIAL_PATTERN } from './apiTypes'
 import type { BlockStartOut, EventPayload, JsonValue, SessionOut } from './apiTypes'
 import {
   currentTaskId,
@@ -21,7 +20,15 @@ import {
 } from './research'
 import type { StudyPhase, StudyState } from './research'
 import { clearAppState } from './storage'
-import { ACTIVE_QUESTIONNAIRE_SET, CONSENT, isPracticeBlock, QUESTIONNAIRE_SETS, QUESTIONNAIRE_VERSION } from './studyConfig'
+import {
+  ACTIVE_QUESTIONNAIRE_SET,
+  CONSENT,
+  isPracticeBlock,
+  ONLINE_FORM_SERIAL,
+  QUESTIONNAIRE_SETS,
+  QUESTIONNAIRE_VERSION,
+  STUDY_CONTACT,
+} from './studyConfig'
 import type { QuestionnaireSet } from './studyConfig'
 
 export type QuestionScope = 'pre' | 'task' | 'block' | 'final'
@@ -111,19 +118,14 @@ export async function openStudy(token: string, gatePath: string): Promise<void> 
   }
 }
 
-/** 同意書の番号の形（英数字とハイフン、1〜16 文字）。合わなければ R3 を呼ばない */
-export function isFormSerial(text: string): boolean {
-  return FORM_SERIAL_PATTERN.test(text.trim())
-}
-
-/** 同意（R3）。同意しなければ記録だけして先へ進めない */
-export async function recordConsent(agreed: boolean, formSerial: string): Promise<void> {
+/** 同意（R3）。同意しなければ記録だけして先へ進めない。画面だけで同意を取るので、form_serial は固定の値 */
+export async function recordConsent(agreed: boolean): Promise<void> {
   const study = need()
   const transport = await researchTransport(study.transport)
   try {
     await transport.recordConsent(study.session.session_id, {
       consent_version: CONSENT.version,
-      form_serial: formSerial.trim(),
+      form_serial: ONLINE_FORM_SERIAL,
       agreed,
     })
   } catch (err) {
@@ -335,12 +337,12 @@ async function finishOnce(): Promise<void> {
 /** 画面に出す失敗の文（api-contract.md 5.3 の書き分け） */
 export function studyErrorText(err: unknown): string {
   if (err instanceof StudyError) {
-    if (err.status === null) return 'サーバーにつながりません。研究者に知らせてください。'
-    if (err.status === 401 || err.status === 404) return 'このカードの URL は使えません。研究者に知らせてください。'
-    if (err.status === 409) return 'いまは進めません（サーバーの準備か順番が合っていません）。研究者に知らせてください。'
-    if (err.status === 503) return 'データベースにつながりません。研究者に知らせてください。'
-    if (err.status === 504) return '時間内に返りませんでした。研究者に知らせてください。'
-    return 'サーバーのエラーです。研究者に知らせてください。'
+    if (err.status === null) return `サーバーにつながりません。${STUDY_CONTACT}`
+    if (err.status === 401 || err.status === 404) return `このリンクは使えません。${STUDY_CONTACT}`
+    if (err.status === 409) return `いまは進めません（サーバーの準備か順番が合っていません）。${STUDY_CONTACT}`
+    if (err.status === 503) return `データベースにつながりません。${STUDY_CONTACT}`
+    if (err.status === 504) return `時間内に返りませんでした。${STUDY_CONTACT}`
+    return `サーバーのエラーです。${STUDY_CONTACT}`
   }
-  return '思わぬエラーが起きました。研究者に知らせてください。'
+  return `思わぬエラーが起きました。${STUDY_CONTACT}`
 }

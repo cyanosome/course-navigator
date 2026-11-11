@@ -277,7 +277,7 @@ def test_task_submit_needs_the_final_plan_only_in_diagnose_blocks():
 
 @pytest.fixture
 def diag_store(tmp_path: Path) -> ResearchStore:
-    """事前登録 Study 1 の study（腕 diag = N:W:V30・A:Y:V31、質問票はブロックごとに2件と最後に1件）。"""
+    """事前登録 Study 1 の study（腕 diag = N:W:V30・A:Y:V31、質問票はブロックごとに2件と最後に2件〈二択・振り返り〉）。"""
     counter = itertools.count(1)
     study, _ = build_study(
         study_id=_STUDY_ID,
@@ -288,7 +288,7 @@ def diag_store(tmp_path: Path) -> ResearchStore:
         spares=0,
         consent_version="v1",
         questionnaires_per_block=2,
-        final_questionnaires=1,
+        final_questionnaires=2,
         now=_NOW,
         token_factory=lambda: f"token-{next(counter):010d}",
     )
@@ -333,7 +333,8 @@ def _run_diag_block(store: ResearchStore, session_id: str, block: int, first_seq
     return first_seq + len(events)
 
 
-def _diag_session(store: ResearchStore, *, final: bool) -> list:
+def _diag_session(store: ResearchStore, *, finals: int) -> list:
+    """練習と2ブロックを通し、最後の質問票（二択・振り返り）を先頭から finals 件出して閉じる。"""
     session_id = _start(store)
     store.start_block(session_id, 0, frontend_version=None)
     store.append_client_events(
@@ -344,24 +345,25 @@ def _diag_session(store: ResearchStore, *, final: bool) -> list:
     store.end_block(session_id, 0, frontend_version=None)
     seq = _run_diag_block(store, session_id, 1, 3)
     seq = _run_diag_block(store, session_id, 2, seq)
-    tail = [_event("questionnaire_submit", seq, scale="二択")] if final else []
+    tail = [_event("questionnaire_submit", seq + i, scale=scale) for i, scale in enumerate(("二択", "振り返り")[:finals])]
     tail.append(_event("session_end", seq + len(tail)))
     store.append_client_events(session_id, tail, frontend_version=None)
     store.end_session(session_id, frontend_version=None)
     return check_completeness(store.load_study(_STUDY_ID), _lines(store))
 
 
-def test_check_passes_a_full_diag_session_with_the_final_choice(diag_store):
-    [result] = _diag_session(diag_store, final=True)
+def test_check_passes_a_full_diag_session_with_both_final_questionnaires(diag_store):
+    [result] = _diag_session(diag_store, finals=2)
 
     assert (result.status, result.defects) == ("complete", [])
 
 
-def test_check_reports_a_missing_final_choice(diag_store):
-    [result] = _diag_session(diag_store, final=False)
+@pytest.mark.parametrize("finals", [0, 1])
+def test_check_reports_missing_final_questionnaires(diag_store, finals):
+    [result] = _diag_session(diag_store, finals=finals)
 
     assert result.status == "complete"
-    assert result.defects == ["最後のブロックの後の questionnaire_submit が 0 件（1 件以上のはず）"]
+    assert result.defects == [f"最後のブロックの後の questionnaire_submit が {finals} 件（2 件以上のはず）"]
 
 
 # --- 状態の遷移 ---------------------------------------------------------------------

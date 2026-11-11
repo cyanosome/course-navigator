@@ -31,9 +31,10 @@ _EXIT_OK: Final = 0
 _EXIT_FAILED: Final = 1
 _CARD_FIELDS: Final = ("pid", "sequence_id", "spare", "token", "url")
 # 質問票の組 ibuki_sus（事前登録 Study 1 の 4.5・6.2 の9）: ブロックごとに SUS と Q11・Q12（＋自由記述）の2件、
-# 最後のブロックの後に二択と理由の1件（questionnaire_submit は尺度ごとに1件）
+# 最後のブロックの後に二択と理由の1件と振り返りの1件（2026-11-11 にインタビューの代わりに足した）の2件
+# （questionnaire_submit は尺度ごとに1件）
 _DEFAULT_QUESTIONNAIRES_PER_BLOCK: Final = 2
-_DEFAULT_FINAL_QUESTIONNAIRES: Final = 1
+_DEFAULT_FINAL_QUESTIONNAIRES: Final = 2
 
 
 def _inside_git_worktree(path: Path) -> bool:

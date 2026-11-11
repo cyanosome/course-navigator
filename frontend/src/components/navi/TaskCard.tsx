@@ -8,7 +8,7 @@ import { findCourse } from '../../navi/graph'
 import { currentTaskId, useStudy } from '../../navi/research'
 import { useNavi } from '../../navi/state'
 import { checkpointPayload } from '../../navi/status'
-import { blockLabel, CARD_TEXT, DRAFT_MARK, TASKS } from '../../navi/studyConfig'
+import { blockLabel, CARD_TEXT, DRAFT_MARK, STUDY_CONTACT, TASKS } from '../../navi/studyConfig'
 import type { PersonaCard, PickTaskDef, PlanTaskDef, TaskDef } from '../../navi/studyConfig'
 import { continueAfterPlan, submitTask, submitTaskPayload } from '../../navi/studyFlow'
 import { useDiagnose } from '../../navi/useDiagnose'
@@ -24,7 +24,7 @@ interface TaskBriefProps {
 /** ペルソナの文と課題の文（調査の入口の課題の前の画面と、画面の上の課題の帯で同じものを出す） */
 export function TaskBrief({ taskId, task }: TaskBriefProps) {
   if (task === undefined) {
-    return <p className="text">課題「{taskId}」の文が設定にありません。研究者に知らせてください。</p>
+    return <p className="text">課題「{taskId}」の文が設定にありません。{STUDY_CONTACT}</p>
   }
   if (task.kind !== 'pick') {
     return (

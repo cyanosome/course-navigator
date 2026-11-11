@@ -2,11 +2,13 @@
  * 調査（/navi/s/<トークン>）の文と質問票の設定。文や項目を差し替えるときは、このファイルだけを直す。
  * - draft: true の文は〈仮〉。出どころの文が手元に無いか、まだ決まっていない。画面にも〈仮〉と出るので、確定したら外す。
  * - 質問票は2組を定義し、ACTIVE_QUESTIONNAIRE_SET で選ぶ。Study 1（事前登録 2026-11-07 の 4.5）は ibuki_sus。
- *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。最後に画面1/2 の二択と理由。
- *   Q11 はペルソナの形に言い換えた文（事前登録 4.5）。同意の後、練習の前に事前の質問（学年・学部・前に見たか。事前登録 2.5）。
+ *   ibuki_sus: Ibuki の評価の PDF（10/30）の SUS 10項目＋Q11・Q12＋自由記述を、画面（ブロック）ごとに。最後に画面1/2 の二択と理由、
+ *   続けて振り返り（任意の自由記述6問。研究者が立ち会わずリンクで配るので、事前登録 4.6 のインタビューの問いを置き換えたもの。
+ *   2026-11-11）。Q11 はペルソナの形に言い換えた文（事前登録 4.5）。同意の後、練習の前に事前の質問（学年・学部・前に見たか。事前登録 2.5）。
  *   plan_seq_ueq: 計画 4.1 の SEQ と自信（課題ごと）、UEQ-S（画面ごと）、最後に画面1/2 の二択と理由。
  *   Q11・Q12・Q13・自由記述の文は「Ibuki の評価 PDF の要点」ノートの文（問いの形を言い切りにした）。
- *   ibuki_sus で出るそれ以外の文（SUS・事前の質問・同意・練習の課題・守ること・ブロック2の案内）は、2026-11-10 にいまの文で確定した。
+ *   ibuki_sus で出るそれ以外の文（SUS・事前の質問・練習の課題・守ること・ブロック2の案内）は、2026-11-10 にいまの文で確定した。
+ *   同意と振り返りの文は、リンクで配る形に合わせて 2026-11-11 に確定した（同意の版の名前 v1-diag-ab-202611 は変えていない。CONSENT の注）。
  *   〈仮〉が残るのは、Study 1 で使わない plan_seq_ueq の SEQ・自信・UEQ-S。
  */
 
@@ -70,7 +72,7 @@ export interface QuestionnaireSet {
 export type QuestionnaireSetId = 'ibuki_sus' | 'plan_seq_ueq'
 
 /** ログに残す質問票の版（項目の文を変えたら上げる） */
-export const QUESTIONNAIRE_VERSION = '2026-11-10'
+export const QUESTIONNAIRE_VERSION = '2026-11-11'
 
 const AGREE_5 = { points: 5, low: '全くそう思わない', high: 'とてもそう思う' } as const
 
@@ -196,6 +198,36 @@ const PREFERENCE: Questionnaire = {
 }
 
 /**
+ * 振り返り（最後の質問票。どれも任意の自由記述）。研究者が立ち会わずリンクで配るので、事前登録 4.6 のインタビューの問い
+ * 1・2・3・4・6・7 を置き換えた（問い5は二択の理由と重なり、問い8は区分のデータが入ったので、問い9とあわせて外した。2026-11-11）
+ */
+const REFLECTION: Questionnaire = {
+  id: 'reflection',
+  scale: '振り返り',
+  intro: '最後に、使ってみて思ったことを教えてください。どれも書かなくてもかまいません。',
+  items: [
+    { kind: 'text', id: 'r1', text: '最後のプランを出すとき、どこを見て「これで出してよい」と決めましたか', required: false, draft: false },
+    { kind: 'text', id: 'r2', text: '手が止まったり迷ったりしたのは、どの場面でしたか（画面1・画面2 それぞれ）', required: false, draft: false },
+    {
+      kind: 'text',
+      id: 'r3',
+      text: '診断の理由の文、チェック、AI の案（あった画面）のうち、何をそのまま信じ、何をどうやって確かめましたか',
+      required: false,
+      draft: false,
+    },
+    {
+      kind: 'text',
+      id: 'r4',
+      text: 'AI の欄があった画面で、何を頼みましたか。案のどこを採り、どこを採りませんでしたか。AI が無い画面で「AI があれば」と思った場面はありましたか',
+      required: false,
+      draft: false,
+    },
+    { kind: 'text', id: 'r5', text: '前の画面で分かったことを、後の画面で使いましたか（例: 別のクラスに移せること）', required: false, draft: false },
+    { kind: 'text', id: 'r6', text: '診断の問いで答えにくかったもの、問いに無くて伝えたかった条件はありましたか', required: false, draft: false },
+  ],
+}
+
+/**
  * 事前の質問（事前登録 2.5。学部は 5.5 の E6〈環境都市工学部の外の学生〉を分けるため、自学部かそれ以外の2つ）。
  * 学年の選択肢は事前登録に無く、この選択肢で確定した（2026-11-10）。ログは questionnaire_submit（scale は「事前の質問」、scope は pre、block は null）
  */
@@ -245,15 +277,19 @@ const BACKGROUND: Questionnaire = {
 
 export const QUESTIONNAIRE_SETS: Record<QuestionnaireSetId, QuestionnaireSet> = {
   // ログの questionnaire_submit は尺度ごとに1件: ibuki_sus は同意の後に事前の質問1件、ブロックごとに2件（SUS、Q11・Q12＋
-  // 自由記述）、最後に二択1件。plan_seq_ueq はブロックごとに5件（課題ごとに SEQ と自信を2課題分、UEQ-S を1つ）と最後に二択1件
-  ibuki_sus: { id: 'ibuki_sus', pre: [BACKGROUND], task: [], block: [SUS, IBUKI_FIT], final: [PREFERENCE] },
+  // 自由記述）、最後に2件（二択、振り返り）。plan_seq_ueq はブロックごとに5件（課題ごとに SEQ と自信を2課題分、UEQ-S を1つ）と
+  // 最後に二択1件
+  ibuki_sus: { id: 'ibuki_sus', pre: [BACKGROUND], task: [], block: [SUS, IBUKI_FIT], final: [PREFERENCE, REFLECTION] },
   plan_seq_ueq: { id: 'plan_seq_ueq', pre: [], task: [SEQ, CONFIDENCE], block: [UEQ_S], final: [PREFERENCE] },
 }
 
 /** いまの調査で使う質問票の組 */
 export const ACTIVE_QUESTIONNAIRE_SET: QuestionnaireSetId = 'ibuki_sus'
 
-/* ---------- 同意（計画 4.2、Ibuki の PDF の②: 任意・途中でやめられる・取得する情報・ログとの連結・保存・問い合わせ先） ---------- */
+/*
+ * ---------- 同意（計画 4.2、Ibuki の PDF の②: 任意・途中でやめられる・取得する情報・保存・問い合わせ先） ----------
+ * 研究者が立ち会わず、リンクを送るだけで回すので、同意は画面だけで取る（2026-11-11。紙の同意書と番号の欄は無い）
+ */
 
 export interface ConsentSection {
   heading: string
@@ -266,32 +302,53 @@ export interface ConsentText {
   draft: boolean
   title: string
   sections: readonly ConsentSection[]
-  formSerialLabel: string
+  /** ［同意して始める］の上の1文 */
+  agreeNote: string
 }
 
+/**
+ * 同意の記録（consent_recorded）の form_serial に送る固定の値。画面だけで同意を取るので、紙の同意書の番号の代わりに
+ * これを残す（形は backend の ConsentIn と FORM_SERIAL_PATTERN に合う英数字）
+ */
+export const ONLINE_FORM_SERIAL = 'ONLINE'
+
+/** 困ったときの知らせ方（エラーの文の後ろに添える）。研究者は立ち会わずリンクを送るだけなので、そのメッセージへの返信で受ける */
+export const STUDY_CONTACT = 'このリンクを受け取ったメッセージへ返信して知らせてください。'
+
+/**
+ * 版の名前は変えず、文だけを 2026-11-11 にリンクで配る形へ差し替えた（版を変えると、作って腕を有効にした本番の study と
+ * カードが使えなくなるため）。差し替える前の文で同意したのは試しの study（pilot-diag-ab-202611）だけで、study-id で区別できる
+ */
 export const CONSENT: ConsentText = {
   version: 'v1-diag-ab-202611',
   draft: false,
   title: '研究への協力のお願い',
   sections: [
     { heading: '目的', body: '履修を選ぶアプリの使いやすさと、探し方の違いを調べる研究です。' },
-    { heading: 'すること', body: '画面を2つ使って、課題を解きます。そのあと短い質問に答え、最後に少し話を聞かせてください。全部で40分ほどです。' },
-    { heading: '参加は自由です', body: '参加しなくても、途中でやめても、不利益はありません。やめたいときは研究者に言ってください。' },
+    {
+      heading: 'すること',
+      body: 'このリンクを開いた端末で、ひとりで進めます。画面を2つ使って課題を解き、そのあと短い質問に答えます。全部で45分ほどです。できれば途中でタブを閉じずに、1回で終えてください。',
+    },
+    { heading: '参加は自由です', body: '参加しなくても、途中でやめても、不利益はありません。やめたいときは、タブを閉じてください。' },
     {
       heading: '記録すること',
-      body: 'アプリの操作（押したところ、検索した言葉、開いた科目、時刻）と、質問への答えを記録します。名前、学籍番号、実際の履修の記録は集めません。',
+      body: 'アプリの操作（押したところ、検索した言葉、開いた科目、時刻）と、質問への答えを記録します。名前、学籍番号、実際の履修の記録は集めません。自由に書く欄にも、名前など、あなたと分かることは書かないでください。',
     },
     {
-      heading: '記録と名前の結びつき',
-      body: '記録は参加の番号で整理します。番号と名前の対応は紙の同意書にだけ書き、研究者が保管します。',
+      heading: 'AI の欄',
+      body: '片方の画面には AI の欄があります。AI の欄に書いた文と、そのときのプランは、答えを作るために Google の Gemini API に送られます。',
     },
     {
-      heading: '保存',
-      body: '記録は研究者の手元に保存し、2027年3月31日に消します。論文には人数や割合だけを載せ、あなたと分かる形では出しません。',
+      heading: '記録の置き場所と保存',
+      body: '記録は、研究グループが運用するサーバー（駒澤大学）に保存し、研究者が書き出して保管します。2027年3月31日に消します。論文には人数や割合だけを載せ、あなたと分かる形では出しません。',
     },
-    { heading: '問い合わせ先', body: '研究者の連絡先は、紙の同意書に書いてあります。' },
+    {
+      heading: '記録を消してほしいとき',
+      body: '参加した日から7日以内に、このリンクを受け取ったメッセージへ返信して知らせてください。あなたの記録をすべて消します。',
+    },
+    { heading: '問い合わせ先', body: 'このリンクを受け取ったメッセージへ返信してください。' },
   ],
-  formSerialLabel: '同意書の番号（研究者が書きます）',
+  agreeNote: '「同意して始める」を押すと、上の説明に同意したことになります。',
 }
 
 /* ---------- 課題（ペルソナのカードと課題の文。サーバーの BlockPlan.task_ids と同じ ID） ---------- */

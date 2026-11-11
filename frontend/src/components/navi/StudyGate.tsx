@@ -210,7 +210,7 @@ function PhaseView({ study, busy, run, onEnterTask, onBackToTask }: PhaseViewPro
 
   switch (phase.kind) {
     case 'consent':
-      return <ConsentScreen busy={busy} onAnswer={(agreed, serial) => run(() => recordConsent(agreed, serial))} />
+      return <ConsentScreen busy={busy} onAnswer={(agreed) => run(() => recordConsent(agreed))} />
     case 'declined':
       return (
         <>
@@ -341,7 +341,7 @@ function PhaseView({ study, busy, run, onEnterTask, onBackToTask }: PhaseViewPro
       return (
         <>
           <h1 className="title">おわりです</h1>
-          <p className="lead">ご協力ありがとうございました。このあと、少し話を聞かせてください。</p>
+          <p className="lead">ご協力ありがとうございました。これで全部終わりです。このタブは閉じてかまいません。</p>
         </>
       )
   }
