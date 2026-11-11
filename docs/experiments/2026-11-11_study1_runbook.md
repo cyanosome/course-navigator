@@ -231,7 +231,7 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
 
 - **リンクは1人に1つです。** 同じ URL を2人が開くと、2人目は1人目のセッションの続きになります（サーバーは同じトークンに前のセッションを返す。`frontend/src/navi/studyFlow.ts` の `openStudy`）。グループや掲示に1つのリンクを貼る配り方はできません。
 - 参加を申し出た順に、カードの CSV の P01 から順に、次の pid のリンクを送ります。研究者は pid を選びません（事前登録 2.3）。文は付録の雛形を使います。
-- 誰にどの pid を送ったか（送った日時、送った手段、相手）を、研究者だけが読める場所（リポと vault の外。`$PRIV` の下など）に控えます。撤回の申し出（4.3）を受けたときに、この控えで pid を引きます。
+- 誰にどの pid を送ったか（送った日時、送った手段、相手）を、研究者だけが読める場所（リポと vault の外。`$PRIV` の下など）に控えます。撤回の申し出（4.3）を受けたときに、この控えで pid を引きます。あわせて、送った pid だけを送った順に `$PRIV/sent-order.txt` に1行に1つ書き足します（名前・連絡先・送った手段は書かない。4.4 の `integrity --sent-order` に渡す）。
 - リンクが開かれたかは、`check` の行にその pid があるかで分かります（`status` は系列ごとの人数だけ）。**送ってから3日開かれなければ脱落とみなし、同じ系列の予備（4.3）を次の人に送ります。** 脱落とみなしたリンクは開けなくはなりません。後で開かれたら、その記録は残し、逸脱の表に書きます（分析に入れるかは実験者が決めます）。
 
 ### 4.3 脱落と撤回
@@ -251,12 +251,18 @@ $CLI export --study-id "$STUDY" --out "/tmp/study1-events-$DAY.jsonl"
 # ここで 5.3 のスクリプトを /tmp/study1-events-$DAY.jsonl に当てる
 # 完全性の検査（backend/eval/study1/ が GMS に入ってから）。check では振り返りの欠けに気づけないので、ここで見る
 $RUN eval.study1.integrity --events "/tmp/study1-events-$DAY.jsonl" --study-id "$STUDY"; echo "終了コード $?"
+#   送った順と比べるとき（参考。終了コードには入らない）: 4.2 の pid だけの控えをコンテナに写して渡し、使ったら消す
+docker compose cp "$PRIV/sent-order.txt" backend:/tmp/sent-order.txt
+$RUN eval.study1.integrity --events "/tmp/study1-events-$DAY.jsonl" --study-id "$STUDY" --sent-order /tmp/sent-order.txt
+docker compose exec backend rm /tmp/sent-order.txt
 docker compose cp "backend:/tmp/study1-events-$DAY.jsonl" "$PRIV/study1-events-$DAY.jsonl"
 docker compose exec backend rm "/tmp/study1-events-$DAY.jsonl"
 sha256sum "$PRIV/study1-events-$DAY.jsonl" | tee -a "$PRIV/exports.sha256"
 ```
 
-- `integrity` の終了コードは、欠けが無ければ 0、欠けがあれば 1、書き出しが読めなければ 2 です。途中の人（閉じていないセッション）は欠けに数えません。表の最後の「配った順」は、pid の番号の順にセッションが始まったかを見ます。リンクで送ると、開く順は参加者が決めるので、ここが外れて終了コードが 1 になりえます。「配った順」の行だけが外れたときは、4.2 の控えの送った順と比べ、送った順どおりなら欠けとして扱いません（実験者には知らせる）。
+- `integrity` の終了コードは欠け（seq・課題・質問票・同意の版・study-id・事前登録 5.2 の前提・読めない行）だけで決まります。欠けが無ければ 0、欠けがあれば 1、書き出しか `--sent-order` のファイルが読めなければ 2 です。途中の人（閉じていないセッション）は欠けに数えません。
+- 始まった順（pid の番号の順か）は「参考」の欄に出るだけで、欠けにも終了コードにも入りません。リンクで送ると開く順は参加者が決め、開かれないリンクは予備に替えるためです。
+- `--sent-order` には、4.2 の送った順の控え（`$PRIV/sent-order.txt`。**pid だけ**を1行に1つ。名前・連絡先・送った手段は書かない）を渡します。送った順と始まった順の違い、送ったがまだ始まっていない pid、送った順に無い pid が「参考」の欄に出ます。これも終了コードには入りません。pid の形（英大文字1つと数字。例 `P01`・`R02`）でない値や重なった pid があると、終了コード 2 で止まります。ファイルは `$PRIV` に置き、使うときだけコンテナの `/tmp` に写して、使ったら消します。
 - 写し先の `$PRIV` は、サーバーの外の研究者だけが読める場所にします（サーバーのディスクが壊れたとき、作業ツリーで `git clean -x` やクローンのやり直しをしたときに、研究データと一緒に消えない場所）。
 - 撤回した pid の行は入りません。同じ日に2回書き出すときは、`DAY` に時刻を足して名前を変えます（CLI は上書きしません）。
 - 全員が終わったら、最後の書き出しを同じ手順で作り、SHA-256 と一緒に Aki_Ha へ渡します。**公開の場所やチャットに貼りません。** 渡す手段は、運用担当と実験者で決めます。分析のスクリプトにはこの場所を引数で渡します（事前登録 6.3）。
@@ -371,7 +377,7 @@ EOF
 
 - サーバーの compose.yaml のコミットしていない変更（データの永続化）の中身は見ていません。この手順は、main の compose.yaml（`./backend:/backend_app`、`env_file: .env`、`fastapi dev`）にその変更を足したもの（compose.eval.yaml は使わない。11/11 の運用担当の連絡）を前提にしています。研究データの置き場所は 1.1 の出力で、本番の study が backend の置き場所にあるかは 4.1 の `status` で確かめます。
 - 本番の study（`study1-diag-ab-202611`）の同意の版と最後の質問票の数を、誰も表示していません。4.1 の3行目で確かめます。
-- 分析の道具（2.1、3.3、4.4、4.5 の `$RUN eval.study1.…`）は、GMS では打っていません。コマンドの形は `backend/eval/study1/README.md` の「GMS での打ち方」（コミット 26d898f）に合わせました。3.3 の、書き出しから課題 b のプランを取り出す数行のスクリプトは、手元で作った書き出しの形の行（P01・P02 × 課題5つ）で、4つのファイルができることだけを確かめました（score には当てていません）。
+- 分析の道具（2.1、3.3、4.4、4.5 の `$RUN eval.study1.…`）は、GMS では打っていません。コマンドの形は `backend/eval/study1/README.md` の「GMS での打ち方」（コミット 26d898f、integrity の参考の欄と `--sent-order` は ed93344）に合わせました。3.3 の、書き出しから課題 b のプランを取り出す数行のスクリプトは、手元で作った書き出しの形の行（P01・P02 × 課題5つ）で、4つのファイルができることだけを確かめました（score には当てていません）。
 - `VITE_APP_COMMIT` が `app_version.frontend` に入ることは、コード（compose.yaml の frontend の `env_file`、Vite 8.0.16 の `loadEnv`、`research.ts` の `FRONTEND_VERSION`、`api/routers/research.py` の `X-Navi-Frontend`）で確かめました。サーバーでは試していません（3.3 の `frontend` の行で確かめる）。
 - サーバーの OS とシェル（bash、`sha256sum`、Docker Compose v2 の `exec`・`cp` を前提にしています）。
 - この手順の `docker compose` の行は、サーバーで打っていません。CLI の出力の形と止まり方（`create-study`・`set-mode` のループ・`activate-arm`・`status`・`check`・`export`、書き先の検査）と 5.3 のスクリプトは、手元で `RESEARCH_DATA_DIR` を一時フォルダにして、コンテナの外で確かめました。
