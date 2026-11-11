@@ -28,10 +28,13 @@ cd <サーバーのリポのフォルダ>
 PRIV=<リポの外のフォルダ>/study1          # 研究者だけが読める場所。リポの中にしない
 mkdir -p "$PRIV/freeze" && chmod 700 "$PRIV"
 CLI="docker compose exec backend uv run --no-sync python -m course_core.research.cli"
+RUN="docker compose exec backend uv run --no-sync python -m"   # 分析の道具（backend/eval/study1/）
 docker compose exec backend uv run --no-sync python -c "from course_core.research.settings import research_data_dir; print(research_data_dir())"
 ```
 
 最後の行が、backend と CLI が使う研究データの置き場所です。`RESEARCH_DATA_DIR` が無ければ `/backend_app/logs/research` と出ます。
+
+分析の道具（`backend/eval/study1/`。使い方はその README の「GMS での打ち方」）は、別の PR で main に入れます。`RUN` で打つ手順（2.1、3.3、4.4、4.5）は、**`backend/eval/study1/` が GMS に入ってから**打ちます。道具も研究者用 CLI と同じく、書き先が既にあるか git の作業ツリーの中なら止まるので、コンテナの中では `/tmp` に書き、`docker compose cp` でリポの外へ出し、コンテナの中のものを消します。
 
 ## 2. 凍結を記録する
 
@@ -74,7 +77,25 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
    ```
 
    `git diff` に入るのは追跡しているファイルの変更だけです。`git status` で `??` のファイルと、`.gitignore` に入っている `compose.override.yaml` は入りません。`compose.override.yaml` を使っているなら `"$PRIV/freeze/"` に写して SHA-256 を取ります。`.env` は写しません。差分は公開の場所に貼らず、SHA-256 だけを共有します。
-5. HEAD、`uncommitted.diff` と `compose.diff` の SHA-256、`APP_COMMIT`・`VITE_APP_COMMIT`・`AGENT_MODEL` の値、時刻を実験者に渡します。実験者は、事前登録の変更記録と実験報告の「実行環境」に書きます。
+5. HEAD、`uncommitted.diff` と `compose.diff` の SHA-256、`APP_COMMIT`・`VITE_APP_COMMIT`・`AGENT_MODEL` の値、時刻、2.1 の科目のスナップショットの SHA-256 を実験者に渡します。実験者は、事前登録の変更記録と実験報告の「実行環境」に書きます。
+
+### 2.1 凍結の DB で下調べを流す（試しの前に1回）
+
+`backend/eval/study1/` が GMS に入ってから打ちます。凍結の取り直し（上の 1〜4）の後、試し（3章）の前に打ちます。
+
+```bash
+# 科目のスナップショット（凍結の DB の、採点に要る科目の属性）。score・metrics の入力になる
+$RUN eval.study1.catalog_snapshot --out /tmp/study1-catalog.json
+docker compose cp backend:/tmp/study1-catalog.json "$PRIV/freeze/study1-catalog.json"
+# 下調べ（凍結の設定とデータで、事前登録 3.3・3.4 の値を数え直す）
+$RUN eval.study1.feasibility --git-sha "$(git rev-parse --short HEAD)" --json-out /tmp/study1-feasibility.json; echo "終了コード $?"
+docker compose cp backend:/tmp/study1-feasibility.json "$PRIV/freeze/study1-feasibility.json"
+docker compose exec backend rm /tmp/study1-catalog.json /tmp/study1-feasibility.json
+sha256sum "$PRIV/freeze/study1-catalog.json" "$PRIV/freeze/study1-feasibility.json" | tee -a "$PRIV/freeze.sha256"
+```
+
+- スナップショットの SHA-256 を凍結の記録に足します（上の 5 で渡し、3.1・4.1 の `activate-arm` の記録にも書く）。`$PRIV/freeze/study1-catalog.json` が以後の正本で、score・metrics に使うときはここからコンテナへ写します。
+- feasibility の終了コードが 0 で、各カードの行が「下調べの値（registered）と 同じ」なら、3.3・3.4 の値は事前登録と同じです。違う（終了コード 1、「違う: …」「問題: …」の行）なら、**最初の参加者の前に**実験者が事前登録の変更記録に書きます。
 
 ## 3. 試しの study で2人分を通す
 
@@ -90,7 +111,7 @@ $CLI create-study --study-id pilot2-link-202611 --department kansai-enechem-2026
 docker compose cp backend:/tmp/pilot2-cards.csv "$PRIV/pilot2-cards.csv"
 docker compose exec backend rm /tmp/pilot2-cards.csv
 for pid in P01 P02; do $CLI set-mode --study-id pilot2-link-202611 --pid "$pid" --mode remote || break; done
-$CLI activate-arm --study-id pilot2-link-202611 --arm diag --note "pilot2; HEAD=<短いハッシュ>; diff sha256=<先頭12桁>; compose.diff sha256=<先頭12桁>; APP_COMMIT=<値>; VITE_APP_COMMIT=<値>; AGENT_MODEL=<値>"
+$CLI activate-arm --study-id pilot2-link-202611 --arm diag --note "pilot2; HEAD=<短いハッシュ>; diff sha256=<先頭12桁>; compose.diff sha256=<先頭12桁>; catalog sha256=<先頭12桁>; APP_COMMIT=<値>; VITE_APP_COMMIT=<値>; AGENT_MODEL=<値>"
 $CLI status --study-id pilot2-link-202611
 ```
 
@@ -114,6 +135,8 @@ $CLI status --study-id pilot2-link-202611
 | 二択と振り返り | 画面1と画面2のどちらを使いたいかと理由、続けて振り返り（任意の自由記述6問。1つは書いてみる） | 振り返りの上に「どれも書かなくてもかまいません」とある |
 | 終わり | | 「ご協力ありがとうございました。これで全部終わりです。このタブは閉じてかまいません。」 |
 
+課題 b（P1・P2）の「これで出す」を押す前に、画面のチェックの一覧の判定（満たす・満たさない・判定できない）を書き留めます（スクリーンショットでよい）。3.3 で score の採点と比べます。カードの条件に当たるチェック（空ける曜日・時限、学期ごとの単位）を画面で足しておくと比べやすくなります。
+
 ### 3.3 終わったあと
 
 ```bash
@@ -121,6 +144,26 @@ $CLI status --study-id pilot2-link-202611
 $CLI check --study-id pilot2-link-202611; echo "終了コード $?"
 $CLI export --study-id pilot2-link-202611 --out /tmp/pilot2-events.jsonl
 # ここで 5.3 のスクリプトを /tmp/pilot2-events.jsonl に当てる
+
+# 分析の道具（backend/eval/study1/ が GMS に入ってから）: 完全性の検査と、課題 b の最終プランの採点
+$RUN eval.study1.integrity --events /tmp/pilot2-events.jsonl --study-id pilot2-link-202611; echo "終了コード $?"
+docker compose cp "$PRIV/freeze/study1-catalog.json" backend:/tmp/study1-catalog.json
+docker compose exec -T backend python - /tmp/pilot2-events.jsonl <<'EOF'
+import json, sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    r = json.loads(line)
+    if r["event_type"] == "task_submit" and r["task_id"] in ("P1-b", "P2-b"):
+        out = f'/tmp/pilot2-plan-{r["pid"]}-{r["task_id"]}.json'
+        with open(out, "x", encoding="utf-8") as f:
+            json.dump({"plan": r["payload"]["plan"]}, f, ensure_ascii=False)
+        print(out)
+EOF
+for pid in P01 P02; do for ts in P1 P2; do
+  echo "== $pid $ts"
+  $RUN eval.study1.score --catalog /tmp/study1-catalog.json --plan "/tmp/pilot2-plan-$pid-$ts-b.json" --task-set "$ts"
+done; done
+docker compose exec backend sh -c 'rm /tmp/study1-catalog.json /tmp/pilot2-plan-*.json'
+
 docker compose cp backend:/tmp/pilot2-events.jsonl "$PRIV/pilot2-events.jsonl"
 docker compose exec backend rm /tmp/pilot2-events.jsonl
 sha256sum "$PRIV/pilot2-events.jsonl"
@@ -139,6 +182,8 @@ sha256sum "$PRIV/pilot2-events.jsonl"
   - P01 の行が `qNone:事前の質問 0:P/V30/practice 1:W/V30/P1 q1:SUS q1:Q11-Q12 2:Y/V31/P2 q2:SUS q2:Q11-Q12 qNone:二択 qNone:振り返り`。
   - P02 の行が `qNone:事前の質問 0:P/V31/practice 1:Y/V31/P1 q1:SUS q1:Q11-Q12 2:W/V30/P2 q2:SUS q2:Q11-Q12 qNone:二択 qNone:振り返り`。
   - `chat_response` が V31 のブロックにだけあり、model が `gemini-3.8-flash`、error が `None`。「AIに直しを頼む」は path `static`・plan_delivery `delivered`、［AIに聞く］は path `mcp`・plan_delivery `None`（`api/routers/assist.py`、`agent/route_options.py` の `select_path`）。
+- `integrity`: 終了コード 0（1 なら欠けがあり、2 なら書き出しが読めない）。同意の版（既定 `v1-diag-ab-202611`）、最後の質問票（既定 `二択,振り返り`）も見るので、check で気づけない振り返りの欠けもここで分かる。
+- `score`: 4つのプランとも1行ずつ `y=… a=…/6 | K1 … | … | K6 …` が出て、「スナップショットに無い科目」が出ない。K2（空ける曜日・時限）・K3（単位）・K6（重なり）の判定が、3.2 で書き留めた画面のチェックの判定と食い違わない（事前登録 3.3 の、画面の判定との一致の確かめの一部）。K1 は、画面のチェックがプランの全部の学期を数え、採点は 3年春・3年秋だけを数えるので、違ってもよい。K4・K5 は採点だけの規則で、画面にはない。食い違ったら、プランと両方の判定を実験者に渡す。
 
 試しのログは、効果の分析と判定（事前登録 4・5章）に使いません。study ごとにフォルダが分かれるので、本番の export には混ざりません。事前登録 3.3 の、score.py と画面の判定の照合には使います。直すことが出たら、直して変更記録に書き、2章を取り直し、別の study-id（例 `pilot3-link-202611`）で通し直します。同じ study-id は2度作れません。
 
@@ -169,7 +214,7 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
     docker compose exec backend rm /tmp/study1-cards.csv
     ```
 
-  - 最後の質問票の数が 1 でも、そのまま使えます。check は、最後のブロックの後の questionnaire_submit が study の数「以上」あるかを見るだけで（`store.py` の `check_completeness`）、2件目（振り返り）も捨てずに記録します（画面は最後の質問票を全部送ってから session_end を送る）。ただし **check では振り返りの欠けに気づけないので、integrity.py で見ます**（事前登録 6.3）。
+  - 最後の質問票の数が 1 でも、そのまま使えます。check は、最後のブロックの後の questionnaire_submit が study の数「以上」あるかを見るだけで（`store.py` の `check_completeness`）、2件目（振り返り）も捨てずに記録します（画面は最後の質問票を全部送ってから session_end を送る）。ただし **check では振り返りの欠けに気づけないので、integrity.py で見ます**（4.4、事前登録 6.3）。
 - 次に、どのリンクも開かれていないうちに、全 pid（P01〜P12、予備の R01〜R04）を remote にします。全員がリンクを受け取ってひとりで進めるので、全員が remote です。どれかの pid で「セッションは始まっています」と出て止まったら、そのリンクは開かれています。実験者に知らせます。
 
   ```bash
@@ -196,7 +241,7 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
 
 ### 4.4 毎日の終わりと、最後の書き出し
 
-毎日の終わりに `status` と `check` を打ち、書き出してサーバーの外へ控えます。研究データはサーバーの1か所にしか無いので、毎日写します。欠けや印があれば、日付・pid・中身を逸脱の表に書き、実験者に知らせます。
+毎日の終わりに `status` と `check` を打ち、書き出しに `integrity` を当ててから、サーバーの外へ控えます。研究データはサーバーの1か所にしか無いので、毎日写します。欠けや印があれば、日付・pid・中身を逸脱の表に書き、実験者に知らせます。
 
 ```bash
 DAY=$(date +%Y%m%d)
@@ -204,14 +249,38 @@ $CLI status --study-id "$STUDY"
 $CLI check --study-id "$STUDY"; echo "終了コード $?"
 $CLI export --study-id "$STUDY" --out "/tmp/study1-events-$DAY.jsonl"
 # ここで 5.3 のスクリプトを /tmp/study1-events-$DAY.jsonl に当てる
+# 完全性の検査（backend/eval/study1/ が GMS に入ってから）。check では振り返りの欠けに気づけないので、ここで見る
+$RUN eval.study1.integrity --events "/tmp/study1-events-$DAY.jsonl" --study-id "$STUDY"; echo "終了コード $?"
 docker compose cp "backend:/tmp/study1-events-$DAY.jsonl" "$PRIV/study1-events-$DAY.jsonl"
 docker compose exec backend rm "/tmp/study1-events-$DAY.jsonl"
 sha256sum "$PRIV/study1-events-$DAY.jsonl" | tee -a "$PRIV/exports.sha256"
 ```
 
+- `integrity` の終了コードは、欠けが無ければ 0、欠けがあれば 1、書き出しが読めなければ 2 です。途中の人（閉じていないセッション）は欠けに数えません。表の最後の「配った順」は、pid の番号の順にセッションが始まったかを見ます。リンクで送ると、開く順は参加者が決めるので、ここが外れて終了コードが 1 になりえます。「配った順」の行だけが外れたときは、4.2 の控えの送った順と比べ、送った順どおりなら欠けとして扱いません（実験者には知らせる）。
 - 写し先の `$PRIV` は、サーバーの外の研究者だけが読める場所にします（サーバーのディスクが壊れたとき、作業ツリーで `git clean -x` やクローンのやり直しをしたときに、研究データと一緒に消えない場所）。
 - 撤回した pid の行は入りません。同じ日に2回書き出すときは、`DAY` に時刻を足して名前を変えます（CLI は上書きしません）。
 - 全員が終わったら、最後の書き出しを同じ手順で作り、SHA-256 と一緒に Aki_Ha へ渡します。**公開の場所やチャットに貼りません。** 渡す手段は、運用担当と実験者で決めます。分析のスクリプトにはこの場所を引数で渡します（事前登録 6.3）。
+
+### 4.5 全員の後: 指標と判定の表
+
+`backend/eval/study1/` が GMS に入ってから打ちます。4.4 の最後の書き出し（`$PRIV/study1-events-<日付>.jsonl`）と、2.1 の科目のスナップショットを使います。出力はリポの外に置きます。
+
+```bash
+LAST="$PRIV/study1-events-<最後の日付>.jsonl"
+docker compose cp "$LAST" backend:/tmp/study1-events.jsonl
+docker compose cp "$PRIV/freeze/study1-catalog.json" backend:/tmp/study1-catalog.json
+$RUN eval.study1.metrics --events /tmp/study1-events.jsonl --catalog /tmp/study1-catalog.json --out /tmp/study1-metrics.json
+$RUN eval.study1.report --metrics /tmp/study1-metrics.json --out /tmp/study1-report.md
+for f in study1-metrics.json study1-report.md; do
+  docker compose cp "backend:/tmp/$f" "$PRIV/$f" && docker compose exec backend rm "/tmp/$f"
+done
+docker compose exec backend rm /tmp/study1-events.jsonl /tmp/study1-catalog.json
+sha256sum "$PRIV/study1-metrics.json" "$PRIV/study1-report.md" | tee -a "$PRIV/exports.sha256"
+```
+
+- `metrics` の JSON は pid と数を持ちます（自由記述は入れない）。`report` の表は既定で pid を出しません。どちらもリポと vault に入れず、書き出しと同じ手段で Aki_Ha へ渡します。実験報告（`docs/experiments/`）に載せるのは、report の集計の表だけです。
+- 撤回の数（事前登録 5.5 の E2）を表に出すときは、study.json を `--study-json` で `report` に渡します（study.json は研究データの置き場所の `<study-id>/study.json`）。
+- `metrics`・`report` は、書き出しとスナップショットを手元に写せば、backend の環境（`uv run --no-sync`）で手元でも動きます（`backend/eval/study1/README.md`）。
 
 ## 5. 結果を確かめる
 
@@ -302,6 +371,7 @@ EOF
 
 - サーバーの compose.yaml のコミットしていない変更（データの永続化）の中身は見ていません。この手順は、main の compose.yaml（`./backend:/backend_app`、`env_file: .env`、`fastapi dev`）にその変更を足したもの（compose.eval.yaml は使わない。11/11 の運用担当の連絡）を前提にしています。研究データの置き場所は 1.1 の出力で、本番の study が backend の置き場所にあるかは 4.1 の `status` で確かめます。
 - 本番の study（`study1-diag-ab-202611`）の同意の版と最後の質問票の数を、誰も表示していません。4.1 の3行目で確かめます。
+- 分析の道具（2.1、3.3、4.4、4.5 の `$RUN eval.study1.…`）は、GMS では打っていません。コマンドの形は `backend/eval/study1/README.md` の「GMS での打ち方」（コミット 26d898f）に合わせました。3.3 の、書き出しから課題 b のプランを取り出す数行のスクリプトは、手元で作った書き出しの形の行（P01・P02 × 課題5つ）で、4つのファイルができることだけを確かめました（score には当てていません）。
 - `VITE_APP_COMMIT` が `app_version.frontend` に入ることは、コード（compose.yaml の frontend の `env_file`、Vite 8.0.16 の `loadEnv`、`research.ts` の `FRONTEND_VERSION`、`api/routers/research.py` の `X-Navi-Frontend`）で確かめました。サーバーでは試していません（3.3 の `frontend` の行で確かめる）。
 - サーバーの OS とシェル（bash、`sha256sum`、Docker Compose v2 の `exec`・`cp` を前提にしています）。
 - この手順の `docker compose` の行は、サーバーで打っていません。CLI の出力の形と止まり方（`create-study`・`set-mode` のループ・`activate-arm`・`status`・`check`・`export`、書き先の検査）と 5.3 のスクリプトは、手元で `RESEARCH_DATA_DIR` を一時フォルダにして、コンテナの外で確かめました。
