@@ -82,21 +82,35 @@ function findInPlan(plan: WorkingPlan, code: string): StatusCourse | undefined {
 }
 
 /**
- * プランから。学期はプランの学期、まとまりと必修は学科の系統図の科目（無ければ lookup）から引く。
- * 通年の科目（系統図か lookup で分かったもの）は、プランでは春に置いてあっても春と秋の両方に入れる
+ * プランの科目のまとまりと必修を引く、系統図の科目（frameId のある学科の科目）。id で引けて系統図に載っていればそれ。
+ * 引けないか系統図に載っていない（同じ名前の別のクラスへ移した科目。系統図には同じ名前の別クラスが載らない）ときは、
+ * 同じ学期の同じ名前の系統図の科目（事前登録 study1 の 3.3 の K5 と同じ規則。history.ts の取った科目も名前で照らす）。
+ * 同じ学期に同じ名前の系統図の科目が2つ以上あれば、学科のデータの並びで最初のもの
+ */
+function graphCourseOf(dept: Department, code: string, name: string, term: TermKey): Course | undefined {
+  const byId = findCourse(dept, code)
+  if (byId !== undefined && byId.frameId !== null) return byId
+  return dept.courses.find((x) => x.frameId !== null && x.name === name && inTerm(x, term))
+}
+
+/**
+ * プランから。学期はプランの学期、まとまりと必修は系統図の科目（graphCourseOf。無ければ学科の科目か lookup）から引く。
+ * 通年の科目（学科の科目か lookup で分かったもの）は、プランでは春に置いてあっても春と秋の両方に入れる
  */
 export function statusCoursesFromPlan(dept: Department, plan: WorkingPlan, lookup?: (code: string) => Course | undefined): StatusCourse[] {
   return plan.terms.flatMap((t) =>
     t.courses.map((c): StatusCourse => {
+      const term = planTermKey(t)
       const course = findCourse(dept, c.syllabus_id) ?? lookup?.(c.syllabus_id)
+      const graph = graphCourseOf(dept, c.syllabus_id, c.name, term) ?? course
       return {
         code: c.syllabus_id,
         name: c.name,
-        terms: course?.term === '通年' ? termsOf(course) : [planTermKey(t)],
+        terms: course?.term === '通年' ? termsOf(course) : [term],
         credits: c.credits,
         slots: c.slots,
-        frameId: course?.frameId ?? null,
-        required: course?.kind === '必修',
+        frameId: graph?.frameId ?? null,
+        required: graph?.kind === '必修',
       }
     }),
   )
