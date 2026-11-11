@@ -338,6 +338,7 @@ def test_real_db_api_endpoints(monkeypatch):
         assert len(r6.json()["courses"]) > 0
 
 
+@pytest.mark.db
 def test_search_api_hybrid_fails_with_503_when_gemini_unavailable(monkeypatch):
     """Verify FastAPI hybrid search endpoint returns 503 when Gemini API fails."""
     async def mock_fail(_):
