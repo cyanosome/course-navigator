@@ -36,6 +36,42 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
 
 分析の道具（`backend/eval/study1/`。使い方はその README の「GMS での打ち方」）は、別の PR で main に入れます。`RUN` で打つ手順（2.1、3.3、4.4、4.5）は、**`backend/eval/study1/` が GMS に入ってから**打ちます。道具も研究者用 CLI と同じく、書き先が既にあるか git の作業ツリーの中なら止まるので、コンテナの中では `/tmp` に書き、`docker compose cp` でリポの外へ出し、コンテナの中のものを消します。
 
+### 1.2 カードの CSV の見分け方と、消してよいか
+
+カードの CSV は、`create-study --cards-out` が study を作るときに1度だけ書きます。列は `pid,sequence_id,spare,token,url` で、study-id の列はありません（`cli.py` の `_CARD_FIELDS`）。この手順書で作る CSV は、コンテナの中では `/tmp/cards-<study-id>.csv`、`$PRIV` では `$PRIV/cards-<study-id>.csv` とします。同じ study-id は2度作れないので、名前は重ならず、名前でどの study のものかが分かります。`docker compose cp` は同じ名前のファイルを黙って上書きするので、出す前に `$PRIV` に同じ名前が無いことを確かめます（3.1・4.1）。
+
+| CSV | 使うか | 消してよいか |
+|---|---|---|
+| 本番 `study1-diag-ab-202611` の CSV（手順書より前に作ったもの） | 4.1 でこの study を使い回すなら、これが本番の CSV で、ただ1つのものです。新しく作りません | 全員が終わり、最後の書き出しを控える（4.4）まで消しません。予備や送り直しで使います |
+| 試し1 `pilot-diag-ab-202611` の CSV（手順書より前に作ったもの） | もう使いません | 消してかまいません。study（研究データ）は消しません |
+| 試し2 `cards-pilot2-link-202611.csv` | 3章で使います | 3.3 の確かめが済んだら、消してかまいません。study は消しません |
+| 4.1 で作り直したときの、前の本番 `study1-diag-ab-202611` の CSV | 使いません（開くと同意の画面で止まる） | 誤って送らないよう、新しい `cards-<新しい id>.csv` を控えたら、消してかまいません。study は消しません（4.1） |
+
+- 4.1 で作り直したときは、新しい `cards-<新しい id>.csv` が本番の CSV で、表の1行目と同じに扱います。
+- 本番の CSV は、全員が終わった後も、最後の人が撤回できる間（参加した日から7日以内）は残します。撤回を予備で補うときに使います（4.3）。それを過ぎ、最後の書き出しを控えたら、もう使いません。同意文で記録を消すとした 2027年3月31日（`frontend/src/navi/studyConfig.ts` の「記録の置き場所と保存」）より前に消してかまいません。
+
+見分け方:
+
+- ファイル名が `cards-<study-id>.csv` なら、その study の CSV です。
+- 名前で分からない古い CSV は、トークンの SHA-256 で study を探します。study のファイル（研究データの置き場所の `<study-id>/study.json`）にはトークンの平文が無く、`participants` の各行の `token_sha256` に、トークンの SHA-256（UTF-8 のバイト列の SHA-256 を16進の小文字で書いたもの。塩なし）だけがあります（`study.py` の `hash_token`・`Participant`、`store.py` の `_save_study`）。撤回した pid の行も残ります（`store.py` の `withdraw`）。トークンは英数字と `-`・`_` の16文字（`study.py` の `new_token`）なので、`cut` で4列目を取れます。次のコマンドは、ホストでトークンを SHA-256 に変えてからコンテナへ渡すので、トークンは画面にもコンテナにも出ません。
+
+```bash
+OLD="$PRIV/<古い CSV のファイル名>"
+HASHES=$(tail -n +2 "$OLD" | cut -d, -f4 | while IFS= read -r t; do printf '%s' "$t" | sha256sum | cut -d' ' -f1; done)
+docker compose exec -T backend python - $HASHES <<'EOF'
+import json, sys
+from course_core.research.settings import research_data_dir
+hashes = set(sys.argv[1:])
+for path in sorted(research_data_dir().glob("*/study.json")):
+    participants = json.loads(path.read_text(encoding="utf-8"))["participants"]
+    print(path.parent.name, sum(p["token_sha256"] in hashes for p in participants), "/", len(hashes))
+EOF
+```
+
+- study ごとに「study-id、見つかった数 / CSV の行数」が出ます。CSV の行が全部見つかった study（本番なら `study1-diag-ab-202611 16 / 16` の見込み）が、その CSV の study です。どの study でも 0 なら、backend の置き場所にある study のものではありません。
+- 確かめた古い CSV は、中身を変えずに `$PRIV/cards-<study-id>.csv` へ名前を付け替えてかまいません（その名前のファイルが無いことを確かめてから）。
+- CSV の中身（token・url の列）は画面に出さず、公開の場所やチャットに貼りません。
+
 ## 2. 凍結を記録する
 
 凍結は、リンクで配る形への変更（必修のチェック・同意の文・振り返り）が main に入り、GMS に反映された後のコミットで取り直します。前の凍結（試しの study `pilot-diag-ab-202611` を通したときのもの）は使いません。
@@ -104,18 +140,20 @@ sha256sum "$PRIV/freeze/study1-catalog.json" "$PRIV/freeze/study1-feasibility.js
 ### 3.1 作る
 
 ```bash
+CARDS=cards-pilot2-link-202611.csv
 $CLI create-study --study-id pilot2-link-202611 --department kansai-enechem-2026 \
   --arm diag=N:W:V30,A:Y:V31 --task-sets P1,P2 --n 2 --spares 0 \
   --consent-version v1-diag-ab-202611 --questionnaires-per-block 2 --final-questionnaires 2 \
-  --base-url https://gms-app-2.komazawa-u.ac.jp --cards-out /tmp/pilot2-cards.csv
-docker compose cp backend:/tmp/pilot2-cards.csv "$PRIV/pilot2-cards.csv"
-docker compose exec backend rm /tmp/pilot2-cards.csv
+  --base-url https://gms-app-2.komazawa-u.ac.jp --cards-out "/tmp/$CARDS"
+if [ -e "$PRIV/$CARDS" ]; then echo "止めました: $PRIV/$CARDS は既にあります（上書きしません）"
+else docker compose cp "backend:/tmp/$CARDS" "$PRIV/$CARDS" && docker compose exec backend rm "/tmp/$CARDS"; fi
 for pid in P01 P02; do $CLI set-mode --study-id pilot2-link-202611 --pid "$pid" --mode remote || break; done
 $CLI activate-arm --study-id pilot2-link-202611 --arm diag --note "pilot2; HEAD=<短いハッシュ>; diff sha256=<先頭12桁>; compose.diff sha256=<先頭12桁>; catalog sha256=<先頭12桁>; APP_COMMIT=<値>; VITE_APP_COMMIT=<値>; AGENT_MODEL=<値>"
 $CLI status --study-id pilot2-link-202611
 ```
 
 - `create-study` が出す「study を作りました: <パス>」が、1.1 の置き場所の下にあることを確かめます。割り付けの表は `P01,Q1,False,P1,P2` と `P02,Q2,False,P1,P2` の2行です（トークンは画面に出ません）。
+- カードの CSV は `$PRIV/cards-pilot2-link-202611.csv` です（1.2）。`$PRIV` に同じ名前があると、写さずに「止めました: … は既にあります（上書きしません）」と出ます（CSV はコンテナの `/tmp` に残ります）。そのときは 6章の表に従います。
 - `set-mode` は、pid ごとに「… の mode を remote にしました。」と出ます。セッションが始まった pid では止まります（その前に打つ）。
 - `--base-url` は CSV の url 列にだけ効きます。省くと url 列は `/s/<トークン>` だけです。
 - `activate-arm` は、その study にセッションが1つも無い間だけ通ります。
@@ -185,7 +223,7 @@ sha256sum "$PRIV/pilot2-events.jsonl"
 - `integrity`: 終了コード 0（1 なら欠けがあり、2 なら書き出しが読めない）。同意の版（既定 `v1-diag-ab-202611`）、最後の質問票（既定 `二択,振り返り`）も見るので、check で気づけない振り返りの欠けもここで分かる。
 - `score`: 4つのプランとも1行ずつ `y=… a=…/6 | K1 … | … | K6 …` が出て、「スナップショットに無い科目」が出ない。K2（空ける曜日・時限）・K3（単位）・K6（重なり）の判定が、3.2 で書き留めた画面のチェックの判定と食い違わない（事前登録 3.3 の、画面の判定との一致の確かめの一部）。K1 は、画面のチェックがプランの全部の学期を数え、採点は 3年春・3年秋だけを数えるので、違ってもよい。K4・K5 は採点だけの規則で、画面にはない。食い違ったら、プランと両方の判定を実験者に渡す。
 
-試しのログは、効果の分析と判定（事前登録 4・5章）に使いません。study ごとにフォルダが分かれるので、本番の export には混ざりません。事前登録 3.3 の、score.py と画面の判定の照合には使います。直すことが出たら、直して変更記録に書き、2章を取り直し、別の study-id（例 `pilot3-link-202611`）で通し直します。同じ study-id は2度作れません。
+試しのログは、効果の分析と判定（事前登録 4・5章）に使いません。study ごとにフォルダが分かれるので、本番の export には混ざりません。事前登録 3.3 の、score.py と画面の判定の照合には使います。直すことが出たら、直して変更記録に書き、2章を取り直し、別の study-id（例 `pilot3-link-202611`）で通し直します。同じ study-id は2度作れません。3.1 の `CARDS` も `cards-<その id>.csv` に替えます。
 
 ## 4. 本番を運用する
 
@@ -201,17 +239,18 @@ docker compose exec backend uv run --no-sync python -c "from course_core.researc
 - `status` が `腕 diag` で、Q1〜Q4 がどれも `割り当て 3・開始 0・完了 0・予備の使用 -`、`撤回: なし`。「止めました: study … がありません」なら、本番の study は backend の置き場所にありません。`開始` が 0 でない系列があれば、どれかのリンクがもう開かれています。どちらも、送る前に実験者に知らせます。
 - `check` が `セッション 0 … 欠け 0`、終了コード 0。
 - 3行目は `v1-diag-ab-202611 diag ['P1', 'P2'] 2 1 16` の見込みです（作ったときの CLI の既定。最後の数は `--final-questionnaires` の値で、2 で作っていれば `2 2 16`）。
-  - **同意の版（最初の値）が `v1-diag-ab-202611` なら、この study をそのまま使います。** 画面の同意の版は `v1-diag-ab-202611` のまま、文だけを 11/11 に差し替えました（事前登録の変更記録）。
-  - **同意の版が違う（例 `v0-draft`）ときだけ**、全員が同意の画面で止まる（409。版は作った後に変えられない）ので、新しい study を作り直します。同じ study-id は2度作れないので、別の id にします。前の study は使わず、消しません。作り直したことと新しい id を事前登録の変更記録に書き、以下の `STUDY` を新しい id に替えます。
+  - **同意の版（最初の値）が `v1-diag-ab-202611` なら、この study をそのまま使います。** 画面の同意の版は `v1-diag-ab-202611` のまま、文だけを 11/11 に差し替えました（事前登録の変更記録）。カードの CSV も新しく作らず、この study を作ったときの CSV を使います（1.2）。
+  - **同意の版が違う（例 `v0-draft`）ときだけ**、全員が同意の画面で止まる（409。版は作った後に変えられない）ので、新しい study を作り直します。同じ study-id は2度作れないので、別の id にします。前の study は使わず、消しません。前の study のカードの CSV の扱いは 1.2 の表です。作り直したことと新しい id を事前登録の変更記録に書き、以下の `STUDY` を新しい id に替えます。カードの CSV は `$PRIV/cards-$STUDY.csv` になります。`$PRIV` に同じ名前があると写さずに止め、CSV はコンテナの `/tmp` に残ります（6章の表）。
 
     ```bash
     STUDY=study1-link-202611
+    CARDS="cards-$STUDY.csv"
     $CLI create-study --study-id "$STUDY" --department kansai-enechem-2026 \
       --arm diag=N:W:V30,A:Y:V31 --task-sets P1,P2 --n 12 --spares 4 \
       --consent-version v1-diag-ab-202611 --questionnaires-per-block 2 --final-questionnaires 2 \
-      --base-url https://gms-app-2.komazawa-u.ac.jp --cards-out /tmp/study1-cards.csv
-    docker compose cp backend:/tmp/study1-cards.csv "$PRIV/study1-cards.csv"
-    docker compose exec backend rm /tmp/study1-cards.csv
+      --base-url https://gms-app-2.komazawa-u.ac.jp --cards-out "/tmp/$CARDS"
+    if [ -e "$PRIV/$CARDS" ]; then echo "止めました: $PRIV/$CARDS は既にあります（上書きしません）"
+    else docker compose cp "backend:/tmp/$CARDS" "$PRIV/$CARDS" && docker compose exec backend rm "/tmp/$CARDS"; fi
     ```
 
   - 最後の質問票の数が 1 でも、そのまま使えます。check は、最後のブロックの後の questionnaire_submit が study の数「以上」あるかを見るだけで（`store.py` の `check_completeness`）、2件目（振り返り）も捨てずに記録します（画面は最後の質問票を全部送ってから session_end を送る）。ただし **check では振り返りの欠けに気づけないので、integrity.py で見ます**（4.4、事前登録 6.3）。
@@ -369,7 +408,7 @@ EOF
 | 同意を押すと「いまは進めません…」が出て進めない | 409「同意書の版 … は study の版 … と違います。」。画面の版（`frontend/src/navi/studyConfig.ts` の `CONSENT.version`。画面の下に出る）と study の `consent_version` が違う | 4.1 の3行目で study の版を出し、画面の下の版と比べる。study の版は作った後に変えられないので、4.1 の分岐で study を作り直す。画面の版を変えるのはコードの変更なので変更記録へ |
 | タブを閉じた・別の端末で開き直した | 同じリンクを開くと、サーバーが前のセッションを返して続きから進む。このタブに前の状態が無いと、ブロックの最初の課題からやり直し、`client_error`（`resumed_without_local_state`）が残る（`studyFlow.ts`） | 返信で聞かれたら、同じリンクを開き直してよいと伝える。逸脱の表に書く。同じ課題をやり直すので、`check` で task_start・task_submit の数の欠けが出ることがある |
 | `check` の終了コードが 1 | 5.2 の欠け | 欠けの行を逸脱の表に書く。seq の欠けはイベントが届かなかったこと。セッションのイベントの 10% を超えたら E3（事前登録 5.5） |
-| 「止めました: … は既にあります（上書きしません）」か「… git の作業ツリーの中（…）には書きません」 | `--cards-out`・`--out` の書き先に同じ名前のファイルがあるか、ホストで CLI を直接打ち、書き先がリポの中 | `exec` と `/tmp` の別の名前を使う。`/tmp` に前のファイルが残っていれば消す |
+| 「止めました: … は既にあります（上書きしません）」か「… git の作業ツリーの中（…）には書きません」 | `--cards-out`・`--out` の書き先か、3.1・4.1 でカードの CSV を出す先（`$PRIV/cards-<study-id>.csv`）に同じ名前のファイルがあるか、ホストで CLI を直接打ち、書き先がリポの中 | カードの CSV なら、コンテナの `/tmp` のものも `$PRIV` のものも上書きせず、消さない。前のファイルがどの study のものかを 1.2 の見分け方で確かめ、実験者に知らせる（`$PRIV` で止まったときは、新しい CSV がコンテナの `/tmp` に残っている）。`--out` なら、`exec` と `/tmp` の別の名前を使う。`/tmp` に前のファイルが残っていれば消す |
 | V31 で AI が答えない・遅い | サーバーは 170 秒で打ち切る（504）。`chat_response` の error に種類が残る | 5.3 で error を数える。`llm` が続くなら、2章の 3 で `AGENT_MODEL` を、別に API キーの枠を確かめる（値は出さない） |
 | `.env` を変えたのに効かない | `env_file` はコンテナを作るときに読まれ、`restart` では変わらない。Vite は起動したときに環境変数を読む | 2章の 2・3 |
 
