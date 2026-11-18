@@ -6,10 +6,16 @@ else
   COMPOSE_CMD := docker compose
 endif
 
-.PHONY: shell adk-web
+.PHONY: shell adk-web roadmap roadmap-check
 shell:
 	$(COMPOSE_CMD) exec -it $(SERVICE) sh
 
 adk-web:
 	docker compose run --rm -p 8085:8085 backend uv run adk web src/agent --host 0.0.0.0 --port 8085 --reload_agents
+
+roadmap:
+	uv run --no-project python docs/roadmap/build.py
+
+roadmap-check:
+	uv run --no-project python docs/roadmap/build.py --check
 

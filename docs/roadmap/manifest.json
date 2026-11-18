@@ -1,0 +1,47 @@
+{
+  "title": "研究・開発ロードマップ (Course Navigator Roadmap)",
+  "intro": "本書は、「Course Navigator」プロジェクトの研究・開発フェーズ、実験計画、および将来の機能拡張ロードマップを定義するドキュメントです。",
+  "output": "../roadmap.md",
+  "sections": [
+    {
+      "file": "00-vision-and-ops.md",
+      "heading_offset": 0,
+      "group": null
+    },
+    {
+      "file": "01-history-p1-p2.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "02-phase3-kansai.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "03-phase4a-kb.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "04-phase4b-agent.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "05-phase4c-univ.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "06-phase5-production.md",
+      "heading_offset": 2,
+      "group": "3. 各フェーズの詳細と実験項目"
+    },
+    {
+      "file": "07-management-policy.md",
+      "heading_offset": 0,
+      "group": null
+    }
+  ]
+}

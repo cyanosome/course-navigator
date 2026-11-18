@@ -33,3 +33,11 @@ jobs:
       - run: uv sync
       - run: uv run python -c "import api.main"
       - run: uv run pytest tests -q -m "not db and not llm"
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv run --no-project python -m unittest docs/roadmap/test_build.py
+      - run: uv run --no-project python docs/roadmap/build.py --check
